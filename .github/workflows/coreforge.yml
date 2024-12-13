@@ -28,11 +28,11 @@ jobs:
         python -m pip install pylint pytest
 
     - name: Install MPACTPy from Repo
-        run: |
-          source $(conda info --base)/etc/profile.d/conda.sh && conda activate openmc-env
-          git clone https://github.com/UT-Computational-NE/MPACTPy.git
-          cd MPACTPy
-          python -m pip install .
+      run: |
+        source $(conda info --base)/etc/profile.d/conda.sh && conda activate openmc-env
+        git clone https://github.com/UT-Computational-NE/MPACTPy.git
+        cd MPACTPy
+        python -m pip install .
 
     - name: Install and Test CoreForge
       run: |
