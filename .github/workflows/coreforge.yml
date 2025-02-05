@@ -37,5 +37,6 @@ jobs:
 
     - name: Install and Test CoreForge
       run: |
-        pytest
+        source $(conda info --base)/etc/profile.d/conda.sh && conda activate openmc-env
+        pytest test/unit/
         python -m pylint ./coreforge
