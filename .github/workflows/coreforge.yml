@@ -33,7 +33,6 @@ jobs:
         git clone https://github.com/UT-Computational-NE/MPACTPy.git
         cd MPACTPy
         python -m pip install .
-        cd ..
 
     - name: Install and Test CoreForge
       run: |
