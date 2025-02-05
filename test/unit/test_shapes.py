@@ -6,7 +6,7 @@ from coreforge.shape.rectangle import Rectangle, Square
 from coreforge.shape.stadium import Stadium
 from coreforge.shape.hexagon import Hexagon
 from coreforge.shape.cap import Torispherical_Dome, ASME_Flanged_Dished_Head
-from coreforge.utils import ROUNDING_RELATIVE_TOLERANCE
+from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE
 
 TOL = ROUNDING_RELATIVE_TOLERANCE * 1E-2
 

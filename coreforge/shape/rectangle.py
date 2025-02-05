@@ -2,9 +2,9 @@ from math import sqrt, isclose
 from typing import Any
 
 import openmc
+from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shape.shape import Shape_2D
-from coreforge.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 class Rectangle(Shape_2D):
     """ A concrete rectangle channel shape class
@@ -26,9 +26,10 @@ class Rectangle(Shape_2D):
         return self._w
 
     def __init__(self, w: float, h: float = None):
-        assert(w >= 0.)
-        if h is None: h = w
-        assert(h >= 0.)
+        assert w >= 0.
+        if h is None:
+            h = w
+        assert h >= 0.
         self._h = h
         self._w = w
         self._i_r = min(h/2., w/2.)
@@ -64,5 +65,5 @@ class Square(Rectangle):
         return self._w
 
     def __init__(self, s: float):
-        assert(s >= 0.)
+        assert s >= 0.
         super().__init__(s)

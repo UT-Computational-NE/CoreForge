@@ -2,9 +2,9 @@ from math import pi, isclose
 from typing import Any
 
 import openmc
+from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shape.shape import Shape_2D
-from coreforge.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 class Circle(Shape_2D):
     """ A concrete circle channel shape class
@@ -20,7 +20,7 @@ class Circle(Shape_2D):
         return self._r
 
     def __init__(self, r: float):
-        assert(r >= 0.)
+        assert r >= 0.
         self._r     = r
         self._i_r   = r
         self._o_r   = r

@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, TypeVar
+
 import openmc
 
 T = TypeVar('T', bound='Shape')
@@ -14,6 +15,8 @@ class Shape(ABC):
     o_r : float
         The outer-radius of the shape (cm)
     """
+    _i_r: float
+    _o_r: float
 
     @property
     def i_r(self) -> float:
@@ -25,22 +28,33 @@ class Shape(ABC):
 
     @abstractmethod
     def __eq__(self: T, other: Any) -> bool:
-        pass
+        """ Equality method
+
+        Parameters
+        ----------
+        other : Any
+            Other shape to check equality against
+        """
 
     @abstractmethod
     def __hash__(self: T) -> int:
-        pass
+        """ Hashing method
+
+        Returns
+        -------
+        int
+            hash for this shape
+        """
 
     @abstractmethod
     def make_region(self) -> openmc.Region:
-       """ A method for creating a new region based on the shape
+        """ A method for creating a new region based on the shape
 
-       Returns
-       -------
-       openmc.Region
-           A new region based on this shape
-       """
-       pass
+        Returns
+        -------
+        openmc.Region
+            A new region based on this shape
+        """
 
 
 class Shape_2D(Shape):
@@ -51,6 +65,7 @@ class Shape_2D(Shape):
     area : float
         The area of the shape (cm^2)
     """
+    _area: float
 
     @property
     def area(self) -> float:
@@ -65,6 +80,7 @@ class Shape_3D(Shape):
     volume : float
         The volume of the shape (cm^3)
     """
+    _volume: float
 
     @property
     def volume(self) -> float:

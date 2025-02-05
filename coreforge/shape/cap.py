@@ -2,9 +2,10 @@ from math import pi, asin, sqrt, isclose
 from typing import Any
 
 import openmc
+from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shape.shape import Shape_3D
-from coreforge.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
+
 
 
 class Cap(Shape_3D):
@@ -27,6 +28,8 @@ class Cap(Shape_3D):
     h : float
         Height (i.e. highest point of the cap) (cm)
     """
+    _D: float
+    _h: float
 
     @property
     def D(self) -> float:
@@ -79,10 +82,10 @@ class Torispherical_Dome(Cap):
         return self._r
 
     def __init__(self, R: float, a: float, c: float):
-        assert(R > 0.)
-        assert(a >= 0.)
-        assert(a <= c)
-        assert(a+c <= R)
+        assert R > 0.
+        assert a >= 0.
+        assert a <= c
+        assert a+c <= R
 
         self._R = R
         self._a = a
@@ -151,11 +154,8 @@ class ASME_Flanged_Dished_Head(Torispherical_Dome):
     """
 
     def __init__(self, D: float):
-        assert(D > 0.)
+        assert D > 0.
         R = D
         a = 0.06*D
         c = D*0.5 - a
-        return super().__init__(R, a, c)
-
-    def make_region(self) -> openmc.Region:
-        return super().make_region()
+        super().__init__(R, a, c)

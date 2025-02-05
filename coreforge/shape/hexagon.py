@@ -2,9 +2,9 @@ from math import sqrt, isclose
 from typing import Any
 
 import openmc
+from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shape.shape import Shape_2D
-from coreforge.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 
 class Hexagon(Shape_2D):
@@ -23,11 +23,11 @@ class Hexagon(Shape_2D):
         return self._orientation
 
     def __init__(self, r: float, orientation: str = 'y'):
-        assert(r >= 0.)
+        assert r >= 0.
         self._i_r  = r
         self._o_r  = r * 2 / sqrt(3.)
         self._area = 3 * self.o_r * self.i_r
-        assert(orientation in ['x', 'y'])
+        assert orientation in ['x', 'y']
         self._orientation = orientation
 
     def __eq__(self, other: Any) -> bool:
@@ -42,4 +42,3 @@ class Hexagon(Shape_2D):
 
     def make_region(self) -> openmc.Region:
         return -openmc.model.HexagonalPrism(edge_length=self._o_r, orientation=self.orientation)
-

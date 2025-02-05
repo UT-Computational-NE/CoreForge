@@ -2,9 +2,9 @@ from math import pi, isclose
 from typing import Any
 
 import openmc
+from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shape.shape import Shape_2D
-from coreforge.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 class Stadium(Shape_2D):
     """ A concrete stadium channel shape class
@@ -26,8 +26,8 @@ class Stadium(Shape_2D):
         return self._a
 
     def __init__(self, r: float, a: float):
-        assert(r >= 0.)
-        assert(a >= 0.)
+        assert r >= 0.
+        assert a >= 0.
         self._r   = r
         self._a   = a
         self._i_r = r
