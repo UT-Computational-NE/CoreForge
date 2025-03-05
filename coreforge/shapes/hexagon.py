@@ -4,7 +4,7 @@ from typing import Any
 import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
-from coreforge.shape.shape import Shape_2D
+from coreforge.shapes.shape import Shape_2D
 
 
 class Hexagon(Shape_2D):
