@@ -5,7 +5,8 @@ import openmc
 
 from coreforge.materials.material_factory import MaterialFactory
 
-GRAPHITE_THEORETICAL_DENSITY = {'min' : 2.3, 'max': 2.72}  # g/cc  CRC Handbook of Chemistry and Physics 104th Edition (Table: Density Ranges of Solid Materials)
+# g/cc  CRC Handbook of Chemistry and Physics 104th Edition (Table: Density Ranges of Solid Materials)
+GRAPHITE_THEORETICAL_DENSITY = {'min' : 2.3, 'max': 2.72}
 
 class Graphite(MaterialFactory):
     """ Factory for creating graphite materials
@@ -37,7 +38,7 @@ class Graphite(MaterialFactory):
 
     @density.setter
     def density(self, density: float) -> None:
-        assert density > 0.
+        assert density > 0., f"density = {density}"
         self._density = density
 
     @property
@@ -46,8 +47,8 @@ class Graphite(MaterialFactory):
 
     @boron_equiv_contamination.setter
     def boron_equiv_contamination(self, boron_equiv_contamination: float) -> None:
-        assert boron_equiv_contamination >= 0.
-        assert boron_equiv_contamination <= 1.
+        assert boron_equiv_contamination >= 0., f"boron_equiv_contamination = {boron_equiv_contamination}"
+        assert boron_equiv_contamination <= 1., f"boron_equiv_contamination = {boron_equiv_contamination}"
         self._boron_equiv_contamination = boron_equiv_contamination
 
     @property
@@ -56,8 +57,9 @@ class Graphite(MaterialFactory):
 
     @pore_intrusion.setter
     def pore_intrusion(self, pore_intrusion: Dict[openmc.Material, float]) -> None:
-        assert all(values >= 0. for values in pore_intrusion.values())
-        assert sum([values for values in pore_intrusion.values()]) <= 1.0 or len(pore_intrusion.values()) == 0
+        assert all(values >= 0. for values in pore_intrusion.values()), f"pore_intrusion = {pore_intrusion}"
+        assert sum(values for values in pore_intrusion.values()) <= 1.0 or len(pore_intrusion.values()) == 0, \
+            f"pore_intrusion = {pore_intrusion}"
         self._pore_intrusion = pore_intrusion
 
     @property
@@ -66,7 +68,7 @@ class Graphite(MaterialFactory):
 
     @theoretical_density.setter
     def theoretical_density(self, theoretical_density: float) -> None:
-        assert theoretical_density > 0.
+        assert theoretical_density > 0., f"theoretical_density = {theoretical_density}"
         self._theoretical_density = theoretical_density
 
 
@@ -87,8 +89,10 @@ class Graphite(MaterialFactory):
         b_frac = self.boron_equiv_contamination/100.
         c_frac = 1. - b_frac
 
-        c = openmc.Material(); c.add_element('C', 1.)
-        b = openmc.Material(); b.add_element('B', 1.)
+        c = openmc.Material()
+        c.add_element('C', 1.)
+        b = openmc.Material()
+        b.add_element('B', 1.)
 
         pure_graphite = openmc.Material.mix_materials([c, b], [c_frac, b_frac], 'wo')
         pure_graphite.set_density('g/cm3', self.theoretical_density)
@@ -97,13 +101,15 @@ class Graphite(MaterialFactory):
         materials = [pure_graphite]
         vol_fracs = [(1. - porosity)]
 
-        assert(sum([values for values in self.pore_intrusion.values()]) <= porosity)
+        assert sum(values for values in self.pore_intrusion.values()) <= porosity, \
+            f"porosity = {porosity}, pore_intrusion = {self.pore_intrusion}"
         for material, intrusion_frac in self.pore_intrusion.items():
             materials.append(material)
             vol_fracs.append(intrusion_frac)
 
+        # This is for ignoring "Warning: sum of fractions do not add to 1, void fraction set to..."
         with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=UserWarning) # This is for ignoring "Warning: sum of fractions do not add to 1, void fraction set to..."
+            warnings.simplefilter("ignore", category=UserWarning)
             graphite = openmc.Material.mix_materials(materials, vol_fracs, 'vo')
 
         graphite.add_s_alpha_beta('c_Graphite')

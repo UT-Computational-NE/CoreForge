@@ -10,8 +10,10 @@ class Insulation(MaterialFactory):
 
     References
     ----------
-    1. Haubenreich, P. N. Tritium in the MSRE: Calculated Production Rates and Observed Amounts. United States: N. p., 1970.
-    2. Robertson, R. C., “MSRE Design and Operations Report Part I: Description of Reactor Design”, ORNL-TM-0728, Oak Ridge National Laboratory, Oak Ridge, Tennessee (1965).
+    1. Haubenreich, P. N. Tritium in the MSRE: Calculated Production Rates
+       and Observed Amounts. United States: N. p., 1970.
+    2. Robertson, R. C., “MSRE Design and Operations Report Part I: Description
+       of Reactor Design”, ORNL-TM-0728, Oak Ridge National Laboratory, Oak Ridge, Tennessee (1965).
     """
 
     def __init__(self):

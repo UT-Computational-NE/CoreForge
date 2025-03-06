@@ -9,8 +9,10 @@ class Helium(MaterialFactory):
 
     References
     ----------
-    1. Bell, Ian H., Wronski, Jorrit, Quoilin, Sylvain, and Lemort, Vincent. “Pure and Pseudo-pure Fluid Thermophysical Property Evaluation and the Open-Source Thermophysical
-       Property Library CoolProp.” Industrial & Engineering Chemistry Research, volume 53, number 6, pages 2498-2508, 2014
+    1. Bell, Ian H., Wronski, Jorrit, Quoilin, Sylvain, and Lemort, Vincent.
+    “Pure and Pseudo-pure Fluid Thermophysical Property Evaluation and the
+    Open-Source Thermophysical Property Library CoolProp.” Industrial & Engineering
+    Chemistry Research, volume 53, number 6, pages 2498-2508, 2014
     """
 
     def __init__(self):

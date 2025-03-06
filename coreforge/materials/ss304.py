@@ -18,17 +18,17 @@ class SS304(MaterialFactory):
 
     def make_material(self) -> openmc.Material:
 
-            ss = openmc.Material()
-            ss.set_density('g/cm3', 7.90)
-            ss.add_element( 'C',  0.08,  percent_type='wo')
-            ss.add_element('Mn',  2.00,  percent_type='wo')
-            ss.add_element( 'P',  0.045, percent_type='wo')
-            ss.add_element( 'S',  0.030, percent_type='wo')
-            ss.add_element('Si',  0.75,  percent_type='wo')
-            ss.add_element('Cr', 20.00,  percent_type='wo')
-            ss.add_element('Ni',  10.5,  percent_type='wo')
-            ss.add_element( 'N',  0.10,  percent_type='wo')
-            ss.add_element('Fe', 66.495, percent_type='wo')
-            ss.temperature = 900.
-            ss.name = 'SS-304'
-            return ss
+        ss = openmc.Material()
+        ss.set_density('g/cm3', 7.90)
+        ss.add_element( 'C',  0.08,  percent_type='wo')
+        ss.add_element('Mn',  2.00,  percent_type='wo')
+        ss.add_element( 'P',  0.045, percent_type='wo')
+        ss.add_element( 'S',  0.030, percent_type='wo')
+        ss.add_element('Si',  0.75,  percent_type='wo')
+        ss.add_element('Cr', 20.00,  percent_type='wo')
+        ss.add_element('Ni',  10.5,  percent_type='wo')
+        ss.add_element( 'N',  0.10,  percent_type='wo')
+        ss.add_element('Fe', 66.495, percent_type='wo')
+        ss.temperature = 900.
+        ss.name = 'SS-304'
+        return ss

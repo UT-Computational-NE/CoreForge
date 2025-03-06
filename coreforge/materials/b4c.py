@@ -18,9 +18,9 @@ class B4C(MaterialFactory):
 
     def make_material(self) -> openmc.Material:
 
-            b4c = openmc.Material()
-            b4c.set_density('g/cm3', 1.76)
-            b4c.add_elements_from_formula('B4C')
-            b4c.temperature = 900.
-            b4c.name = 'B4C'
-            return b4c
+        b4c = openmc.Material()
+        b4c.set_density('g/cm3', 1.76)
+        b4c.add_elements_from_formula('B4C')
+        b4c.temperature = 900.
+        b4c.name = 'B4C'
+        return b4c

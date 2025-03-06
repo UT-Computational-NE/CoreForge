@@ -10,7 +10,8 @@ class INOR8(MaterialFactory):
 
     References
     ----------
-    1. Fratoni M., et. al., "Molten Salt Reactor Experiment Benchmark Evaluation (Project 16-10240)", United States, (2020) https://www.osti.gov/servlets/purl/1617123
+    1. Fratoni M., et. al., "Molten Salt Reactor Experiment Benchmark Evaluation
+       (Project 16-10240)", United States, (2020) https://www.osti.gov/servlets/purl/1617123
     """
 
     def __init__(self):

@@ -10,9 +10,11 @@ class ThimbleGas(MaterialFactory):
 
     References
     ----------
-    1. Bell, Ian H., Wronski, Jorrit, Quoilin, Sylvain, and Lemort, Vincent. “Pure and Pseudo-pure Fluid Thermophysical Property Evaluation and the Open-Source Thermophysical
-        Property Library CoolProp.” Industrial & Engineering Chemistry Research, volume 53, number 6, pages 2498-2508, 2014
-    2. Robertson, R. C., “MSRE Design and Operations Report Part I: Description of Reactor Design”, ORNL-TM-0728, Oak Ridge National Laboratory, Oak Ridge, Tennessee (1965).
+    1. Bell, Ian H., Wronski, Jorrit, Quoilin, Sylvain, and Lemort, Vincent.
+       “Pure and Pseudo-pure Fluid Thermophysical Property Evaluation and the Open-Source Thermophysical
+       Property Library CoolProp.” Industrial & Engineering Chemistry Research, volume 53, number 6, pages 2498-2508, 2014
+    2. Robertson, R. C., “MSRE Design and Operations Report Part I: Description of Reactor Design”,
+       ORNL-TM-0728, Oak Ridge National Laboratory, Oak Ridge, Tennessee (1965).
     """
 
     def __init__(self):
