@@ -64,6 +64,12 @@ def msre_control_rod_poison():
 
 def materials_are_close(lhs: mpactpy.material.Material,
                         rhs: mpactpy.material.Material) -> bool:
+    if not isclose(lhs.density, rhs.density): print(lhs.density, rhs.density)
+    if not isclose(lhs.temperature, rhs.temperature): print(lhs.temperature, rhs.temperature)
+    if not lhs.thermal_scattering_isotopes == rhs.thermal_scattering_isotopes: print(lhs.thermal_scattering_isotopes, rhs.thermal_scattering_isotopes)
+    if not lhs.number_densities.keys()     == rhs.number_densities.keys(): print(lhs.number_densities.keys(), rhs.number_densities.keys())
+    for iso in lhs.number_densities.keys():
+        if not isclose(lhs.number_densities[iso], rhs.number_densities[iso], rel_tol=1E-2): print(iso, lhs.number_densities[iso], rhs.number_densities[iso])
     return (isclose(lhs.density, rhs.density)                                  and
             isclose(lhs.temperature, rhs.temperature)                          and
             lhs.thermal_scattering_isotopes == rhs.thermal_scattering_isotopes and
