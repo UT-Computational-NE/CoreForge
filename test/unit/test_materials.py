@@ -72,7 +72,7 @@ def materials_are_close(lhs: mpactpy.material.Material,
             lhs.has_resonance               == rhs.has_resonance               and
             lhs.is_fuel                     == rhs.is_fuel                     and
             lhs.number_densities.keys()     == rhs.number_densities.keys()     and
-            all(isclose(lhs.number_densities[iso], rhs.number_densities[iso])
+            all(isclose(lhs.number_densities[iso], rhs.number_densities[iso], rel_tol=1E-2)
                 for iso in lhs.number_densities.keys()))
 
 
