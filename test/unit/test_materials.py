@@ -64,6 +64,16 @@ def msre_control_rod_poison():
 
 def materials_are_close(lhs: mpactpy.material.Material,
                         rhs: mpactpy.material.Material) -> bool:
+    """ Helper function for making sure materials are close
+
+    With the isotopic comparisons, different versions of openmc, and particularly
+    different cross-section libraries, will result in different isotopes being
+    associated with 'natural' concentrations.  For this testing, the expected_material
+    is defined using 'fewer' natural isotopes, and the test material must at least
+    have those isotopes.  This allows the test material to have additional `natural`
+    isotopes from using different openmc / xs-library versions and the test still pass.
+    """
+
     return (isclose(lhs.density, rhs.density)                                  and
             isclose(lhs.temperature, rhs.temperature)                          and
             lhs.thermal_scattering_isotopes == rhs.thermal_scattering_isotopes and
@@ -71,7 +81,7 @@ def materials_are_close(lhs: mpactpy.material.Material,
             lhs.is_depletable               == rhs.is_depletable               and
             lhs.has_resonance               == rhs.has_resonance               and
             lhs.is_fuel                     == rhs.is_fuel                     and
-            lhs.number_densities.keys()     == rhs.number_densities.keys()     and
+            all(iso in lhs.number_densities.keys() for iso in rhs.number_densities.keys()) and
             all(isclose(lhs.number_densities[iso], rhs.number_densities[iso], rel_tol=1E-2)
                 for iso in rhs.number_densities.keys()))
 
