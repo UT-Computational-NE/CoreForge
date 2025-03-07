@@ -5,6 +5,12 @@ import openmc
 
 from coreforge.materials.material_factory import MaterialFactory
 
+DEFAULT_MPACT_SPECS = MaterialFactory.MPACTBuildSpecs(thermal_scattering_isotopes = [],
+                                                      is_fluid                    = True,
+                                                      is_depletable               = True,
+                                                      has_resonance               = True,
+                                                      is_fuel                     = True)
+
 class Salt(MaterialFactory):
     """ Factory for creating materials based on the MSRE fuel salt
 
@@ -90,15 +96,20 @@ class Salt(MaterialFactory):
                  density:     float = 2.3275,
                  composition: Composition = {"LiF": 0.6488, "BeF2": 0.2927, "ZrF4": 0.0506, "UF4": 0.0079},
                  u_enr:       float = 31.355,
-                 li_enr:      float = 99.995):
+                 li_enr:      float = 99.995,
+                 label:       str = 'Salt',
+                 temperature: float = 900.,
+                 mpact_build_specs: MaterialFactory.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
-        self.density     = density
-        self.composition = composition
-        self.u_enr       = u_enr
-        self.li_enr      = li_enr
+        self.density           = density
+        self.composition       = composition
+        self.u_enr             = u_enr
+        self.li_enr            = li_enr
+        self.label             = label
+        self.temperature       = temperature
+        self.mpact_build_specs = mpact_build_specs
 
-
-    def make_material(self) -> openmc.Material:
+    def make_openmc_material(self) -> openmc.Material:
 
         lif  = openmc.Material()
         lif.add_elements_from_formula('LiF', enrichment=self.li_enr, enrichment_target='Li7', enrichment_type='wo')
@@ -135,7 +146,7 @@ class Salt(MaterialFactory):
         salt = openmc.Material.mix_materials([lif, bef2, zrf4, uf4], fractions, 'ao')
 
         salt.set_density('g/cc', self.density)
-        salt.temperature = 900.
-        salt.name = 'Salt'
+        salt.temperature = self.temperature
+        salt.name = self.label
 
         return salt

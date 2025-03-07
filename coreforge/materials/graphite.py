@@ -8,6 +8,12 @@ from coreforge.materials.material_factory import MaterialFactory
 # g/cc  CRC Handbook of Chemistry and Physics 104th Edition (Table: Density Ranges of Solid Materials)
 GRAPHITE_THEORETICAL_DENSITY = {'min' : 2.3, 'max': 2.72}
 
+DEFAULT_MPACT_SPECS = MaterialFactory.MPACTBuildSpecs(thermal_scattering_isotopes = ['C'],
+                                                      is_fluid                    = False,
+                                                      is_depletable               = False,
+                                                      has_resonance               = False,
+                                                      is_fuel                     = False)
+
 class Graphite(MaterialFactory):
     """ Factory for creating graphite materials
 
@@ -76,15 +82,21 @@ class Graphite(MaterialFactory):
                  density:                   float,
                  boron_equiv_contamination: float = 0.,
                  pore_intrusion:            Dict[openmc.Material, float] = {},
-                 theoretical_density:       float = GRAPHITE_THEORETICAL_DENSITY['max']):
+                 label:                     str = 'Graphite',
+                 theoretical_density:       float = GRAPHITE_THEORETICAL_DENSITY['max'],
+                 temperature:               float = 900.,
+                 mpact_build_specs:         MaterialFactory.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
         self.density                   = density
         self.boron_equiv_contamination = boron_equiv_contamination
         self.pore_intrusion            = pore_intrusion
         self.theoretical_density       = theoretical_density
+        self.label                     = label
+        self.temperature               = temperature
+        self.mpact_build_specs         = mpact_build_specs
 
 
-    def make_material(self) -> openmc.Material:
+    def make_openmc_material(self) -> openmc.Material:
 
         b_frac = self.boron_equiv_contamination/100.
         c_frac = 1. - b_frac
@@ -113,7 +125,7 @@ class Graphite(MaterialFactory):
             graphite = openmc.Material.mix_materials(materials, vol_fracs, 'vo')
 
         graphite.add_s_alpha_beta('c_Graphite')
-        graphite.temperature = 900.
-        graphite.name = 'Graphite'
+        graphite.temperature = self.temperature
+        graphite.name = self.label
 
         return graphite

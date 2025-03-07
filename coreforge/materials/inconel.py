@@ -2,6 +2,12 @@ import openmc
 
 from coreforge.materials.material_factory import MaterialFactory
 
+DEFAULT_MPACT_SPECS = MaterialFactory.MPACTBuildSpecs(thermal_scattering_isotopes = [],
+                                                      is_fluid                    = False,
+                                                      is_depletable               = False,
+                                                      has_resonance               = True,
+                                                      is_fuel                     = False)
+
 class Inconel(MaterialFactory):
     """ Factory for creating Inconel materials
 
@@ -12,10 +18,15 @@ class Inconel(MaterialFactory):
     1. MatWeb: Material Property Data accessed June 4, 2024, https://www.matweb.com/
     """
 
-    def __init__(self):
-        pass
+    def __init__(self,
+                 label: str = 'Inconel',
+                 temperature: float = 900.,
+                 mpact_build_specs: MaterialFactory.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
+        self.label             = label
+        self.temperature       = temperature
+        self.mpact_build_specs = mpact_build_specs
 
-    def make_material(self) -> openmc.Material:
+    def make_openmc_material(self) -> openmc.Material:
 
         inconel = openmc.Material()
         inconel.set_density('g/cm3', 8.19)
@@ -34,6 +45,6 @@ class Inconel(MaterialFactory):
         inconel.add_element('Si',  0.350, percent_type='ao')
         inconel.add_element( 'S',  0.015, percent_type='ao')
         inconel.add_element('Ti',  1.150, percent_type='ao')
-        inconel.temperature = 900.
-        inconel.name = 'Inconel'
+        inconel.temperature = self.temperature
+        inconel.name = self.label
         return inconel

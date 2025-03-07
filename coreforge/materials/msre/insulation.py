@@ -2,6 +2,12 @@ import openmc
 
 from coreforge.materials.material_factory import MaterialFactory
 
+DEFAULT_MPACT_SPECS = MaterialFactory.MPACTBuildSpecs(thermal_scattering_isotopes = [],
+                                                      is_fluid                    = False,
+                                                      is_depletable               = False,
+                                                      has_resonance               = False,
+                                                      is_fuel                     = False)
+
 class Insulation(MaterialFactory):
     """ Factory for creating   materials
 
@@ -16,14 +22,19 @@ class Insulation(MaterialFactory):
        of Reactor Design”, ORNL-TM-0728, Oak Ridge National Laboratory, Oak Ridge, Tennessee (1965).
     """
 
-    def __init__(self):
-        pass
+    def __init__(self,
+                 label: str = 'Insulation',
+                 temperature: float = 900.,
+                 mpact_build_specs: MaterialFactory.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
+        self.label             = label
+        self.temperature       = temperature
+        self.mpact_build_specs = mpact_build_specs
 
-    def make_material(self) -> openmc.Material:
+    def make_openmc_material(self) -> openmc.Material:
 
         insulation = openmc.Material()
         insulation.add_elements_from_formula('SiO2')
         insulation.set_density('g/cm3', 0.160185)
-        insulation.temperature = 900.
-        insulation.name = 'Insulation'
+        insulation.temperature = self.temperature
+        insulation.name = self.label
         return insulation

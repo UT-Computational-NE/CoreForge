@@ -2,6 +2,12 @@ import openmc
 
 from coreforge.materials.material_factory import MaterialFactory
 
+DEFAULT_MPACT_SPECS = MaterialFactory.MPACTBuildSpecs(thermal_scattering_isotopes = [],
+                                                      is_fluid                    = False,
+                                                      is_depletable               = False,
+                                                      has_resonance               = True,
+                                                      is_fuel                     = False)
+
 class INOR8(MaterialFactory):
     """ Factory for creating INOR-8 materials
 
@@ -14,10 +20,15 @@ class INOR8(MaterialFactory):
        (Project 16-10240)", United States, (2020) https://www.osti.gov/servlets/purl/1617123
     """
 
-    def __init__(self):
-        pass
+    def __init__(self,
+                 label: str = 'INOR-8',
+                 temperature: float = 900.,
+                 mpact_build_specs: MaterialFactory.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
+        self.label             = label
+        self.temperature       = temperature
+        self.mpact_build_specs = mpact_build_specs
 
-    def make_material(self) -> openmc.Material:
+    def make_openmc_material(self) -> openmc.Material:
 
         inor = openmc.Material()
         inor.set_density('g/cm3', 8.7745)
@@ -36,6 +47,6 @@ class INOR8(MaterialFactory):
         inor.add_element( 'W',  0.409, percent_type='wo')
         inor.add_element( 'P',  0.012, percent_type='wo')
         inor.add_element('Co',  0.164, percent_type='wo')
-        inor.temperature = 900.
-        inor.name = 'INOR-8'
+        inor.temperature = self.temperature
+        inor.name = self.label
         return inor
