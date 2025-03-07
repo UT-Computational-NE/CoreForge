@@ -62,6 +62,20 @@ def msre_insulation():
 def msre_control_rod_poison():
     return MSREControlRodPoison()
 
+def materials_are_close(lhs: mpactpy.material.Material,
+                        rhs: mpactpy.material.Material) -> bool:
+    return (isclose(lhs.density, rhs.density)                                  and
+            isclose(lhs.temperature, rhs.temperature)                          and
+            lhs.thermal_scattering_isotopes == rhs.thermal_scattering_isotopes and
+            lhs.is_fluid                    == rhs.is_fluid                    and
+            lhs.is_depletable               == rhs.is_depletable               and
+            lhs.has_resonance               == rhs.has_resonance               and
+            lhs.is_fuel                     == rhs.is_fuel                     and
+            lhs.number_densities.keys()     == rhs.number_densities.keys()     and
+            all(isclose(lhs.number_densities[iso], rhs.number_densities[iso])
+                for iso in lhs.number_densities.keys()))
+
+
 def test_graphite(graphite):
     material = graphite.make_openmc_material()
     material = graphite.make_mpact_material()
@@ -76,7 +90,7 @@ def test_graphite(graphite):
                                                   has_resonance               = False,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_inconel(inconel):
     material = inconel.make_openmc_material()
@@ -102,13 +116,12 @@ def test_inconel(inconel):
                                                   has_resonance               = True,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_air(air):
     material = air.make_openmc_material()
     material = air.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'N14':  3.8309042069284913e-05, 'N15':  1.408419250713269e-07,  'O16':  1.0312753274594694e-05,
                 'O17':  3.910015386903025e-09,  'Ar36': 1.5935034402538069e-09, 'Ar38': 3.0045373618694377e-10,
                 'Ar40': 4.7577493978213445e-07}
@@ -121,13 +134,12 @@ def test_air(air):
                                                   has_resonance               = False,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_ss304(ss304):
     material = ss304.make_openmc_material()
     material = ss304.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'C'   : 0.00031687257245297543, 'Si'  : 0.001270453856962005, 'S'   : 4.45126225771339e-05,
                 'Mn55': 0.001731947822362768,   'P31' : 6.911885744910015e-05,'Cr50': 0.0007951091418903892,
                 'Cr52': 0.015332888352095236,   'Cr53': 0.0017386264573303997,'Cr54': 0.00043278092533274344,
@@ -144,13 +156,12 @@ def test_ss304(ss304):
                                                   has_resonance               = True,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_ss316h(ss316h):
     material = ss316h.make_openmc_material()
     material = ss316h.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'C'    : 0.000401104522092374,  'Si'   : 0.0012865355513539292, 'S'    : 4.50760734958318e-05,
                 'Cr50' : 0.0007246564331152913, 'Cr52' : 0.013974277991783001,  'Cr53' : 0.0015845709484530223,
                 'Cr54' : 0.00039443324840452576,'Ni58' : 0.00782311645952759,   'Ni60' : 0.0030134504542633097,
@@ -169,13 +180,12 @@ def test_ss316h(ss316h):
                                                   has_resonance               = True,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_water(water):
     material = water.make_openmc_material()
     material = water.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'H'  : 0.06687084844887618, 'O16': 0.03342275219865702, 'O17': 1.2672025781062035e-05}
     expected_material = mpactpy.material.Material(density                     = 1.0,
                                                   temperature                 = 900.,
@@ -186,13 +196,12 @@ def test_water(water):
                                                   has_resonance               = False,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_helium(helium):
     material = helium.make_openmc_material()
     material = helium.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'He3': 4.8898094254338366e-11,
                 'He4': 2.444899822907493e-05}
     expected_material = mpactpy.material.Material(density                     = 0.0001625,
@@ -204,13 +213,12 @@ def test_helium(helium):
                                                   has_resonance               = False,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_inor8(inor8):
     material = inor8.make_openmc_material()
     material = inor8.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'C'    : 0.0002639618721824652, 'Si'   : 0.001539026944633406,  'S'    : 2.6368000459278417e-05,
                 'Ti'   : 0.0002257525732369653, 'Ni58' : 0.041676675048575806,  'Ni60' : 0.016053780613781005,
                 'Ni61' : 0.0006978467275664952, 'Ni62' : 0.002225040732819044,  'Ni64' : 0.0005666522774239392,
@@ -233,13 +241,12 @@ def test_inor8(inor8):
                                                   has_resonance               = True,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_b4c(b4c):
     material = b4c.make_openmc_material()
     material = b4c.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'C'  : 0.019180730627934073, 'B10': 0.015206483241826132, 'B11': 0.06151643926991015}
     expected_material = mpactpy.material.Material(density                     = 1.76,
                                                   temperature                 = 900.,
@@ -250,13 +257,12 @@ def test_b4c(b4c):
                                                   has_resonance               = False,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_msre_salt(msre_salt):
     material = msre_salt.make_openmc_material()
     material = msre_salt.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'Li6' : 1.7431446223252428e-06, 'Li7' : 0.02988796955594127,   'F19' : 0.05218107467967278,
                 'Be9' : 0.00898964129413786,    'Zr90': 0.00047974094545786845,'Zr91': 0.00010461989131267802,
                 'Zr92': 0.00015991364848595618, 'Zr94': 0.00016205826301375617,'Zr96': 2.6108350773217338e-05,
@@ -271,13 +277,12 @@ def test_msre_salt(msre_salt):
                                                   has_resonance               = True,
                                                   is_fuel                     = True)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_msre_thimble_gas(msre_thimble_gas):
     material = msre_thimble_gas.make_openmc_material()
     material = msre_thimble_gas.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'N14': 4.6636800311322434e-05, 'N15': 1.7145865258479214e-07, 'O16': 2.15649589352492e-06,
                 'O17': 8.176218223166029e-10}
     expected_material = mpactpy.material.Material(density                     = 0.001146,
@@ -289,13 +294,12 @@ def test_msre_thimble_gas(msre_thimble_gas):
                                                   has_resonance               = False,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_msre_insulation(msre_insulation):
     material = msre_insulation.make_openmc_material()
     material = msre_insulation.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'Si' : 0.0016057278006239388, 'O16': 0.003210238459575004, 'O17': 1.2171416728729455e-06}
     expected_material = mpactpy.material.Material(density                     = 0.160185,
                                                   temperature                 = 900.,
@@ -306,13 +310,12 @@ def test_msre_insulation(msre_insulation):
                                                   has_resonance               = False,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
 
 def test_msre_control_rod_poison(msre_control_rod_poison):
     material = msre_control_rod_poison.make_openmc_material()
     material = msre_control_rod_poison.make_mpact_material()
 
-    print(material._number_densities)
     num_dens = {'Gd152': 2.7319499017784082e-05, 'Gd154': 0.0002977825392938465, 'Gd155': 0.002021642927316022,
                 'Gd156': 0.002796150724470201,   'Gd157': 0.0021377507981416044, 'Gd158': 0.0033930817780087833,
                 'Gd160': 0.0029860212426438006,  'O16'  : 0.051692735794137225,  'O17'  : 1.9598974877456564e-05,
@@ -326,4 +329,4 @@ def test_msre_control_rod_poison(msre_control_rod_poison):
                                                   has_resonance               = True,
                                                   is_fuel                     = False)
 
-    assert material == expected_material
+    assert materials_are_close(material, expected_material)
