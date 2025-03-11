@@ -1,4 +1,4 @@
-from. material import Material
+from .material import Material
 from .graphite import Graphite
 from .inconel  import Inconel
 from .air      import Air
