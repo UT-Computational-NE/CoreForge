@@ -118,4 +118,4 @@ class Material(ABC):
                 self.openmc_material.id == other.openmc_material.id)
 
     def __hash__(self) -> int:
-        return hash(self.openmc_material)
+        return hash(self.openmc_material.id)
