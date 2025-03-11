@@ -1,18 +1,27 @@
 import openmc
 
-from coreforge.materials.material_factory import MaterialFactory
+from coreforge.materials.material import Material
 
-DEFAULT_MPACT_SPECS = MaterialFactory.MPACTBuildSpecs(thermal_scattering_isotopes = [],
-                                                      is_fluid                    = False,
-                                                      is_depletable               = False,
-                                                      has_resonance               = False,
-                                                      is_fuel                     = False)
+DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
+                                               is_fluid                    = False,
+                                               is_depletable               = False,
+                                               has_resonance               = False,
+                                               is_fuel                     = False)
 
-class Insulation(MaterialFactory):
+class Insulation(Material):
     """ Factory for creating   materials
 
         - Density from Reference 1 page 12
         - Composition from Section 5.6.6.3 (simplifying to pure Silica)
+
+    Parameters
+    ----------
+    name : str
+        The name for the salt
+    temperature : float
+        The temperature of the salt (K)
+    mpact_build_specs : Material.MPACTBuildSpecs
+        Specifications for building the MPACT material
 
     References
     ----------
@@ -23,18 +32,14 @@ class Insulation(MaterialFactory):
     """
 
     def __init__(self,
-                 label: str = 'Insulation',
+                 name: str = 'Insulation',
                  temperature: float = 900.,
-                 mpact_build_specs: MaterialFactory.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
-        self.label             = label
-        self.temperature       = temperature
-        self.mpact_build_specs = mpact_build_specs
+                 mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
-    def make_openmc_material(self) -> openmc.Material:
+        openmc_material = openmc.Material()
+        openmc_material.add_elements_from_formula('SiO2')
+        openmc_material.set_density('g/cm3', 0.160185)
+        openmc_material.temperature = temperature
+        openmc_material.name = name
 
-        insulation = openmc.Material()
-        insulation.add_elements_from_formula('SiO2')
-        insulation.set_density('g/cm3', 0.160185)
-        insulation.temperature = self.temperature
-        insulation.name = self.label
-        return insulation
+        super().__init__(openmc_material, mpact_build_specs)

@@ -1,3 +1,4 @@
+from. material import Material
 from .graphite import Graphite
 from .inconel  import Inconel
 from .air      import Air
@@ -9,6 +10,7 @@ from .inor8    import INOR8
 from .b4c      import B4C
 
 __all__ = [
+    "Material",
     "Graphite",
     "Inconel",
     "Air",

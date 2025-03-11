@@ -1,9 +1,9 @@
 import pytest
 from math import isclose
 
-import mpactpy.material
+import mpactpy
 
-from coreforge.materials import Graphite, Inconel, Air, SS304, SS316H, Water, Helium, INOR8, B4C
+from coreforge.materials import Material, Graphite, Inconel, Air, SS304, SS316H, Water, Helium, INOR8, B4C
 from coreforge.materials.msre import Salt             as MSRESalt, \
                                      ThimbleGas       as MSREThimbleGas, \
                                      Insulation       as MSREInsulation, \
@@ -12,7 +12,7 @@ from coreforge.materials.msre import Salt             as MSRESalt, \
 
 @pytest.fixture
 def graphite():
-    return Graphite(density=1.86, boron_equiv_contamination=0.00008)
+    return Graphite(graphite_density=1.86, boron_equiv_contamination=0.00008)
 
 @pytest.fixture
 def inconel():
@@ -85,10 +85,31 @@ def materials_are_close(lhs: mpactpy.material.Material,
             all(isclose(lhs.number_densities[iso], rhs.number_densities[iso], rel_tol=1E-2)
                 for iso in rhs.number_densities.keys()))
 
+def test_initialization(air):
+    material = Material(air.openmc_material)
+    assert material.name == "Air"
+    assert isclose(material.temperature, air.temperature)
+    assert isclose(material.density, air.density)
+    assert material.number_densities.keys() == air.number_densities.keys()
+    assert all(isclose(material.number_densities[iso],
+                       air.number_densities[iso])
+                       for iso in material.number_densities.keys())
+def test_equality(air):
+    material         = Material(air.openmc_material)
+    equal_material   = Material(material.openmc_material)
+    unequal_material = Material(air.openmc_material.clone())
+    assert material == equal_material
+    assert material != unequal_material
+
+def test_hash(air):
+    material         = Material(air.openmc_material)
+    equal_material   = Material(material.openmc_material)
+    unequal_material = Material(air.openmc_material.clone())
+    assert hash(material) == hash(equal_material)
+    assert hash(material) != hash(unequal_material)
 
 def test_graphite(graphite):
-    material = graphite.make_openmc_material()
-    material = graphite.make_mpact_material()
+    material = graphite.mpact_material
 
     num_dens = {'C'  : 0.0932567267810358, 'B10': 1.642700833205197e-08, 'B11': 6.645396206175213e-08}
     expected_material = mpactpy.material.Material(density                     = 1.86,
@@ -103,8 +124,7 @@ def test_graphite(graphite):
     assert materials_are_close(material, expected_material)
 
 def test_inconel(inconel):
-    material = inconel.make_openmc_material()
-    material = inconel.make_mpact_material()
+    material = inconel.mpact_material
 
     num_dens = {'C'   : 6.644393722101037e-05, 'Si'  : 0.0002906922253419203,   'S'   : 1.2458238228939444e-05,
                 'Ti'  : 0.0009551315975520237, 'Al27': 0.0006644393722101035,   'B10' : 9.876891267903188e-07,
@@ -129,8 +149,7 @@ def test_inconel(inconel):
     assert materials_are_close(material, expected_material)
 
 def test_air(air):
-    material = air.make_openmc_material()
-    material = air.make_mpact_material()
+    material = air.mpact_material
 
     num_dens = {'N14':  3.8309042069284913e-05, 'N15':  1.408419250713269e-07,  'O16':  1.0312753274594694e-05,
                 'O17':  3.910015386903025e-09,  'Ar36': 1.5935034402538069e-09, 'Ar38': 3.0045373618694377e-10,
@@ -147,8 +166,7 @@ def test_air(air):
     assert materials_are_close(material, expected_material)
 
 def test_ss304(ss304):
-    material = ss304.make_openmc_material()
-    material = ss304.make_mpact_material()
+    material = ss304.mpact_material
 
     num_dens = {'C'   : 0.00031687257245297543, 'Si'  : 0.001270453856962005, 'S'   : 4.45126225771339e-05,
                 'Mn55': 0.001731947822362768,   'P31' : 6.911885744910015e-05,'Cr50': 0.0007951091418903892,
@@ -169,8 +187,7 @@ def test_ss304(ss304):
     assert materials_are_close(material, expected_material)
 
 def test_ss316h(ss316h):
-    material = ss316h.make_openmc_material()
-    material = ss316h.make_mpact_material()
+    material = ss316h.mpact_material
 
     num_dens = {'C'    : 0.000401104522092374,  'Si'   : 0.0012865355513539292, 'S'    : 4.50760734958318e-05,
                 'Cr50' : 0.0007246564331152913, 'Cr52' : 0.013974277991783001,  'Cr53' : 0.0015845709484530223,
@@ -193,8 +210,7 @@ def test_ss316h(ss316h):
     assert materials_are_close(material, expected_material)
 
 def test_water(water):
-    material = water.make_openmc_material()
-    material = water.make_mpact_material()
+    material = water.mpact_material
 
     num_dens = {'H'  : 0.06687084844887618, 'O16': 0.03342275219865702, 'O17': 1.2672025781062035e-05}
     expected_material = mpactpy.material.Material(density                     = 1.0,
@@ -209,8 +225,7 @@ def test_water(water):
     assert materials_are_close(material, expected_material)
 
 def test_helium(helium):
-    material = helium.make_openmc_material()
-    material = helium.make_mpact_material()
+    material = helium.mpact_material
 
     num_dens = {'He3': 4.8898094254338366e-11,
                 'He4': 2.444899822907493e-05}
@@ -226,8 +241,7 @@ def test_helium(helium):
     assert materials_are_close(material, expected_material)
 
 def test_inor8(inor8):
-    material = inor8.make_openmc_material()
-    material = inor8.make_mpact_material()
+    material = inor8.mpact_material
 
     num_dens = {'C'    : 0.0002639618721824652, 'Si'   : 0.001539026944633406,  'S'    : 2.6368000459278417e-05,
                 'Ti'   : 0.0002257525732369653, 'Ni58' : 0.041676675048575806,  'Ni60' : 0.016053780613781005,
@@ -254,8 +268,7 @@ def test_inor8(inor8):
     assert materials_are_close(material, expected_material)
 
 def test_b4c(b4c):
-    material = b4c.make_openmc_material()
-    material = b4c.make_mpact_material()
+    material = b4c.mpact_material
 
     num_dens = {'C'  : 0.019180730627934073, 'B10': 0.015206483241826132, 'B11': 0.06151643926991015}
     expected_material = mpactpy.material.Material(density                     = 1.76,
@@ -270,8 +283,7 @@ def test_b4c(b4c):
     assert materials_are_close(material, expected_material)
 
 def test_msre_salt(msre_salt):
-    material = msre_salt.make_openmc_material()
-    material = msre_salt.make_mpact_material()
+    material = msre_salt.mpact_material
 
     num_dens = {'Li6' : 1.7431446223252428e-06, 'Li7' : 0.02988796955594127,   'F19' : 0.05218107467967278,
                 'Be9' : 0.00898964129413786,    'Zr90': 0.00047974094545786845,'Zr91': 0.00010461989131267802,
@@ -290,8 +302,7 @@ def test_msre_salt(msre_salt):
     assert materials_are_close(material, expected_material)
 
 def test_msre_thimble_gas(msre_thimble_gas):
-    material = msre_thimble_gas.make_openmc_material()
-    material = msre_thimble_gas.make_mpact_material()
+    material = msre_thimble_gas.mpact_material
 
     num_dens = {'N14': 4.6636800311322434e-05, 'N15': 1.7145865258479214e-07, 'O16': 2.15649589352492e-06,
                 'O17': 8.176218223166029e-10}
@@ -307,8 +318,7 @@ def test_msre_thimble_gas(msre_thimble_gas):
     assert materials_are_close(material, expected_material)
 
 def test_msre_insulation(msre_insulation):
-    material = msre_insulation.make_openmc_material()
-    material = msre_insulation.make_mpact_material()
+    material = msre_insulation.mpact_material
 
     num_dens = {'Si' : 0.0016057278006239388, 'O16': 0.003210238459575004, 'O17': 1.2171416728729455e-06}
     expected_material = mpactpy.material.Material(density                     = 0.160185,
@@ -323,8 +333,7 @@ def test_msre_insulation(msre_insulation):
     assert materials_are_close(material, expected_material)
 
 def test_msre_control_rod_poison(msre_control_rod_poison):
-    material = msre_control_rod_poison.make_openmc_material()
-    material = msre_control_rod_poison.make_mpact_material()
+    material = msre_control_rod_poison.mpact_material
 
     num_dens = {'Gd152': 2.7319499017784082e-05, 'Gd154': 0.0002977825392938465, 'Gd155': 0.002021642927316022,
                 'Gd156': 0.002796150724470201,   'Gd157': 0.0021377507981416044, 'Gd158': 0.0033930817780087833,

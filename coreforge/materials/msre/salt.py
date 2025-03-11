@@ -3,15 +3,15 @@ from math import isclose
 
 import openmc
 
-from coreforge.materials.material_factory import MaterialFactory
+from coreforge.materials.material import Material
 
-DEFAULT_MPACT_SPECS = MaterialFactory.MPACTBuildSpecs(thermal_scattering_isotopes = [],
-                                                      is_fluid                    = True,
-                                                      is_depletable               = True,
-                                                      has_resonance               = True,
-                                                      is_fuel                     = True)
+DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
+                                               is_fluid                    = True,
+                                               is_depletable               = True,
+                                               has_resonance               = True,
+                                               is_fuel                     = True)
 
-class Salt(MaterialFactory):
+class Salt(Material):
     """ Factory for creating materials based on the MSRE fuel salt
 
     Salt composition will default to what is specified in Ref 1:
@@ -22,10 +22,26 @@ class Salt(MaterialFactory):
     Isotopic concentration of Uranium based on enrichment is calculated
     using what is specified in Ref 2 in Section 3.3
 
-    Attributes
+    Parameters
     ----------
     density : float
-        Density of the salt
+        Density of the salt (g/cc)
+    composition : Composition
+        Composition of the salt (mol%)
+        Acceptable Keys: 'LiF', 'BeF2', 'ZrF4', 'UF4'
+    u_enr : float
+        U-235 enrichment of the uranium in the salt (wt%)
+    li_enr : float
+        Li-7 enrichment of the lithium in the salt (wt%)
+    name : str
+        The name for the material
+    temperature : float
+        The temperature of the material (K)
+    mpact_build_specs : Material.MPACTBuildSpecs
+        Specifications for building the MPACT material
+
+    Attributes
+    ----------
     composition : Composition
         Composition of the salt (mol%)
         Acceptable Keys: 'LiF', 'BeF2', 'ZrF4', 'UF4'
@@ -51,45 +67,16 @@ class Salt(MaterialFactory):
         UF4:  float
 
     @property
-    def density(self) -> float:
-        return self._density
-
-    @density.setter
-    def density(self, density: float) -> None:
-        assert density > 0., f"density = {density}"
-        self._density = density
-
-    @property
     def composition(self) -> Composition:
         return self._composition
-
-    @composition.setter
-    def composition(self, composition: Composition) -> None:
-        assert all(values >= 0. for values in composition.values()), \
-            f"composition = {composition}"
-        assert isclose(sum(values for values in composition.values()), 1.0), \
-            f"composition = {composition}"
-        self._composition = composition
 
     @property
     def u_enr(self) -> float:
         return self._u_enr
 
-    @u_enr.setter
-    def u_enr(self, u_enr: float) -> None:
-        assert u_enr >= 0., f"u_enr = {u_enr}"
-        assert u_enr <= 100.0, f"u_enr = {u_enr}"
-        self._u_enr = u_enr
-
     @property
     def li_enr(self) -> float:
         return self._li_enr
-
-    @li_enr.setter
-    def li_enr(self, li_enr: float) -> None:
-        assert li_enr >= 0., f"li_enr = {li_enr}"
-        assert li_enr <= 100.0, f"li_enr = {li_enr}"
-        self._li_enr = li_enr
 
 
     def __init__(self,
@@ -97,19 +84,23 @@ class Salt(MaterialFactory):
                  composition: Composition = {"LiF": 0.6488, "BeF2": 0.2927, "ZrF4": 0.0506, "UF4": 0.0079},
                  u_enr:       float = 31.355,
                  li_enr:      float = 99.995,
-                 label:       str = 'Salt',
+                 name:        str = 'Salt',
                  temperature: float = 900.,
-                 mpact_build_specs: MaterialFactory.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
+                 mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
-        self.density           = density
-        self.composition       = composition
-        self.u_enr             = u_enr
-        self.li_enr            = li_enr
-        self.label             = label
-        self.temperature       = temperature
-        self.mpact_build_specs = mpact_build_specs
+        assert density > 0., f"density = {density}"
+        assert all(values >= 0. for values in composition.values()), \
+            f"composition = {composition}"
+        assert isclose(sum(values for values in composition.values()), 1.0), \
+            f"composition = {composition}"
+        assert 0. <= u_enr  <= 100., f"u_enr = {u_enr}"
+        assert 0. <= li_enr <= 100., f"li_enr = {li_enr}"
+        assert temperature >= 0., f"temperature = {temperature}"
 
-    def make_openmc_material(self) -> openmc.Material:
+        self._composition       = composition
+        self._u_enr             = u_enr
+        self._li_enr            = li_enr
+        self._mpact_build_specs = mpact_build_specs
 
         lif  = openmc.Material()
         lif.add_elements_from_formula('LiF', enrichment=self.li_enr, enrichment_target='Li7', enrichment_type='wo')
@@ -143,10 +134,10 @@ class Salt(MaterialFactory):
         uf4  = openmc.Material.mix_materials([u,f], [0.2, 0.8], 'ao')
 
         fractions = [self.composition[i] if i in self.composition else 0.0 for i in ["LiF", "BeF2", "ZrF4", "UF4"]]
-        salt = openmc.Material.mix_materials([lif, bef2, zrf4, uf4], fractions, 'ao')
+        openmc_material = openmc.Material.mix_materials([lif, bef2, zrf4, uf4], fractions, 'ao')
 
-        salt.set_density('g/cc', self.density)
-        salt.temperature = self.temperature
-        salt.name = self.label
+        openmc_material.set_density('g/cc', density)
+        openmc_material.temperature = temperature
+        openmc_material.name = name
 
-        return salt
+        super().__init__(openmc_material, mpact_build_specs)

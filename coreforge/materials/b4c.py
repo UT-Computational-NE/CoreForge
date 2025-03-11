@@ -1,17 +1,26 @@
 import openmc
 
-from coreforge.materials.material_factory import MaterialFactory
+from coreforge.materials.material import Material
 
-DEFAULT_MPACT_SPECS = MaterialFactory.MPACTBuildSpecs(thermal_scattering_isotopes = [],
-                                                      is_fluid                    = False,
-                                                      is_depletable               = False,
-                                                      has_resonance               = False,
-                                                      is_fuel                     = False)
+DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
+                                               is_fluid                    = False,
+                                               is_depletable               = False,
+                                               has_resonance               = False,
+                                               is_fuel                     = False)
 
-class B4C(MaterialFactory):
+class B4C(Material):
     """ Factory for creating B4C Poison material
 
     - Sepcification in Table 8 of Ref. 1
+
+    Parameters
+    ----------
+    name : str
+        The name for the material
+    temperature : float
+        The temperature of the material (K)
+    mpact_build_specs : Material.MPACTBuildSpecs
+        Specifications for building the MPACT material
 
     References
     ----------
@@ -20,18 +29,14 @@ class B4C(MaterialFactory):
     """
 
     def __init__(self,
-                 label: str = 'B4C',
+                 name: str = 'B4C',
                  temperature: float = 900.,
-                 mpact_build_specs: MaterialFactory.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
-        self.label             = label
-        self.temperature       = temperature
-        self.mpact_build_specs = mpact_build_specs
+                 mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
-    def make_openmc_material(self) -> openmc.Material:
+        openmc_material = openmc.Material()
+        openmc_material.set_density('g/cm3', 1.76)
+        openmc_material.add_elements_from_formula('B4C')
+        openmc_material.temperature = temperature
+        openmc_material.name = name
 
-        b4c = openmc.Material()
-        b4c.set_density('g/cm3', 1.76)
-        b4c.add_elements_from_formula('B4C')
-        b4c.temperature = self.temperature
-        b4c.name = self.label
-        return b4c
+        super().__init__(openmc_material, mpact_build_specs)

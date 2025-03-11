@@ -1,34 +1,39 @@
 import openmc
 
-from coreforge.materials.material_factory import MaterialFactory
+from coreforge.materials.material import Material
 
-DEFAULT_MPACT_SPECS = MaterialFactory.MPACTBuildSpecs(thermal_scattering_isotopes = ['H'],
-                                                      is_fluid                    = True,
-                                                      is_depletable               = False,
-                                                      has_resonance               = False,
-                                                      is_fuel                     = False)
+DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = ['H'],
+                                               is_fluid                    = True,
+                                               is_depletable               = False,
+                                               has_resonance               = False,
+                                               is_fuel                     = False)
 
-class Water(MaterialFactory):
+class Water(Material):
     """ Factory for creating water materials
 
     Base water density corresponds to standard temperature and pressure
+
+    Parameters
+    ----------
+    name : str
+        The name for the material
+    temperature : float
+        The temperature of the material (K)
+    mpact_build_specs : Material.MPACTBuildSpecs
+        Specifications for building the MPACT material
     """
 
     def __init__(self,
-                 label: str = 'Water',
+                 name: str = 'Water',
                  temperature: float = 900.,
-                 mpact_build_specs: MaterialFactory.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
-        self.label             = label
-        self.temperature       = temperature
-        self.mpact_build_specs = mpact_build_specs
+                 mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
-    def make_openmc_material(self) -> openmc.Material:
+        openmc_material = openmc.Material()
+        openmc_material.add_element('H', 2)
+        openmc_material.add_element('O', 1)
+        openmc_material.add_s_alpha_beta('c_H_in_H2O')
+        openmc_material.set_density('g/cm3', 1.)
+        openmc_material.temperature = temperature
+        openmc_material.name = name
 
-        water = openmc.Material()
-        water.add_element('H', 2)
-        water.add_element('O', 1)
-        water.add_s_alpha_beta('c_H_in_H2O')
-        water.set_density('g/cm3', 1.)
-        water.temperature = self.temperature
-        water.name = self.label
-        return water
+        super().__init__(openmc_material, mpact_build_specs)

@@ -1,18 +1,27 @@
 import openmc
 
-from coreforge.materials.material_factory import MaterialFactory
+from coreforge.materials.material import Material
 
-DEFAULT_MPACT_SPECS = MaterialFactory.MPACTBuildSpecs(thermal_scattering_isotopes = [],
-                                                      is_fluid                    = False,
-                                                      is_depletable               = False,
-                                                      has_resonance               = False,
-                                                      is_fuel                     = False)
+DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
+                                               is_fluid                    = False,
+                                               is_depletable               = False,
+                                               has_resonance               = False,
+                                               is_fuel                     = False)
 
-class ThimbleGas(MaterialFactory):
-    """ Factory for creating MSRE Thimble Gas materials
+class ThimbleGas(Material):
+    """ Material for MSRE Thimble Gas materials
 
     - Density calculated using CoolProps (Reference 1) at 300K and 1 atm
     - Composition from Reference 2 Section 5.3.5.2
+
+    Parameters
+    ----------
+    name : str
+        The name for the material
+    temperature : float
+        The temperature of the material (K)
+    mpact_build_specs : Material.MPACTBuildSpecs
+        Specifications for building the MPACT material
 
     References
     ----------
@@ -24,19 +33,15 @@ class ThimbleGas(MaterialFactory):
     """
 
     def __init__(self,
-                 label: str = 'Thimble Gas',
+                 name: str = 'Thimble Gas',
                  temperature: float = 900.,
-                 mpact_build_specs: MaterialFactory.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
-        self.label             = label
-        self.temperature       = temperature
-        self.mpact_build_specs = mpact_build_specs
+                 mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
-    def make_openmc_material(self) -> openmc.Material:
+        openmc_material = openmc.Material()
+        openmc_material.set_density('g/cm3', 0.001146)
+        openmc_material.add_element('N', 95., percent_type='wo')
+        openmc_material.add_element('O',  5., percent_type='wo')
+        openmc_material.temperature = temperature
+        openmc_material.name = name
 
-        gas = openmc.Material()
-        gas.set_density('g/cm3', 0.001146)
-        gas.add_element('N', 95., percent_type='wo')
-        gas.add_element('O',  5., percent_type='wo')
-        gas.temperature = 900.
-        gas.name = self.label
-        return gas
+        super().__init__(openmc_material, mpact_build_specs)
