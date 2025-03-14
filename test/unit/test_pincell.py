@@ -67,11 +67,11 @@ def test_make_openmc_universe(pincell):
     universe = geom_element.make_openmc_universe()
     assert universe.name == "pincell"
     assert len(universe.cells) == 5
-    assert universe.cells[1].fill.name == "Salt"
-    assert universe.cells[2].fill.name == "Graphite"
-    assert universe.cells[3].fill.name == "Salt"
-    assert universe.cells[4].fill.name == "Graphite"
-    assert universe.cells[5].fill.name == "Salt"
+    assert [cell.fill.name for cell in universe.cells.values()] == ["Salt",
+                                                                    "Graphite",
+                                                                    "Salt",
+                                                                    "Graphite",
+                                                                    "Salt"]
 
 def test_pincell_make_mpact_core(pincell):
     geom_element = pincell
