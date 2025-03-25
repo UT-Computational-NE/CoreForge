@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, TypedDict, Tuple, Union, Optional
+from typing import List, TypedDict, Tuple, Optional
 from dataclasses import dataclass
 from math import inf
 
@@ -18,16 +18,16 @@ class CylindricalPincell(PinCell):
 
     Parameters
     ----------
-    zones : List[PinCell.Zone]
+    zones : Optional[List[PinCell.Zone]]
         The rings of the cylindrical pincell
         (should be specified with outer_material)
-    outer_material : Material
+    outer_material : Optional[Material]
         The material that radially surrounds the concentric cylinders
         (should be specified with rings)
-    radii : List[float]
+    radii : Optional[List[float]]
         The list of cylindrical region radii, proceeding in order from inner most radii to outer most radii
         (should be specified with materials)
-    materials : List[Material]
+    materials : Optional[List[Material]]
         The list of cylindrical region materials, proceeding in order from inner most material to
         outer most material.  The last material represents the outer material of pincell that surrounds
         the cylindrical regions.  Ergo, len(materials) == len(radii)+1
@@ -37,7 +37,7 @@ class CylindricalPincell(PinCell):
 
     Attributes
     ----------
-    mpact_build_specs : Union[MPACTBuildSpecs, None]
+    mpact_build_specs : Optional[MPACTBuildSpecs]
         Specifications for building the MPACT Core representation of this element
     """
 
@@ -58,7 +58,7 @@ class CylindricalPincell(PinCell):
             Default value is 1.0
         divide_into_quadrants : bool
             An optional setting to divide the pincell into 4 separate MPACT Module quadrants.
-            The will represent the pincell with 4 MPACT Modules rather than just one.
+            This will represent the pincell with 4 MPACT Modules rather than just one.
             Default value is False
         """
 
@@ -95,11 +95,11 @@ class CylindricalPincell(PinCell):
         self._set_zones(zones=zones)
 
     @property
-    def mpact_build_specs(self) -> Union[MPACTBuildSpecs, None]:
+    def mpact_build_specs(self) -> Optional[MPACTBuildSpecs]:
         return self._mpact_build_specs
 
     @mpact_build_specs.setter
-    def mpact_build_specs(self, specs: Union[MPACTBuildSpecs, None]) -> None:
+    def mpact_build_specs(self, specs: Optional[MPACTBuildSpecs]) -> None:
         if specs:
             self._radial_thicknesses = []
             prev_radius = 0.
@@ -123,12 +123,12 @@ class CylindricalPincell(PinCell):
 
 
     def __init__(self,
-                 zones:             List[PinCell.Zone] = None,
-                 outer_material:    Material = None,
-                 radii:             List[float] = None,
-                 materials:         List[Material] = None,
+                 zones:             Optional[List[PinCell.Zone]] = None,
+                 outer_material:    Optional[Material] = None,
+                 radii:             Optional[List[float]] = None,
+                 materials:         Optional[List[Material]] = None,
                  name:              str = 'pincell',
-                 mpact_build_specs: MPACTBuildSpecs = None):
+                 mpact_build_specs: Optional[MPACTBuildSpecs] = None):
 
         assert (zones and outer_material) or (radii and materials)
 
@@ -169,6 +169,6 @@ class CylindricalPincell(PinCell):
 
         lattice  = mpactpy.Lattice(module_map)
         assembly = mpactpy.Assembly([lattice])
-        core     = mpactpy.Core([[assembly]], "360")
+        core     = mpactpy.Core([[assembly]])
 
         return core

@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import Any
 
 import openmc
-import mpactpy
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Material
@@ -29,7 +28,7 @@ class InfiniteMedium(GeometryElement):
 
     def __init__(self, material: Material, name: str = 'infinite_medium'):
 
-        self.name    = name
+        super().__init__(name)
         self.material = material
 
     def __eq__(self, other: Any) -> bool:
@@ -46,6 +45,3 @@ class InfiniteMedium(GeometryElement):
 
         universe = openmc.Universe(name=self.name, cells=[openmc.Cell(fill=self.material.openmc_material)])
         return universe
-
-    def make_mpact_core(self) -> mpactpy.Core:
-        raise NotImplementedError("Cannot make an MPACT Core for an infinite medium")

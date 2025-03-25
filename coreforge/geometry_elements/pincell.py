@@ -1,9 +1,8 @@
 from __future__ import annotations
-from typing import List, Tuple, Any
+from typing import List, Any
 from math import isclose
 
 import openmc
-import mpactpy
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shapes import Shape_2D
@@ -24,8 +23,10 @@ class PinCell(GeometryElement):
         The collection of zones that define the pincell, listed in order of
         the inner-most zone to the outer-most zone.  Each zone's outer-radius
         may not exceed the next zone's inner-radius.
-    origin  : Tuple[float, float]
-        The X-Y origin of the "pin" within the pincell (Default: (0.0, 0.0))
+    x0 : float
+        The x-coordinate of the origin of the "pin" within the pincell
+    y0 : float
+        The y-coordinate of the origin of the "pin" within the pincell
     outer_material : Material
         The material that radially surrounds the concentric shapes
     """
@@ -50,7 +51,7 @@ class PinCell(GeometryElement):
             return self._name
 
         @name.setter
-        def name(self, name: str) -> str:
+        def name(self, name: str) -> None:
             self._name = name
 
         @property
@@ -78,7 +79,7 @@ class PinCell(GeometryElement):
             self._rotation = rotation
 
         def __init__(self, shape: Shape_2D, material: Material, name: str = 'zone', rotation: float=0.):
-            self.name    = name
+            self.name     = name
             self.shape    = shape
             self.material = material
             self.rotation = rotation
@@ -132,37 +133,45 @@ class PinCell(GeometryElement):
         self._zones = zones
 
     @property
-    def origin(self) -> Tuple[float, float]:
-        return self._origin
+    def x0(self) -> float:
+        return self._x0
 
-    @origin.setter
-    def origin(self, origin: Tuple[float, float]) -> None:
-        self._origin = origin
+    @x0.setter
+    def x0(self, x0: float) -> None:
+        self._x0 = x0
 
+    @property
+    def y0(self) -> float:
+        return self._y0
 
-    def __init__(self, zones: List[Zone], outer_material: openmc.Material,
-                name: str = 'pincell', origin: Tuple[float, float]=(0., 0.)):
+    @y0.setter
+    def y0(self, y0: float) -> None:
+        self._y0 = y0
 
-        self.name           = name
+    def __init__(self, zones: List[Zone], outer_material: Material,
+                name: str = 'pincell', x0: float = 0.0, y0: float = 0.0):
+
+        super().__init__(name)
         self.zones          = zones
         self.outer_material = outer_material
-        self.origin         = origin
+        self.x0             = x0
+        self.y0             = y0
 
     def __eq__(self, other: Any) -> bool:
         if self is other:
             return True
         return (isinstance(other, PinCell)                            and
                 self.outer_material == other.outer_material           and
-                isclose(self.origin[0], other.origin[0], rel_tol=TOL) and
-                isclose(self.origin[1], other.origin[1], rel_tol=TOL) and
+                isclose(self.x0, other.x0, rel_tol=TOL) and
+                isclose(self.y0, other.y0, rel_tol=TOL) and
                 len(self.zones) == len(other.zones)                   and
                 all(self.zones[i] == other.zones[i] for i in range(len(self.zones)))
                )
 
     def __hash__(self) -> int:
         return hash((self.outer_material,
-                     relative_round(self.origin[0], TOL),
-                     relative_round(self.origin[1], TOL),
+                     relative_round(self.x0, TOL),
+                     relative_round(self.y0, TOL),
                      tuple(self.zones)))
 
     def make_openmc_universe(self) -> openmc.Universe:
@@ -172,7 +181,7 @@ class PinCell(GeometryElement):
         for zone in self.zones:
             region = zone.shape.make_region()
             region = region.rotate((0., 0., zone.rotation))
-            region = region.translate([self.origin[0], self.origin[1], 0.])
+            region = region.translate([self.x0, self.y0, 0.])
             for previous_region in previous_regions:
                 region &= ~previous_region
             previous_regions.append(region)
@@ -187,6 +196,3 @@ class PinCell(GeometryElement):
         universe = openmc.Universe(name=self.name, cells=cells)
 
         return universe
-
-    def make_mpact_core(self) -> mpactpy.Core:
-        raise NotImplementedError("Cannot make an MPACT Core for a generic pincell")
