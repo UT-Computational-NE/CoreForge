@@ -9,6 +9,13 @@ from coreforge.shapes.shape import Shape_2D
 class Stadium(Shape_2D):
     """ A concrete stadium channel shape class
 
+    Parameters
+    ----------
+    r : float
+        The radius of the semicircles (cm)
+    a : float
+        The length of the stadium flat sides (cm)
+
     Attributes
     ----------
     r : float
@@ -30,9 +37,9 @@ class Stadium(Shape_2D):
         assert a >= 0.
         self._r   = r
         self._a   = a
-        self._i_r = r
-        self._o_r = a*0.5 + r
-        self._area = pi*r*r + 2*r*a
+        super().__init__(inner_radius = r,
+                         outer_radius = a*0.5 + r,
+                         area         = pi*r*r + 2*r*a)
 
     def __eq__(self, other: Any) -> bool:
         if self is other:

@@ -28,8 +28,6 @@ class Cap(Shape_3D):
     h : float
         Height (i.e. highest point of the cap) (cm)
     """
-    _D: float
-    _h: float
 
     @property
     def D(self) -> float:
@@ -39,9 +37,24 @@ class Cap(Shape_3D):
     def h(self) -> float:
         return self._h
 
+    def __init__(self, inner_radius: float, outer_radius: float, volume: float, D: float, h: float):
+        assert D > 0.0, f"D = {D}"
+        assert h > 0.0, f"h = {h}"
+        self._D = D
+        self._h = h
+        super().__init__(inner_radius, outer_radius, volume)
 
 class Torispherical_Dome(Cap):
     """ A concrete torispherical dome cap class
+
+    Parameters
+    ----------
+    R : float
+        Crown Radius (cm)
+    a : float
+        Knuckle Radius (cm)
+    c : float
+        Distance from center of torus to center of torus tube (cm)
 
     Attributes
     ----------
@@ -91,15 +104,15 @@ class Torispherical_Dome(Cap):
         self._a = a
         self._c = c
         self._r = c * (1 + (1./(R/a - 1)))
-        self._D = (a+c) * 2.
-        self._h = R - sqrt((a+c-R) * (a-c-R))
 
-        h = self.h
-        self._i_r = min(h, a+c)
-        self._o_r = max(h, a+c)
-        self._volume = pi/3. * (2*h*R**2 -
-                                (2*a**2 + c**2 + 2*a*R) * (R-h) +
-                                3*(a**2)*c*asin((R-h)/(R-a)))
+        h = R - sqrt((a+c-R) * (a-c-R))
+        super().__init__(inner_radius = min(h, a+c),
+                         outer_radius = max(h, a+c),
+                         volume       = pi/3. * (2*h*R**2 -
+                                        (2*a**2 + c**2 + 2*a*R) * (R-h) +
+                                        3*(a**2)*c*asin((R-h)/(R-a))),
+                         D            = (a+c) * 2.,
+                         h            = h)
 
     def __eq__(self, other: Any) -> bool:
         if self is other:
@@ -122,22 +135,25 @@ class Torispherical_Dome(Cap):
         return ((-sphere & -critical_cylinder) | -torus) & +base_plane
 
 
-class ASME_Flanged_Dished_Head(Torispherical_Dome):
-    """ A concrete shape class for an ASME flanged and dished head
+class ASME_Flanged_Dished_Dome(Torispherical_Dome):
+    """ A concrete shape class for creating a dome shape of an ASME flanged and dished head
+
+    This shape itself is still a solid Torispherical Dome (i.e. is not a shell), but follows
+    the geometric dimensionality constraints of a ASME flanged and dished head.
 
     Parameters
     ----------
     D : float
-        Head Diameter (cm)
+        Dome Diameter (cm)
 
     Notes
     -----
     Though the details of ASME flanged and dished heads are retrievable
     in the appropriate ASME standards [1]_, a more readily accessible
     reference is available in Thulukkanam's textbook [2]_.  In this textbook
-    an ASME flanged and dished head is defined such taht
+    an ASME flanged and dished head is defined such that
 
-    :math:`R \\approx D`
+    :math:`R = D`
 
     and
 
@@ -154,7 +170,6 @@ class ASME_Flanged_Dished_Head(Torispherical_Dome):
     """
 
     def __init__(self, D: float):
-        assert D > 0.
         R = D
         a = 0.06*D
         c = D*0.5 - a
