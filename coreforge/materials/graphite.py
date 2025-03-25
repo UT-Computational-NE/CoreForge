@@ -3,9 +3,9 @@ import warnings
 
 import openmc
 
-from coreforge.materials.material import Material
+from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
-# g/cc  CRC Handbook of Chemistry and Physics 104th Edition (Table: Density Ranges of Solid Materials)
+# g/cm3  CRC Handbook of Chemistry and Physics 104th Edition (Table: Density Ranges of Solid Materials)
 GRAPHITE_THEORETICAL_DENSITY = {'min' : 2.3, 'max': 2.72}
 
 DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = ['C'],
@@ -24,32 +24,35 @@ class Graphite(Material):
     Parameters
     ----------
     graphite_density : float
-        The density of the graphite (g/cc)
+        The density of the graphite (g/cm3)
     boron_equiv_contamination : float
         The boron equivalent contamination of the graphite (wt%)
     pore_intrusion : Dict[openmc.Material, float]
         Specifications on the intrusion of material into the graphite pores
         (key: intruding material, value: fraction of graphite volume filled by intruding material)
     theoretical_graphite_density : float
-        The theoretical density of graphite with no pores / voids (g/cc)
+        The theoretical density of graphite with no pores / voids (g/cm3)
     name : str
         The name for the material
     temperature : float
         The temperature of the material (K)
     mpact_build_specs : Material.MPACTBuildSpecs
         Specifications for building the MPACT material
+    catch_warnings : bool
+        A flag for suppressing OpenMC warnings that arise during material creation.
+        Default setting is True.
 
     Attributes
     ----------
     graphite_density : float
-        The density of the graphite (g/cc)
+        The density of the graphite (g/cm3)
     boron_equiv_contamination : float
         The boron equivalent contamination of the graphite (wt%)
     pore_intrusion : Dict[openmc.Material, float]
         Specifications on the intrusion of material into the graphite pores
         (key: intruding material, value: fraction of graphite volume filled by intruding material)
     theoretical_graphite_density : float
-        The theoretical density of graphite with no pores / voids (g/cc)
+        The theoretical density of graphite with no pores / voids (g/cm3)
 
 
     References
@@ -78,9 +81,10 @@ class Graphite(Material):
                  boron_equiv_contamination:    float = 0.,
                  pore_intrusion:               Dict[openmc.Material, float] = {},
                  name:                         str = 'Graphite',
+                 temperature:                  float = STANDARD_TEMPERATURE,
                  theoretical_graphite_density: float = GRAPHITE_THEORETICAL_DENSITY['max'],
-                 temperature:                  float = 900.,
-                 mpact_build_specs:            Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
+                 mpact_build_specs:            Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS,
+                 catch_warnings:               bool = True):
 
         assert graphite_density > 0., f"density = {graphite_density}"
         assert 0. <= boron_equiv_contamination <= 1., \
@@ -120,9 +124,10 @@ class Graphite(Material):
             vol_fracs.append(intrusion_frac)
 
         # This is for ignoring "Warning: sum of fractions do not add to 1, void fraction set to..."
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", category=UserWarning)
-            openmc_material = openmc.Material.mix_materials(materials, vol_fracs, 'vo')
+        if catch_warnings:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=UserWarning)
+                openmc_material = openmc.Material.mix_materials(materials, vol_fracs, 'vo')
 
         openmc_material.add_s_alpha_beta('c_Graphite')
         openmc_material.temperature = temperature

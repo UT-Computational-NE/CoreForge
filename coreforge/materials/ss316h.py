@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material
+from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
 DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
                                                is_fluid                    = False,
@@ -11,7 +11,7 @@ DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
 class SS316H(Material):
     """ Factory for creating 316H Stainless Steel materials
 
-    - Density from Ref 1 SS-316H Physical Properties Table
+    - Default density from Ref 1 SS-316H Physical Properties Table
     - Composition from Ref 1 SS-316H Chemical Analysis Table
 
     Parameters
@@ -20,6 +20,8 @@ class SS316H(Material):
         The name for the material
     temperature : float
         The temperature of the material (K)
+    density : float
+        The density of the material (g/cm3)
     mpact_build_specs : Material.MPACTBuildSpecs
         Specifications for building the MPACT material
 
@@ -30,20 +32,22 @@ class SS316H(Material):
 
     def __init__(self,
                  name: str = 'SS-316H',
-                 temperature: float = 900.,
+                 temperature: float = STANDARD_TEMPERATURE,
+                 density: float = 8.0,
                  mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
+        components = {'Cr': 18.0,
+                      'Ni': 14.0,
+                      'Mo':  3.0,
+                       'C':  0.1,
+                      'Mn':  2.0,
+                       'P':  0.045,
+                       'S':  0.03,
+                      'Si':  0.75,
+                      'Fe': 62.075}
         openmc_material = openmc.Material()
-        openmc_material.set_density('g/cm3', 8.0)
-        openmc_material.add_element('Cr',   18.0, percent_type='wo')
-        openmc_material.add_element('Ni',   14.0, percent_type='wo')
-        openmc_material.add_element('Mo',    3.0, percent_type='wo')
-        openmc_material.add_element( 'C',   0.1, percent_type='wo')
-        openmc_material.add_element('Mn',    2.0, percent_type='wo')
-        openmc_material.add_element( 'P',  0.045, percent_type='wo')
-        openmc_material.add_element( 'S',   0.03, percent_type='wo')
-        openmc_material.add_element('Si',   0.75, percent_type='wo')
-        openmc_material.add_element('Fe', 62.075, percent_type='wo')
+        openmc_material.add_components(components, percent_type='wo')
+        openmc_material.set_density('g/cm3', density)
         openmc_material.temperature = temperature
         openmc_material.name = name
 
