@@ -1,5 +1,6 @@
 from typing import Dict
 import warnings
+from contextlib import contextmanager
 
 import openmc
 
@@ -38,7 +39,7 @@ class Graphite(Material):
         The temperature of the material (K)
     mpact_build_specs : Material.MPACTBuildSpecs
         Specifications for building the MPACT material
-    catch_warnings : bool
+    suppress_warnings : bool
         A flag for suppressing OpenMC warnings that arise during material creation.
         Default setting is True.
 
@@ -84,7 +85,7 @@ class Graphite(Material):
                  temperature:                  float = STANDARD_TEMPERATURE,
                  theoretical_graphite_density: float = GRAPHITE_THEORETICAL_DENSITY['max'],
                  mpact_build_specs:            Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS,
-                 catch_warnings:               bool = True):
+                 suppress_warnings:            bool = True):
 
         assert graphite_density > 0., f"density = {graphite_density}"
         assert 0. <= boron_equiv_contamination <= 1., \
@@ -123,11 +124,21 @@ class Graphite(Material):
             materials.append(material)
             vol_fracs.append(intrusion_frac)
 
-        # This is for ignoring "Warning: sum of fractions do not add to 1, void fraction set to..."
-        if catch_warnings:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore", category=UserWarning)
-                openmc_material = openmc.Material.mix_materials(materials, vol_fracs, 'vo')
+        @contextmanager
+        def warning_suppressor(enabled: bool):
+            """
+            A simple context manager to suppress OpenMC's warning for the sum fraction
+            not adding to 1.0 and setting the remaining volume to void
+            """
+            if enabled:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", category=UserWarning)
+                    yield
+            else:
+                yield
+
+        with warning_suppressor(suppress_warnings):
+            openmc_material = openmc.Material.mix_materials(materials, vol_fracs, 'vo')
 
         openmc_material.add_s_alpha_beta('c_Graphite')
         openmc_material.temperature = temperature
