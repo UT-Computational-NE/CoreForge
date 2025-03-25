@@ -10,21 +10,26 @@ class Shape(ABC):
 
     Attributes
     ----------
-    i_r : float
+    inner_radius : float
         The inner-radius of the shape (cm)
-    o_r : float
+    outer_radius : float
         The outer-radius of the shape (cm)
     """
-    _i_r: float
-    _o_r: float
 
     @property
-    def i_r(self) -> float:
-        return self._i_r
+    def inner_radius(self) -> float:
+        return self._inner_radius
 
     @property
-    def o_r(self) -> float:
-        return self._o_r
+    def outer_radius(self) -> float:
+        return self._outer_radius
+
+    def __init__(self, inner_radius: float, outer_radius: float):
+        assert inner_radius > 0., f"inner_radius = {inner_radius}"
+        assert outer_radius >= inner_radius, f"outer_radius = {outer_radius}"
+
+        self._inner_radius = inner_radius
+        self._outer_radius = outer_radius
 
     @abstractmethod
     def __eq__(self: T, other: Any) -> bool:
@@ -65,11 +70,15 @@ class Shape_2D(Shape):
     area : float
         The area of the shape (cm^2)
     """
-    _area: float
 
     @property
     def area(self) -> float:
         return self._area
+
+    def __init__(self, inner_radius: float, outer_radius: float, area: float):
+        assert area > 0.0, f"area = {area}"
+        self._area = area
+        super().__init__(inner_radius, outer_radius)
 
 
 class Shape_3D(Shape):
@@ -80,8 +89,12 @@ class Shape_3D(Shape):
     volume : float
         The volume of the shape (cm^3)
     """
-    _volume: float
 
     @property
     def volume(self) -> float:
         return self._volume
+
+    def __init__(self, inner_radius: float, outer_radius: float, volume: float):
+        assert volume > 0.0, f"area = {volume}"
+        self._volume = volume
+        super().__init__(inner_radius, outer_radius)
