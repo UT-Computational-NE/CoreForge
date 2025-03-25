@@ -69,3 +69,8 @@ def test_make_mpact_core(stack):
     assert isclose(assembly.lattice_map[0].pitch['Z'], 3.0)
     assert isclose(assembly.lattice_map[1].pitch['Z'], 1.0)
     assert isclose(assembly.lattice_map[2].pitch['Z'], 4.0)
+
+    geom_element = Stack(name = "bad_stack", segments = [Stack.Segment(element=stack, length=8.0)])
+    expected_assertion = "Unsupported Geometry! Stack: bad_stack Segment 0: stack is not a 2D radial geometry"
+    with pytest.raises(AssertionError, match=expected_assertion):
+        core = geom_element.make_mpact_core()

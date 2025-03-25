@@ -116,6 +116,7 @@ class Stack(GeometryElement):
 
     @segments.setter
     def segments(self, segments: List[Segment]) -> None:
+        assert len(segments) > 0, f"len(segments) = {len(segments)}"
         self._segments = segments
         self._length   = sum(segment.length for segment in segments)
 
@@ -178,13 +179,13 @@ class Stack(GeometryElement):
 
     def make_mpact_core(self) -> mpactpy.Core:
 
-        def build_lattices(i: int, segment: Stack.Segment) -> mpactpy.Lattice:
+        def build_lattices(i: int, segment: Stack.Segment) -> List[mpactpy.Lattice]:
             element        = segment.element
             mpact_geometry = element.make_mpact_core()
             assert mpact_geometry.nx == 1 and mpact_geometry.ny == 1, \
-                f"Unsupported Geometry! Stack: {self.name} Element {i}: {element.name} has multiple MPACT assemblies"
+                f"Unsupported Geometry! Stack: {self.name} Segment {i}: {element.name} has multiple MPACT assemblies"
             assert mpact_geometry.nz == 1, \
-                f"Unsupported Geometry! Stack: {self.name} Element {i}: {element.name} is not a 2D radial geometry"
+                f"Unsupported Geometry! Stack: {self.name} Segment {i}: {element.name} is not a 2D radial geometry"
 
             length      = segment.length
             num_subd    = max(1, int(length // segment.mpact_build_specs.target_axial_thicknesses))
