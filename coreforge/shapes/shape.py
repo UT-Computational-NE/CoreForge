@@ -95,6 +95,6 @@ class Shape_3D(Shape):
         return self._volume
 
     def __init__(self, inner_radius: float, outer_radius: float, volume: float):
-        assert volume > 0.0, f"area = {volume}"
+        assert volume > 0.0, f"volume = {volume}"
         self._volume = volume
         super().__init__(inner_radius, outer_radius)
