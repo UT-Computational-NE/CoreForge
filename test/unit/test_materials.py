@@ -94,6 +94,7 @@ def test_initialization(air):
     assert all(isclose(material.number_densities[iso],
                        air.number_densities[iso])
                        for iso in material.number_densities.keys())
+
 def test_equality(air, graphite):
     material         = Material(air.openmc_material)
     equal_material   = Material(material.openmc_material)
