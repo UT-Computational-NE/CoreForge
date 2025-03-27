@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material
+from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
 DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
                                                is_fluid                    = False,
@@ -11,15 +11,17 @@ DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
 class Insulation(Material):
     """ Factory for creating   materials
 
-        - Density from Reference 1 page 12
+        - Default density from Reference 1 page 12
         - Composition from Section 5.6.6.3 (simplifying to pure Silica)
 
     Parameters
     ----------
     name : str
-        The name for the salt
+        The name for the material
     temperature : float
-        The temperature of the salt (K)
+        The temperature of the material (K)
+    density : float
+        The density of the material (g/cm3)
     mpact_build_specs : Material.MPACTBuildSpecs
         Specifications for building the MPACT material
 
@@ -33,12 +35,13 @@ class Insulation(Material):
 
     def __init__(self,
                  name: str = 'Insulation',
-                 temperature: float = 900.,
+                 temperature: float = STANDARD_TEMPERATURE,
+                 density: float = 0.160185,
                  mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
         openmc_material = openmc.Material()
         openmc_material.add_elements_from_formula('SiO2')
-        openmc_material.set_density('g/cm3', 0.160185)
+        openmc_material.set_density('g/cm3', density)
         openmc_material.temperature = temperature
         openmc_material.name = name
 

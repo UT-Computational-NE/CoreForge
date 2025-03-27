@@ -37,5 +37,5 @@ def test_make_openmc_universe(infinite_medium):
 def test_make_mpact_core(infinite_medium):
     geom_element = infinite_medium
     with pytest.raises(NotImplementedError,
-        match="Cannot make an MPACT Core for an infinite medium"):
+        match="Cannot make an MPACT Core for InfiniteMedium infinite_medium."):
         core = geom_element.make_mpact_core()

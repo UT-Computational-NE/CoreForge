@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material
+from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
 DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
                                                is_fluid                    = False,
@@ -19,6 +19,8 @@ class Inconel(Material):
         The name for the material
     temperature : float
         The temperature of the material (K)
+    density : float
+        The density of the material (g/cm3)
     mpact_build_specs : Material.MPACTBuildSpecs
         Specifications for building the MPACT material
 
@@ -29,26 +31,28 @@ class Inconel(Material):
 
     def __init__(self,
                  name: str = 'Inconel',
-                 temperature: float = 900.,
+                 temperature: float = STANDARD_TEMPERATURE,
+                 density: float = 8.19,
                  mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
+        components = {'Al':  0.800,
+                       'B':  0.006,
+                       'C':  0.080,
+                      'Cr': 21.000,
+                      'Co':  1.000,
+                      'Cu':  0.300,
+                      'Fe': 17.000,
+                      'Mn':  0.350,
+                      'Mo':  3.300,
+                      'Ni': 49.134,
+                      'Nb':  5.500,
+                       'P':  0.015,
+                      'Si':  0.350,
+                       'S':  0.015,
+                      'Ti':  1.150}
         openmc_material = openmc.Material()
-        openmc_material.set_density('g/cm3', 8.19)
-        openmc_material.add_element('Al',  0.800, percent_type='ao')
-        openmc_material.add_element( 'B',  0.006, percent_type='ao')
-        openmc_material.add_element( 'C',  0.080, percent_type='ao')
-        openmc_material.add_element('Cr', 21.000, percent_type='ao')
-        openmc_material.add_element('Co',  1.000, percent_type='ao')
-        openmc_material.add_element('Cu',  0.300, percent_type='ao')
-        openmc_material.add_element('Fe', 17.000, percent_type='ao')
-        openmc_material.add_element('Mn',  0.350, percent_type='ao')
-        openmc_material.add_element('Mo',  3.300, percent_type='ao')
-        openmc_material.add_element('Ni', 49.134, percent_type='ao')
-        openmc_material.add_element('Nb',  5.500, percent_type='ao')
-        openmc_material.add_element( 'P',  0.015, percent_type='ao')
-        openmc_material.add_element('Si',  0.350, percent_type='ao')
-        openmc_material.add_element( 'S',  0.015, percent_type='ao')
-        openmc_material.add_element('Ti',  1.150, percent_type='ao')
+        openmc_material.add_components(components, percent_type='ao')
+        openmc_material.set_density('g/cm3', density)
         openmc_material.temperature = temperature
         openmc_material.name = name
 

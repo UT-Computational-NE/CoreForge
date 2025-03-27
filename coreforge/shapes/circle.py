@@ -9,6 +9,11 @@ from coreforge.shapes.shape import Shape_2D
 class Circle(Shape_2D):
     """ A concrete circle channel shape class
 
+    Parameters
+    ----------
+    r : float
+        The radius of the circle (cm)
+
     Attributes
     ----------
     r : float
@@ -17,14 +22,13 @@ class Circle(Shape_2D):
 
     @property
     def r(self) -> float:
-        return self._r
+        return self._inner_radius
 
     def __init__(self, r: float):
         assert r >= 0.
-        self._r     = r
-        self._i_r   = r
-        self._o_r   = r
-        self._area  = pi*r*r
+        super().__init__(inner_radius = r,
+                         outer_radius = r,
+                         area         = pi*r*r)
 
     def __eq__(self, other: Any) -> bool:
         if self is other:

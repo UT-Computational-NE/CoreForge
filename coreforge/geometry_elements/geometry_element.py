@@ -21,12 +21,15 @@ class GeometryElement(ABC):
         return self._name
 
     @name.setter
-    def name(self, name: str) -> str:
+    def name(self, name: str) -> None:
         self._name = name
+
+    def __init__(self, name: str = ""):
+        self.name = name
 
     @abstractmethod
     def __eq__(self: T, other: Any) -> bool:
-        """ This equality check does not check to ensure labels are identical
+        """ This equality check does not check to ensure names are identical
         """
 
     def __ne__(self: T, other: Any) -> bool:
@@ -47,7 +50,6 @@ class GeometryElement(ABC):
             A new universe based on this geometry
         """
 
-    @abstractmethod
     def make_mpact_core(self) -> mpactpy.Core:
         """ A method for creating an MPACTPy Core based on this geometry
 
@@ -56,3 +58,4 @@ class GeometryElement(ABC):
         mpactpy.Core
             A new mpact core based on this geometry
         """
+        raise NotImplementedError(f"Cannot make an MPACT Core for {type(self).__name__} {self.name}.")

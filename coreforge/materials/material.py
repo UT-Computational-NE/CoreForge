@@ -1,9 +1,13 @@
 from abc import ABC
 from dataclasses import dataclass
-from typing import Dict, List, Union, Optional, Any
+from typing import Dict, List, Optional, Any
+from math import isclose
 
 import openmc
 import mpactpy.material
+from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
+
+STANDARD_TEMPERATURE = 273.15
 
 class Material(ABC):
     """ An interface class for translating materials into solver specific representations
@@ -17,18 +21,18 @@ class Material(ABC):
 
     Attributes
     ----------
-    mpact_build_specs : Union[MPACTBuildSpecs, None]
+    mpact_build_specs : Optional[MPACTBuildSpecs]
         Specifications for building the MPACT material
     openmc_material : openmc.Material
         The OpenMC Material object representing this material
-    mpact_material : Union[mpactpy.material.Material, None]
+    mpact_material : mpactpy.material.Material
         The MPACT Material object representing this material
     name : str
         The name for the material
     temperature : float
         The temperature of the material (K)
     density : float
-        The density of the material (g/cc)
+        The density of the material (g/cm3)
     number_densities : Dict[str, float]
         The isotopic number densities (atom/b-cm)
         Dictionary keys are nuclide names and values are number densities.
@@ -59,7 +63,7 @@ class Material(ABC):
         is_fuel                     : bool
 
     @property
-    def mpact_build_specs(self) -> Union[MPACTBuildSpecs, None]:
+    def mpact_build_specs(self) -> Optional[MPACTBuildSpecs]:
         return self._mpact_build_specs
 
     @mpact_build_specs.setter
@@ -110,12 +114,19 @@ class Material(ABC):
         self.mpact_build_specs = mpact_build_specs
 
     def __eq__(self, other: Any) -> bool:
-        """ Check that materials are the same
-        """
         if self is other:
             return True
-        return (isinstance(other, Material) and
-                self.openmc_material.id == other.openmc_material.id)
+        return (isinstance(other, Material)                                   and
+                isclose(self.density, other.density, rel_tol=TOL)             and
+                isclose(self.temperature, other.temperature, rel_tol=TOL)     and
+                self.number_densities.keys() == other.number_densities.keys() and
+                all(isclose(self.number_densities[iso], other.number_densities[iso], rel_tol=TOL)
+                    for iso in self.number_densities.keys())
+        )
 
     def __hash__(self) -> int:
-        return hash(self.openmc_material.id)
+        number_densities = sorted({iso: relative_round(numd, TOL)
+                                   for iso, numd in self.number_densities.items()})
+        return hash((relative_round(self.density, TOL),
+                     relative_round(self.temperature, TOL),
+                     tuple(number_densities)))

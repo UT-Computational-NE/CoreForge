@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material
+from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
 DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
                                                is_fluid                    = False,
@@ -9,15 +9,23 @@ DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
                                                is_fuel                     = False)
 
 class Air(Material):
-    """ Factory for creating air materials
+    """ Factory for creating dry air materials
 
-    Base density and composition from Reference 1.  Composition
-    was simplified from Reference 1 to consider only N, O, and Ar,
-    meaning the mole fraction of all other particulates are just
-    rolled into Ar
+    Default density and composition from Reference 1 Section 1. Composition
+    was simplified from Reference 1 Table 1 to consider only N, O, and Ar,
+    meaning the mole fraction of all other gases are just rolled into Ar
 
-    - Density from Reference 1 Section 1
-    - Composition from Reference 1 Table 1
+    Table 1:
+    .. math::
+        \\begin{array}{lc}
+        \\hline
+        \\text{Constituent} & \\text{Mole fraction } x_i \\\\
+        \\hline
+        \\text{N}_2 & 0.7808 \\\\
+        \\text{O}_2 & 0.2095 \\\\
+        \\text{Ar}  & 0.0097 \\\\
+        \\hline
+        \\end{array}
 
     Parameters
     ----------
@@ -25,6 +33,8 @@ class Air(Material):
         The name for the material
     temperature : float
         The temperature of the material (K)
+    density : float
+        The density of the material (g/cm3)
     mpact_build_specs : Material.MPACTBuildSpecs
         Specifications for building the MPACT material
 
@@ -36,14 +46,16 @@ class Air(Material):
 
     def __init__(self,
                  name: str = 'Air',
-                 temperature: float = 900.,
+                 temperature: float = STANDARD_TEMPERATURE,
+                 density: float = 0.0012,
                  mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
+        components = { 'N': 78.08,
+                       'O': 20.95,
+                      'Ar':  0.97,}
         openmc_material = openmc.Material()
-        openmc_material.set_density('g/cc', 0.0012)
-        openmc_material.add_element('N',  78.08, percent_type='ao')
-        openmc_material.add_element('O',  20.95, percent_type='ao')
-        openmc_material.add_element('Ar',  0.97, percent_type='ao')
+        openmc_material.add_components(components, percent_type='ao')
+        openmc_material.set_density('g/cm3', density)
         openmc_material.temperature = temperature
         openmc_material.name = name
 

@@ -9,6 +9,13 @@ from coreforge.shapes.shape import Shape_2D
 class Rectangle(Shape_2D):
     """ A concrete rectangle channel shape class
 
+    Parameters
+    ----------
+    h : float
+        The height of the rectangle (cm)
+    w : float
+        The width of the rectangle (cm)
+
     Attributes
     ----------
     h : float
@@ -25,16 +32,14 @@ class Rectangle(Shape_2D):
     def w(self) -> float:
         return self._w
 
-    def __init__(self, w: float, h: float = None):
+    def __init__(self, w: float, h: float):
         assert w >= 0.
-        if h is None:
-            h = w
         assert h >= 0.
         self._h = h
         self._w = w
-        self._i_r = min(h/2., w/2.)
-        self._o_r = sqrt(h*h + w*w)
-        self._area = h*w
+        super().__init__(inner_radius = min(h/2., w/2.),
+                         outer_radius = 0.5*sqrt(h*h + w*w),
+                         area         = h*w)
 
     def __eq__(self, other: Any) -> bool:
         if self is other:
@@ -54,16 +59,21 @@ class Rectangle(Shape_2D):
 class Square(Rectangle):
     """ A concrete square block shape class
 
+    Parameters
+    ----------
+    length : float
+        The side length of the square (cm)
+
     Attributes
     ----------
-    s : float
+    length : float
         The side length of the square (cm)
     """
 
     @property
-    def s(self) -> float:
+    def length(self) -> float:
         return self._w
 
-    def __init__(self, s: float):
-        assert s >= 0.
-        super().__init__(s)
+    def __init__(self, length: float):
+        assert length >= 0.
+        super().__init__(length, length)

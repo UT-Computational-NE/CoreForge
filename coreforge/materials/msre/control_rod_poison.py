@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material
+from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
 DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
                                                is_fluid                    = False,
@@ -11,7 +11,7 @@ DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
 class ControlRodPoison(Material):
     """ Factory for creating control rod poison materials
 
-    Density and Composition from Reference 1 Table 4.4
+    Default density and Composition from Reference 1 Table 4.4
 
     Parameters
     ----------
@@ -19,6 +19,8 @@ class ControlRodPoison(Material):
         The name for the material
     temperature : float
         The temperature of the material (K)
+    density : float
+        The density of the material (g/cm3)
     mpact_build_specs : Material.MPACTBuildSpecs
         Specifications for building the MPACT material
 
@@ -30,7 +32,8 @@ class ControlRodPoison(Material):
 
     def __init__(self,
                  name: str = 'Poison',
-                 temperature: float = 900.,
+                 temperature: float = STANDARD_TEMPERATURE,
+                 density: float = 5.873,
                  mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
         gd2o3 = openmc.Material()
@@ -40,7 +43,7 @@ class ControlRodPoison(Material):
         al2o3.add_elements_from_formula('Al2O3')
 
         openmc_material = openmc.Material.mix_materials([gd2o3, al2o3], [0.7, 0.3], 'wo')
-        openmc_material.set_density('g/cm3', 5.873)
+        openmc_material.set_density('g/cm3', density)
         openmc_material.temperature = temperature
         openmc_material.name = name
 

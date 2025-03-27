@@ -11,17 +11,17 @@ from test.unit.test_materials import msre_salt as salt, graphite
 
 @pytest.fixture
 def pincell(salt, graphite):
-    zones = [PinCell.Zone(shape = Circle(r=1.),          material = salt),
-             PinCell.Zone(shape = Square(s=4.),          material = graphite, rotation = 45.),
-             PinCell.Zone(shape = Hexagon(r=8.),         material = salt),
-             PinCell.Zone(shape = Stadium(r=12., a=20.), material = graphite, rotation = 90.)]
-    return PinCell(zones = zones, outer_material = salt, origin = (1., -2.))
+    zones = [PinCell.Zone(shape = Circle(r=1.),             material = salt),
+             PinCell.Zone(shape = Square(length=4.),        material = graphite, rotation = 45.),
+             PinCell.Zone(shape = Hexagon(inner_radius=8.), material = salt),
+             PinCell.Zone(shape = Stadium(r=12., a=20.),    material = graphite, rotation = 90.)]
+    return PinCell(zones = zones, outer_material = salt, x0 = 1., y0 = -2.)
 
 @pytest.fixture
 def unequal_pincell(salt, graphite):
     zones = [PinCell.Zone(shape = Circle(r=1.),          material = salt),
              PinCell.Zone(shape = Stadium(r=12., a=20.), material = graphite, rotation = 90.)]
-    return PinCell(zones = zones, outer_material = salt, origin = (1., -2.))
+    return PinCell(zones = zones, outer_material = salt, x0 = 1., y0 = -2.)
 
 @pytest.fixture
 def cylindrical_pincell(salt, graphite):
@@ -52,7 +52,8 @@ def test_pincell_initialization(pincell):
     assert isclose(geom_element.zones[2].rotation, 0.)
     assert isclose(geom_element.zones[3].rotation, 90.)
     assert geom_element.outer_material.name == "Salt"
-    assert_allclose(geom_element.origin, [1., -2.])
+    assert isclose(geom_element.x0, 1.0)
+    assert isclose(geom_element.y0, -2.0)
 
 def test_equality(pincell, unequal_pincell):
     assert pincell == deepcopy(pincell)
@@ -76,7 +77,7 @@ def test_make_openmc_universe(pincell):
 def test_pincell_make_mpact_core(pincell):
     geom_element = pincell
     with pytest.raises(NotImplementedError,
-        match="Cannot make an MPACT Core for a generic pincell"):
+        match="Cannot make an MPACT Core for PinCell pincell."):
         core = geom_element.make_mpact_core()
 
 def test_cylindrical_pincell_initialization(cylindrical_pincell):
@@ -93,7 +94,8 @@ def test_cylindrical_pincell_initialization(cylindrical_pincell):
     assert isclose(geom_element.zones[1].rotation, 0.)
     assert isclose(geom_element.zones[2].rotation, 0.)
     assert geom_element.outer_material.name == "Graphite"
-    assert_allclose(geom_element.origin, [0., 0.])
+    assert isclose(geom_element.x0, 0.0)
+    assert isclose(geom_element.y0, 0.0)
 
 def test_cylindrical_pincell_make_mpact_core(cylindrical_pincell, salt, graphite):
 
