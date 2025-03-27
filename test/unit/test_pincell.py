@@ -11,10 +11,10 @@ from test.unit.test_materials import msre_salt as salt, graphite
 
 @pytest.fixture
 def pincell(salt, graphite):
-    zones = [PinCell.Zone(shape = Circle(r=1.),          material = salt),
-             PinCell.Zone(shape = Square(s=4.),          material = graphite, rotation = 45.),
-             PinCell.Zone(shape = Hexagon(r=8.),         material = salt),
-             PinCell.Zone(shape = Stadium(r=12., a=20.), material = graphite, rotation = 90.)]
+    zones = [PinCell.Zone(shape = Circle(r=1.),             material = salt),
+             PinCell.Zone(shape = Square(length=4.),        material = graphite, rotation = 45.),
+             PinCell.Zone(shape = Hexagon(inner_radius=8.), material = salt),
+             PinCell.Zone(shape = Stadium(r=12., a=20.),    material = graphite, rotation = 90.)]
     return PinCell(zones = zones, outer_material = salt, x0 = 1., y0 = -2.)
 
 @pytest.fixture

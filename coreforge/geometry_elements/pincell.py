@@ -128,8 +128,8 @@ class PinCell(GeometryElement):
             The collection of zones to assign to the pincell
         """
         assert len(zones) > 0, f"len(zones) = {len(zones)}"
-        assert all(zones[i-1].shape.o_r < zones[i].shape.i_r for i in range(1,len(zones))), \
-            "The boundary of zones cannot intersect"
+        assert all(zones[i-1].shape.outer_radius < zones[i].shape.inner_radius
+                   for i in range(1,len(zones))), "The boundary of zones cannot intersect"
         self._zones = zones
 
     @property

@@ -104,8 +104,8 @@ class CylindricalPincell(PinCell):
             self._radial_thicknesses = []
             prev_radius = 0.
             for zone in self.zones:
-                self._radial_thicknesses.append(zone.shape.i_r - prev_radius)
-                prev_radius = zone.shape.i_r
+                self._radial_thicknesses.append(zone.shape.inner_radius - prev_radius)
+                prev_radius = zone.shape.inner_radius
 
             self._module_specs = [{"bounds" : specs.bounds}]
             if specs.divide_into_quadrants:
