@@ -133,7 +133,7 @@ class Stack(GeometryElement):
         return self._length
 
     def __init__(self, segments: List[Segment], name: str = 'stack', bottom_pos: float = 0.):
-        self.name       = name
+        super().__init__(name)
         self.segments   = segments
         self.bottom_pos = bottom_pos
 
