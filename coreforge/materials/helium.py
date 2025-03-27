@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material
+from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
 DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
                                                is_fluid                    = False,
@@ -11,7 +11,7 @@ DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
 class Helium(Material):
     """ Factory for creating Helium Gas materials
 
-    Density calculated using CoolProps (Reference 1) at 300K and 1 atm
+    Default density calculated using CoolProps (Reference 1) at 273.15K and 1 atm
 
     Parameters
     ----------
@@ -19,6 +19,8 @@ class Helium(Material):
         The name for the material
     temperature : float
         The temperature of the material (K)
+    density : float
+        The density of the material (g/cm3)
     mpact_build_specs : Material.MPACTBuildSpecs
         Specifications for building the MPACT material
 
@@ -32,11 +34,12 @@ class Helium(Material):
 
     def __init__(self,
                  name: str = 'Helium',
-                 temperature: float = 900.,
+                 temperature: float = STANDARD_TEMPERATURE,
+                 density: float = 0.00017848,
                  mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
         openmc_material = openmc.Material()
-        openmc_material.set_density('g/cm3', 0.0001625)
+        openmc_material.set_density('g/cm3', density)
         openmc_material.add_element('He', 100., percent_type='wo')
         openmc_material.temperature = temperature
         openmc_material.name = name

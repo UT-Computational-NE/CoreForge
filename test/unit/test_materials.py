@@ -81,7 +81,7 @@ def materials_are_close(lhs: mpactpy.material.Material,
             lhs.is_depletable               == rhs.is_depletable               and
             lhs.has_resonance               == rhs.has_resonance               and
             lhs.is_fuel                     == rhs.is_fuel                     and
-            all(iso in rhs.number_densities.keys() for iso in rhs.number_densities.keys()) and
+            all(iso in lhs.number_densities.keys() for iso in rhs.number_densities.keys()) and
             all(isclose(lhs.number_densities[iso], rhs.number_densities[iso], rel_tol=1E-2)
                 for iso in rhs.number_densities.keys()))
 
@@ -94,17 +94,18 @@ def test_initialization(air):
     assert all(isclose(material.number_densities[iso],
                        air.number_densities[iso])
                        for iso in material.number_densities.keys())
-def test_equality(air):
+
+def test_equality(air, graphite):
     material         = Material(air.openmc_material)
     equal_material   = Material(material.openmc_material)
-    unequal_material = Material(air.openmc_material.clone())
+    unequal_material = Material(graphite.openmc_material)
     assert material == equal_material
     assert material != unequal_material
 
-def test_hash(air):
+def test_hash(air, graphite):
     material         = Material(air.openmc_material)
     equal_material   = Material(material.openmc_material)
-    unequal_material = Material(air.openmc_material.clone())
+    unequal_material = Material(graphite.openmc_material)
     assert hash(material) == hash(equal_material)
     assert hash(material) != hash(unequal_material)
 
@@ -113,7 +114,7 @@ def test_graphite(graphite):
 
     num_dens = {'C'  : 0.0932567267810358, 'B10': 1.642700833205197e-08, 'B11': 6.645396206175213e-08}
     expected_material = mpactpy.material.Material(density                     = 1.86,
-                                                  temperature                 = 900.,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = ['C'],
                                                   is_fluid                    = False,
@@ -138,7 +139,7 @@ def test_inconel(inconel):
                 'Ni60': 0.010701176442779044,  'Ni61': 0.00046517273042179734,  'Ni62': 0.0014831742159119416,
                 'Ni64': 0.0003777207468009612, 'Nb93': 0.004568020683944462,    'P31': 1.2458238228939442e-05}
     expected_material = mpactpy.material.Material(density                     = 8.19,
-                                                  temperature                 = 900.,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = [],
                                                   is_fluid                    = False,
@@ -155,7 +156,7 @@ def test_air(air):
                 'O17':  3.910015386903025e-09,  'Ar36': 1.5935034402538069e-09, 'Ar38': 3.0045373618694377e-10,
                 'Ar40': 4.7577493978213445e-07}
     expected_material = mpactpy.material.Material(density                     = 0.0012,
-                                                  temperature                 = 900.,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = [],
                                                   is_fluid                    = False,
@@ -176,7 +177,7 @@ def test_ss304(ss304):
                 'N15' : 1.244165844970936e-06,  'Fe54': 0.0033110526543034652,'Fe56': 0.05197644572163562,
                 'Fe57': 0.001200362801448938,   'Fe58': 0.00015974625295356323}
     expected_material = mpactpy.material.Material(density                     = 7.90,
-                                                  temperature                 = 900.,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = [],
                                                   is_fluid                    = False,
@@ -199,7 +200,7 @@ def test_ss316h(ss316h):
                 'Fe54' : 0.003130089248410418,  'Fe56' : 0.049135707253832255,  'Fe57' : 0.0011347577617419463,
                 'Fe58' : 0.00015101542652724343}
     expected_material = mpactpy.material.Material(density                     = 8.0,
-                                                  temperature                 = 900.,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = [],
                                                   is_fluid                    = False,
@@ -214,7 +215,7 @@ def test_water(water):
 
     num_dens = {'H'  : 0.06687084844887618, 'O16': 0.03342275219865702, 'O17': 1.2672025781062035e-05}
     expected_material = mpactpy.material.Material(density                     = 1.0,
-                                                  temperature                 = 900.,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = ['H'],
                                                   is_fluid                    = True,
@@ -227,10 +228,10 @@ def test_water(water):
 def test_helium(helium):
     material = helium.mpact_material
 
-    num_dens = {'He3': 4.8898094254338366e-11,
-                'He4': 2.444899822907493e-05}
-    expected_material = mpactpy.material.Material(density                     = 0.0001625,
-                                                  temperature                 = 900.,
+    num_dens = {'He3': 5.370665761547269e-11,
+                'He4': 2.6853275101078733e-05}
+    expected_material = mpactpy.material.Material(density                     = 0.00017848,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = [],
                                                   is_fluid                    = False,
@@ -257,7 +258,7 @@ def test_inor8(inor8):
                 'W184' : 3.601978650022848e-05, 'W186' : 3.342175359665455e-05, 'P31'  : 2.047201399787779e-05,
                 'Co59' : 0.00014704733332743196}
     expected_material = mpactpy.material.Material(density                     = 8.7745,
-                                                  temperature                 = 900.,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = [],
                                                   is_fluid                    = False,
@@ -272,7 +273,7 @@ def test_b4c(b4c):
 
     num_dens = {'C'  : 0.019180730627934073, 'B10': 0.015206483241826132, 'B11': 0.06151643926991015}
     expected_material = mpactpy.material.Material(density                     = 1.76,
-                                                  temperature                 = 900.,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = [],
                                                   is_fluid                    = False,
@@ -304,10 +305,10 @@ def test_msre_salt(msre_salt):
 def test_msre_thimble_gas(msre_thimble_gas):
     material = msre_thimble_gas.mpact_material
 
-    num_dens = {'N14': 4.6636800311322434e-05, 'N15': 1.7145865258479214e-07, 'O16': 2.15649589352492e-06,
-                'O17': 8.176218223166029e-10}
-    expected_material = mpactpy.material.Material(density                     = 0.001146,
-                                                  temperature                 = 900.,
+    num_dens = {'N14': 5.1248390373520565e-05, 'N15': 1.884130107967543e-07, 'O16': 2.3697368312685885e-06,
+                'O17': 8.984707794762167e-10}
+    expected_material = mpactpy.material.Material(density                     = 0.00125932,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = [],
                                                   is_fluid                    = False,
@@ -322,7 +323,7 @@ def test_msre_insulation(msre_insulation):
 
     num_dens = {'Si' : 0.0016057278006239388, 'O16': 0.003210238459575004, 'O17': 1.2171416728729455e-06}
     expected_material = mpactpy.material.Material(density                     = 0.160185,
-                                                  temperature                 = 900.,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = [],
                                                   is_fluid                    = False,
@@ -340,7 +341,7 @@ def test_msre_control_rod_poison(msre_control_rod_poison):
                 'Gd160': 0.0029860212426438006,  'O16'  : 0.051692735794137225,  'O17'  : 1.9598974877456564e-05,
                 'Al27' : 0.02081514033711775}
     expected_material = mpactpy.material.Material(density                     = 5.873,
-                                                  temperature                 = 900.,
+                                                  temperature                 = 273.15,
                                                   number_densities            = num_dens,
                                                   thermal_scattering_isotopes = [],
                                                   is_fluid                    = False,

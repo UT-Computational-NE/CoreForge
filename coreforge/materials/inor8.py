@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material
+from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
 DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
                                                is_fluid                    = False,
@@ -11,7 +11,7 @@ DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
 class INOR8(Material):
     """ Factory for creating INOR-8 materials
 
-    - Density from Ref 1 Table 4.4
+    - Default density from Ref 1 Table 4.4
     - Composition from Ref 1 Table 2.3 and Table 4.4
 
     Parameters
@@ -20,6 +20,8 @@ class INOR8(Material):
         The name for the material
     temperature : float
         The temperature of the material (K)
+    density : float
+        The density of the material (g/cm3)
     mpact_build_specs : Material.MPACTBuildSpecs
         Specifications for building the MPACT material
 
@@ -31,26 +33,28 @@ class INOR8(Material):
 
     def __init__(self,
                  name: str = 'INOR-8',
-                 temperature: float = 900.,
+                 temperature: float = STANDARD_TEMPERATURE,
+                 density: float = 8.7745,
                  mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
+        components = {'Ni': 68.0,
+                      'Mo': 17.0,
+                      'Cr':  7.0,
+                      'Fe':  5.0,
+                       'C':  0.06,
+                      'Ti':  0.2045,
+                      'Al':  0.2045,
+                       'S':  0.016,
+                      'Mn':  0.818,
+                      'Si':  0.818,
+                      'Cu':  0.286,
+                       'B':  0.008,
+                       'W':  0.409,
+                       'P':  0.012,
+                      'Co':  0.164}
         openmc_material = openmc.Material()
-        openmc_material.set_density('g/cm3', 8.7745)
-        openmc_material.add_element('Ni',    68., percent_type='wo')
-        openmc_material.add_element('Mo',    17., percent_type='wo')
-        openmc_material.add_element('Cr',     7., percent_type='wo')
-        openmc_material.add_element('Fe',     5., percent_type='wo')
-        openmc_material.add_element( 'C',   0.06, percent_type='wo')
-        openmc_material.add_element('Ti', 0.2045, percent_type='wo')
-        openmc_material.add_element('Al', 0.2045, percent_type='wo')
-        openmc_material.add_element( 'S',  0.016, percent_type='wo')
-        openmc_material.add_element('Mn',  0.818, percent_type='wo')
-        openmc_material.add_element('Si',  0.818, percent_type='wo')
-        openmc_material.add_element('Cu',  0.286, percent_type='wo')
-        openmc_material.add_element( 'B',  0.008, percent_type='wo')
-        openmc_material.add_element( 'W',  0.409, percent_type='wo')
-        openmc_material.add_element( 'P',  0.012, percent_type='wo')
-        openmc_material.add_element('Co',  0.164, percent_type='wo')
+        openmc_material.add_components(components, percent_type='wo')
+        openmc_material.set_density('g/cm3', density)
         openmc_material.temperature = temperature
         openmc_material.name = name
 

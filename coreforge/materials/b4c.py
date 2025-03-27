@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material
+from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
 DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
                                                is_fluid                    = False,
@@ -19,6 +19,8 @@ class B4C(Material):
         The name for the material
     temperature : float
         The temperature of the material (K)
+    density : float
+        The density of the material (g/cm3)
     mpact_build_specs : Material.MPACTBuildSpecs
         Specifications for building the MPACT material
 
@@ -30,11 +32,12 @@ class B4C(Material):
 
     def __init__(self,
                  name: str = 'B4C',
-                 temperature: float = 900.,
+                 temperature: float = STANDARD_TEMPERATURE,
+                 density: float = 1.76,
                  mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
 
         openmc_material = openmc.Material()
-        openmc_material.set_density('g/cm3', 1.76)
+        openmc_material.set_density('g/cm3', density)
         openmc_material.add_elements_from_formula('B4C')
         openmc_material.temperature = temperature
         openmc_material.name = name
