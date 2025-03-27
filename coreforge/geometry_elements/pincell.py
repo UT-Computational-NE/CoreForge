@@ -162,8 +162,8 @@ class PinCell(GeometryElement):
             return True
         return (isinstance(other, PinCell)                            and
                 self.outer_material == other.outer_material           and
-                isclose(self.x0, other.x0, rel_tol=TOL) and
-                isclose(self.y0, other.y0, rel_tol=TOL) and
+                isclose(self.x0, other.x0, rel_tol=TOL)               and
+                isclose(self.y0, other.y0, rel_tol=TOL)               and
                 len(self.zones) == len(other.zones)                   and
                 all(self.zones[i] == other.zones[i] for i in range(len(self.zones)))
                )
