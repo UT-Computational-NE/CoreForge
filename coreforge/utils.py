@@ -75,7 +75,6 @@ def cartesian_to_ring(layout: List[List[T]], orientation : str='y') -> List[List
             for drow, dcol in face_steps:
                 for _ in range(num_face_elements):
                     ring.append(layout[row][col])
-                    print(row, col)
                     row += drow
                     col += (dcol if dcol > 0 and len(layout[row]) > len(layout[row-drow]) else
                             dcol if dcol < 0 and len(layout[row]) < len(layout[row-drow]) else 0)
@@ -91,7 +90,7 @@ def cartesian_to_ring(layout: List[List[T]], orientation : str='y') -> List[List
     def _convert_x_oriented(layout: List[List[T]]) -> List[List[T]]:
         assert len(layout) % 2 == 1, "X-oriented layout must have (2*(num_rings-1) + 1) rows"
 
-        num_rings = (len(layout) + 1) // 4 + 1
+        num_rings = (len(layout) + 1) // 2
         rings     = []
         for i in range(num_rings-1):
             rings.append([])
