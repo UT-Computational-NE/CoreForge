@@ -30,7 +30,7 @@ def test_make_openmc_universe(infinite_medium):
     universe = geom_element.make_openmc_universe()
     assert universe.name == "infinite_medium"
     assert len(universe.cells) == 1
-    cell = universe.cells[1]
+    cell = next(iter(universe.cells.values()))
     assert cell.fill.name == "Air"
     assert cell.region is None
 

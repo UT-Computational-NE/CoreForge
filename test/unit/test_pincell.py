@@ -3,11 +3,12 @@ from copy import deepcopy
 from math import isclose
 
 from numpy.testing import assert_allclose
+from mpactpy import GeneralCylindricalPinMesh, Pin
 
-from mpactpy import Model
 from coreforge.shapes import Circle, Square, Hexagon, Stadium
 from coreforge.geometry_elements import PinCell, CylindricalPincell
-from test.unit.test_materials import msre_salt as salt, graphite
+from test.unit.test_materials import graphite
+from test.unit.msre.test_materials import salt
 
 @pytest.fixture
 def pincell(salt, graphite):
@@ -25,15 +26,11 @@ def unequal_pincell(salt, graphite):
 
 @pytest.fixture
 def cylindrical_pincell(salt, graphite):
-    target_cell_thicknesses = {'radial': 0.5, 'azimuthal': 2.3}
     bounds                  = (-4.0, 4.0, -4.0, 4.0)
-
-    mpact_build_specs = CylindricalPincell.MPACTBuildSpecs(target_cell_thicknesses = target_cell_thicknesses,
-                                                           bounds                  = bounds)
 
     return CylindricalPincell(radii             = [  1.,       2.,   3.          ],
                               materials         = [salt, graphite, salt, graphite],
-                              mpact_build_specs = mpact_build_specs)
+                              mpact_build_specs = CylindricalPincell.MPACTBuildSpecs(bounds=bounds))
 
 def test_pincell_initialization(pincell):
     geom_element = pincell
@@ -117,6 +114,11 @@ def test_cylindrical_pincell_make_mpact_core(cylindrical_pincell, salt, graphite
     assert len(core.lattices)   == 1
     assert len(core.assemblies) == 1
 
+    expected_radii = [1.0, 2.0, 3.0]
+    expected_mats  = [salt, graphite, salt, graphite]
+
+    assert core.pins[0] == Pin(GeneralCylindricalPinMesh(expected_radii, -4.0, 4.0, -4.0, 4.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
+
     mpact_build_specs = deepcopy(geom_element.mpact_build_specs)
     mpact_build_specs.divide_into_quadrants = True
     geom_element.mpact_build_specs = mpact_build_specs
@@ -126,3 +128,13 @@ def test_cylindrical_pincell_make_mpact_core(cylindrical_pincell, salt, graphite
     assert isclose(core.mod_dim['Y'], 4.0)
     assert core.lattices[0].nx == 2
     assert core.lattices[0].ny == 2
+
+    pin = {"NW" : core.lattices[0].module_map[0][0].pin_map[0][0],
+           "NE" : core.lattices[0].module_map[0][1].pin_map[0][0],
+           "SW" : core.lattices[0].module_map[1][0].pin_map[0][0],
+           "SE" : core.lattices[0].module_map[1][1].pin_map[0][0]}
+
+    assert pin["NW"] == Pin(GeneralCylindricalPinMesh(expected_radii, -4.0, 0.0,  0.0, 4.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
+    assert pin["NE"] == Pin(GeneralCylindricalPinMesh(expected_radii,  0.0, 4.0,  0.0, 4.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
+    assert pin["SW"] == Pin(GeneralCylindricalPinMesh(expected_radii, -4.0, 0.0, -4.0, 0.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
+    assert pin["SE"] == Pin(GeneralCylindricalPinMesh(expected_radii,  0.0, 4.0, -4.0, 0.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
