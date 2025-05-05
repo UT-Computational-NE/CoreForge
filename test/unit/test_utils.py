@@ -1,8 +1,8 @@
 import pytest
 
-from coreforge.utils import cartesian_to_ring
+from coreforge.utils import offset_to_ring
 
-def test_cartesian_to_ring():
+def test_offset_to_ring():
 
     ring_map = [[1,2,3,4,5,6,7,8,9,10,11,12],
                 [13,14,15,16,17,18],
@@ -18,7 +18,7 @@ def test_cartesian_to_ring():
 
                      [     5,  4,  3,     ]]
 
-    assert cartesian_to_ring(layout = cartesian_map, orientation = "x") == ring_map
+    assert offset_to_ring(layout = cartesian_map, orientation = "x") == ring_map
 
     cartesian_map = [[         1,         ],
                      [    12,      2,     ],
@@ -30,4 +30,4 @@ def test_cartesian_to_ring():
                      [     8,      6,     ],
                      [         7,         ]]
 
-    assert cartesian_to_ring(layout = cartesian_map, orientation = "y") == ring_map
+    assert offset_to_ring(layout = cartesian_map, orientation = "y") == ring_map

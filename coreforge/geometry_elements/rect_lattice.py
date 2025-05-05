@@ -108,8 +108,8 @@ class RectLattice(Lattice):
 
     def __init__(self,
                  pitch:             Union[float, Tuple[float, float]],
-                 elements:          List[List[GeometryElement]],
                  outer_material:    Material,
+                 elements:          List[List[GeometryElement]],
                  name:              str = "rect_lattice",
                  mpact_build_specs: Optional[MPACTBuildSpecs] = None):
 
@@ -135,7 +135,7 @@ class RectLattice(Lattice):
 
     def __hash__(self) -> int:
         return hash((relative_round(self.pitch[0], TOL),
-                     relative_round(self.pitch[0], TOL),
+                     relative_round(self.pitch[1], TOL),
                      self.outer_material,
                      tuple(tuple(row) for row in self.elements)))
 

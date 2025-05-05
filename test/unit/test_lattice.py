@@ -37,7 +37,7 @@ def hex_x_lattice(graphite, stack, unequal_stack):
                 [p2,  None,  p1,],
 
                 [   p1,   p1,   ]]
-    return HexLattice(pitch=1., outer_material=graphite, orientation='x', cartesian_map=elements)
+    return HexLattice(pitch=1., outer_material=graphite, orientation='x', elements=elements, map_type='offset')
 
 @pytest.fixture
 def hex_y_lattice(graphite, stack, unequal_stack):
@@ -48,7 +48,7 @@ def hex_y_lattice(graphite, stack, unequal_stack):
                 [    None,   ],
                 [p2,       p1],
                 [     p1     ]]
-    return HexLattice(pitch=1., outer_material=graphite, orientation='y', cartesian_map=elements)
+    return HexLattice(pitch=1., outer_material=graphite, orientation='y', elements=elements, map_type='offset')
 
 def test_rect_lattice_initialization(rect_lattice, stack, unequal_stack):
     p1 = stack
@@ -139,7 +139,7 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
     assert geom_element.orientation == "y"
     assert isclose(geom_element.pitch, 1.0)
     expected_elements = [[p1, p1, p1, p1, p2, p1], [None]]
-    # ADD A TEST FOR UTILS TO CHECK CART TO RINGS.  LOOK AT OLD TESTS AND DO WITH STRINGS
+
     for ring, expected_ring in zip(geom_element.elements, expected_elements):
         assert len(ring) == len(expected_ring)
         for element, expected_element in zip(ring, expected_ring):

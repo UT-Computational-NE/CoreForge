@@ -1,12 +1,13 @@
 import openmc
+import mpactpy
 
 from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
-DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = ['H'],
-                                               is_fluid                    = True,
-                                               is_depletable               = False,
-                                               has_resonance               = False,
-                                               is_fuel                     = False)
+DEFAULT_MPACT_SPECS = mpactpy.Material.MPACTSpecs(thermal_scattering_isotopes = ['H'],
+                                                  is_fluid                    = True,
+                                                  is_depletable               = False,
+                                                  has_resonance               = False,
+                                                  is_fuel                     = False)
 
 class Water(Material):
     """ Factory for creating water materials
@@ -21,7 +22,7 @@ class Water(Material):
         The temperature of the material (K)
     density : float
         The density of the material (g/cm3)
-    mpact_build_specs : Material.MPACTBuildSpecs
+    mpact_build_specs : mpactpy.Material.MPACTSpecs
         Specifications for building the MPACT material
     """
 
@@ -29,7 +30,7 @@ class Water(Material):
                  name: str = 'Water',
                  temperature: float = STANDARD_TEMPERATURE,
                  density: float = 1.0,
-                 mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
+                 mpact_build_specs: mpactpy.Material.MPACTSpecs = DEFAULT_MPACT_SPECS):
 
         openmc_material = openmc.Material()
         openmc_material.add_element('H', 2)

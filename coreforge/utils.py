@@ -1,26 +1,33 @@
 from typing import List, TypeVar
 
 T = TypeVar('T')
-def cartesian_to_ring(layout: List[List[T]], orientation : str='y') -> List[List[T]]:
-    """ Function for converting cartesian layouts to hexagonal rings
+def offset_to_ring(layout: List[List[T]], orientation : str='y') -> List[List[T]]:
+    """ Convert a visually structured offset-style hexagonal layout into a ring-based representation.
 
-    Convert a Cartesian representation of a hexagonal lattice into a ring-based representation.
+    This function transforms a 2D array representation of a hexagonal lattice (commonly used
+    for human-readable input) into the ring-based format. The input layout mimics an offset
+    coordinate system, where hex cells are arranged in staggered rows (for 'y' orientation)
+    or columns (for 'x' orientation), similar to offset coordinate grids used in hex grid algorithms.
 
-    This helper function is useful for converting a visually intuitive Cartesian layout
-    of a 2D hexagonal lattice into the ring-based representation used by HexLattice.
-    For the resulting ring-based respresentation with the first dimension corresponding to
-    rings (outer-to-inner) and the second dimension corresponding to the individual elements
-    of each ring, ordered from the “top point” for y-oriented lattices, or the “east point”
-    for x-oriented lattices and proceed in a clockwise fashion.
+    The returned format organizes elements by concentric rings, from outermost to innermost.
+    Within each ring, elements are ordered clockwise starting from the "top" (for 'y'-oriented
+    lattices) or "east" (for 'x'-oriented lattices), matching the ordering expectations of the
+    `HexLattice` class.
+
+    This conversion is especially useful when users define lattice content via a 2D Python list
+    that visually resembles the hex layout (e.g., using offset rows in ASCII-style diagrams).
+
+    see: https://www.redblobgames.com/grids/hexagons/#coordinates-offset
 
     Parameters
     ----------
     layout : List[List[T]]
-        The Cartesian layout of the hexagonal lattice.
+        A 2D list representing a hexagonal lattice in offset-style layout.
+        Each sublist corresponds to a row (or column) depending on orientation.
     orientation : str, default='y'
-        Specifies the orientation of the hexagon:
-        - 'x', 'X': Two sides are parallel with the x-axis.
-        - 'y', 'Y': Two sides are parallel with the y-axis.
+        The orientation of the hexagons:
+        - 'x' or 'X': flat-top hexagons, with horizontal columns offset
+        - 'y' or 'Y': pointy-top hexagons, with vertical rows offset
 
     Returns
     -------
@@ -29,28 +36,27 @@ def cartesian_to_ring(layout: List[List[T]], orientation : str='y') -> List[List
 
     Examples
     --------
-    Y-oriented:
-               [[         T,         ],
-                [     T,      T,     ],
-                [ T,      T,      T, ],
-                [     T,      T,     ],
-                [ T,      T,      T, ],
-                [     T,      T,     ],
-                [ T,      T,      T, ],
-                [     T,      T,     ],
-                [         T,         ]]
+    Y-oriented
+               [[         1,         ],
+                [    12,      2,     ],
+                [11,     13,      3, ],
+                [    18,     14,     ],
+                [10,     19,      4, ],
+                [    17,     15,     ],
+                [ 9,     16,      5, ],
+                [     8,      6,     ],
+                [         7,         ]]
 
-    X-oriented:
-               [[     T,  T,  T,     ],
+    X-oriented
+               [[     9, 10, 11,     ],
 
-                [   T,  T,  T,  T,   ],
+                [   8, 17, 18, 12,   ],
 
-                [ T,  T,  T,  T,  T, ],
+                [ 7, 16, 19, 13,  1, ],
 
-                [   T,  T,  T,  T,   ],
+                [   6, 15, 14,  2,   ],
 
-                [     T,  T,  T,     ]]
-
+                [     5,  4,  3,     ]]
     """
 
     def _convert_y_oriented(layout: List[List[T]]) -> List[List[T]]:
