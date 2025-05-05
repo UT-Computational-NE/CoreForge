@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional, Any, Literal
+from typing import List, Any, Literal
 from math import isclose
 
 import openmc
