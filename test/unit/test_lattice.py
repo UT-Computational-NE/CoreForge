@@ -4,7 +4,6 @@ from math import isclose
 
 from numpy.testing import assert_allclose
 
-from mpactpy import Model
 from coreforge.geometry_elements import RectLattice, HexLattice
 from test.unit.test_materials import msre_salt as salt, graphite
 from test.unit.test_pincell import cylindrical_pincell as pincell
@@ -139,7 +138,6 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
     assert geom_element.orientation == "y"
     assert isclose(geom_element.pitch, 1.0)
     expected_elements = [[p1, p1, p1, p1, p2, p1], [None]]
-
     for ring, expected_ring in zip(geom_element.elements, expected_elements):
         assert len(ring) == len(expected_ring)
         for element, expected_element in zip(ring, expected_ring):
