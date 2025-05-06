@@ -2,14 +2,15 @@ from typing import TypedDict
 from math import isclose
 
 import openmc
+import mpactpy
 
 from coreforge.materials.material import Material
 
-DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
-                                               is_fluid                    = True,
-                                               is_depletable               = True,
-                                               has_resonance               = True,
-                                               is_fuel                     = True)
+DEFAULT_MPACT_SPECS = mpactpy.Material.MPACTSpecs(thermal_scattering_isotopes = [],
+                                                  is_fluid                    = True,
+                                                  is_depletable               = True,
+                                                  has_resonance               = True,
+                                                  is_fuel                     = True)
 
 class Salt(Material):
     """ Factory for creating materials based on the MSRE fuel salt
@@ -37,7 +38,7 @@ class Salt(Material):
         The name for the material
     temperature : float
         The temperature of the material (K)
-    mpact_build_specs : Material.MPACTBuildSpecs
+    mpact_build_specs : mpactpy.Material.MPACTSpecs
         Specifications for building the MPACT material
 
     Attributes
@@ -86,7 +87,7 @@ class Salt(Material):
                  lithium_enrichment: float = 99.995,
                  name:               str = 'Salt',
                  temperature:        float = 900.,
-                 mpact_build_specs:  Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
+                 mpact_build_specs:  mpactpy.Material.MPACTSpecs = DEFAULT_MPACT_SPECS):
 
         assert density > 0., f"density = {density}"
         assert all(values >= 0. for values in composition.values()), \
