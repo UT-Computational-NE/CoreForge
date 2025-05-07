@@ -245,7 +245,7 @@ class Block(BaseBlock):
         @shape.setter
         def shape(self, shape: Shape_2D) -> None:
             assert isinstance(shape, (Stadium, Circle, Rectangle)), \
-                    f"{type(self).__name__} is and Invalid Fuel Channel Shape! " +\
+                    f"{type(self).__name__} is an Invalid Fuel Channel Shape! " +\
                         "Fuel Channel must be a Stadium, Circle, or Rectangle."
             if isinstance(shape, Rectangle):
                 assert shape.w >= shape.h, f"width = {shape.w}, height = {shape.h}"

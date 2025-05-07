@@ -61,7 +61,6 @@ def test_make_openmc_universe(block):
     universe = geom_element.make_openmc_universe()
     assert universe.name == "block"
     assert len(universe.cells) == 4
-    print ([cell.fill.name for cell in universe.cells.values()])
     assert [cell.fill.name for cell in universe.cells.values()] == ["Graphite",
                                                                     "Salt",
                                                                     "Salt",

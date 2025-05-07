@@ -92,14 +92,9 @@ def test_graphite(graphite):
     material = graphite.mpact_material
 
     num_dens = {'C'  : 0.0932567267810358, 'B10': 1.642700833205197e-08, 'B11': 6.645396206175213e-08}
-    expected_material = mpactpy.material.Material(density                     = 1.86,
-                                                  temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 273.15,
                                                   number_densities            = num_dens,
-                                                  thermal_scattering_isotopes = ['C'],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = False,
-                                                  is_fuel                     = False)
+                                                  mpact_specs                 = graphite.mpact_build_specs)
 
     assert materials_are_close(material, expected_material)
 
@@ -117,14 +112,9 @@ def test_inconel(inconel):
                 'Mo98': 0.0006657981507262733, 'Mo100': 0.00026706476126612904, 'Ni58': 0.02778096100680029,
                 'Ni60': 0.010701176442779044,  'Ni61': 0.00046517273042179734,  'Ni62': 0.0014831742159119416,
                 'Ni64': 0.0003777207468009612, 'Nb93': 0.004568020683944462,    'P31': 1.2458238228939442e-05}
-    expected_material = mpactpy.material.Material(density                     = 8.19,
-                                                  temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 273.15,
                                                   number_densities            = num_dens,
-                                                  thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = True,
-                                                  is_fuel                     = False)
+                                                  mpact_specs                 = inconel.mpact_build_specs)
 
     assert materials_are_close(material, expected_material)
 
@@ -134,14 +124,9 @@ def test_air(air):
     num_dens = {'N14':  3.8309042069284913e-05, 'N15':  1.408419250713269e-07,  'O16':  1.0312753274594694e-05,
                 'O17':  3.910015386903025e-09,  'Ar36': 1.5935034402538069e-09, 'Ar38': 3.0045373618694377e-10,
                 'Ar40': 4.7577493978213445e-07}
-    expected_material = mpactpy.material.Material(density                     = 0.0012,
-                                                  temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 273.15,
                                                   number_densities            = num_dens,
-                                                  thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = False,
-                                                  is_fuel                     = False)
+                                                  mpact_specs                 = air.mpact_build_specs)
 
     assert materials_are_close(material, expected_material)
 
@@ -155,14 +140,9 @@ def test_ss304(ss304):
                 'Ni62': 0.00030933072906339496, 'Ni64': 7.877741720211267e-05,'N14' : 0.00033841344948970997,
                 'N15' : 1.244165844970936e-06,  'Fe54': 0.0033110526543034652,'Fe56': 0.05197644572163562,
                 'Fe57': 0.001200362801448938,   'Fe58': 0.00015974625295356323}
-    expected_material = mpactpy.material.Material(density                     = 7.90,
-                                                  temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 273.15,
                                                   number_densities            = num_dens,
-                                                  thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = True,
-                                                  is_fuel                     = False)
+                                                  mpact_specs                 = ss304.mpact_build_specs)
 
     assert materials_are_close(material, expected_material)
 
@@ -178,14 +158,9 @@ def test_ss316h(ss316h):
                 'Mo100': 0.00014677766538745524,'Mn55' : 0.0017538712125192586, 'P31'  : 6.999377969529131e-05,
                 'Fe54' : 0.003130089248410418,  'Fe56' : 0.049135707253832255,  'Fe57' : 0.0011347577617419463,
                 'Fe58' : 0.00015101542652724343}
-    expected_material = mpactpy.material.Material(density                     = 8.0,
-                                                  temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 273.15,
                                                   number_densities            = num_dens,
-                                                  thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = True,
-                                                  is_fuel                     = False)
+                                                  mpact_specs                 = ss316h.mpact_build_specs)
 
     assert materials_are_close(material, expected_material)
 
@@ -193,14 +168,9 @@ def test_water(water):
     material = water.mpact_material
 
     num_dens = {'H'  : 0.06687084844887618, 'O16': 0.03342275219865702, 'O17': 1.2672025781062035e-05}
-    expected_material = mpactpy.material.Material(density                     = 1.0,
-                                                  temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 273.15,
                                                   number_densities            = num_dens,
-                                                  thermal_scattering_isotopes = ['H'],
-                                                  is_fluid                    = True,
-                                                  is_depletable               = False,
-                                                  has_resonance               = False,
-                                                  is_fuel                     = False)
+                                                  mpact_specs                 = water.mpact_build_specs)
 
     assert materials_are_close(material, expected_material)
 
@@ -209,14 +179,9 @@ def test_helium(helium):
 
     num_dens = {'He3': 5.370665761547269e-11,
                 'He4': 2.6853275101078733e-05}
-    expected_material = mpactpy.material.Material(density                     = 0.00017848,
-                                                  temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 273.15,
                                                   number_densities            = num_dens,
-                                                  thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = False,
-                                                  is_fuel                     = False)
+                                                  mpact_specs                 = helium.mpact_build_specs)
 
     assert materials_are_close(material, expected_material)
 
@@ -236,14 +201,9 @@ def test_inor8(inor8):
                 'W180' : 1.410696599225658e-07, 'W182' : 3.115288323289996e-05, 'W183' : 1.6822556945765977e-05,
                 'W184' : 3.601978650022848e-05, 'W186' : 3.342175359665455e-05, 'P31'  : 2.047201399787779e-05,
                 'Co59' : 0.00014704733332743196}
-    expected_material = mpactpy.material.Material(density                     = 8.7745,
-                                                  temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 273.15,
                                                   number_densities            = num_dens,
-                                                  thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = True,
-                                                  is_fuel                     = False)
+                                                  mpact_specs                 = inor8.mpact_build_specs)
 
     assert materials_are_close(material, expected_material)
 
@@ -251,13 +211,8 @@ def test_b4c(b4c):
     material = b4c.mpact_material
 
     num_dens = {'C'  : 0.019180730627934073, 'B10': 0.015206483241826132, 'B11': 0.06151643926991015}
-    expected_material = mpactpy.material.Material(density                     = 1.76,
-                                                  temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 273.15,
                                                   number_densities            = num_dens,
-                                                  thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = False,
-                                                  is_fuel                     = False)
+                                                  mpact_specs                 = b4c.mpact_build_specs)
 
     assert materials_are_close(material, expected_material)

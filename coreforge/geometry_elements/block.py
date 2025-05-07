@@ -81,7 +81,7 @@ class Block(GeometryElement):
             return self._name
 
         @name.setter
-        def name(self, name: str) -> str:
+        def name(self, name: str) -> None:
             self._name = name
 
         @property
@@ -217,7 +217,7 @@ class Block(GeometryElement):
         self.shape            = shape
         self.prism_material   = prism_material
         self.channels         = channels if channels else []
-        self.outer_material   = outer_material if not(outer_material is None) else prism_material
+        self.outer_material   = prism_material if outer_material is None else outer_material
         super().__init__(name)
 
     def __eq__(self, other: Any) -> bool:

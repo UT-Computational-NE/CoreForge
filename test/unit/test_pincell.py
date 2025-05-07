@@ -93,6 +93,11 @@ def test_cylindrical_pincell_initialization(cylindrical_pincell):
     assert geom_element.outer_material.name == "Graphite"
     assert isclose(geom_element.x0, 0.0)
     assert isclose(geom_element.y0, 0.0)
+    geom_element.mpact_build_specs = None
+    assert isclose(geom_element.mpact_build_specs.bounds[0], -3)
+    assert isclose(geom_element.mpact_build_specs.bounds[1],  3)
+    assert isclose(geom_element.mpact_build_specs.bounds[2], -3)
+    assert isclose(geom_element.mpact_build_specs.bounds[3],  3)
 
 def test_cylindrical_pincell_make_mpact_core(cylindrical_pincell, salt, graphite):
 

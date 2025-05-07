@@ -17,7 +17,7 @@ def stack(pincell):
 
 @pytest.fixture
 def unequal_stack(pincell):
-    return Stack([Stack.Segment(element=pincell, length=3.0),
+    return Stack([Stack.Segment(element=pincell, length=4.0),
                   Stack.Segment(element=pincell, length=4.0)])
 
 def test_stack_initialization(stack, pincell):

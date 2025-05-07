@@ -95,15 +95,17 @@ class CylindricalPincell(PinCell):
         self._set_zones(zones=zones)
 
     @property
-    def mpact_build_specs(self) -> Optional[MPACTBuildSpecs]:
+    def mpact_build_specs(self) -> MPACTBuildSpecs:
         return self._mpact_build_specs
 
     @mpact_build_specs.setter
     def mpact_build_specs(self, specs: Optional[MPACTBuildSpecs]) -> None:
         outer_radius = self.zones[-1].shape.outer_radius
-        self._mpact_build_specs = specs if specs else \
-                                  CylindricalPincell.MPACTBuildSpecs(bounds=(-outer_radius, outer_radius
-                                                                             -outer_radius, outer_radius))
+        specs = specs if specs else \
+            CylindricalPincell.MPACTBuildSpecs(bounds=(-outer_radius, outer_radius,
+                                                       -outer_radius, outer_radius))
+        self._mpact_build_specs = specs
+
 
         self._radial_thicknesses = []
         prev_radius = 0.
