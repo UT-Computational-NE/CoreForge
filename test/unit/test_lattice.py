@@ -5,7 +5,8 @@ from math import isclose
 from numpy.testing import assert_allclose
 
 from coreforge.geometry_elements import RectLattice, HexLattice
-from test.unit.test_materials import msre_salt as salt, graphite
+from test.unit.test_materials import graphite
+from test.unit.msre.test_materials import salt
 from test.unit.test_pincell import cylindrical_pincell as pincell
 from test.unit.test_stack import stack, unequal_stack
 

@@ -95,31 +95,35 @@ class CylindricalPincell(PinCell):
         self._set_zones(zones=zones)
 
     @property
-    def mpact_build_specs(self) -> Optional[MPACTBuildSpecs]:
+    def mpact_build_specs(self) -> MPACTBuildSpecs:
         return self._mpact_build_specs
 
     @mpact_build_specs.setter
     def mpact_build_specs(self, specs: Optional[MPACTBuildSpecs]) -> None:
-        if specs:
-            self._radial_thicknesses = []
-            prev_radius = 0.
-            for zone in self.zones:
-                self._radial_thicknesses.append(zone.shape.inner_radius - prev_radius)
-                prev_radius = zone.shape.inner_radius
-
-            self._module_specs = [{"bounds" : specs.bounds}]
-            if specs.divide_into_quadrants:
-                xmin = specs.bounds[0]
-                xmax = specs.bounds[1]
-                ymin = specs.bounds[2]
-                ymax = specs.bounds[3]
-                hp = {"X": (xmax-xmin)*0.5, "Y": (ymax-ymin)*0.5} # half pitch
-                self._module_specs = [{"bounds" : (        xmin, xmin+hp["X"], ymin+hp["Y"],         ymax)},
-                                      {"bounds" : (xmin+hp["X"],         xmax, ymin+hp["Y"],         ymax)},
-                                      {"bounds" : (        xmin, xmin+hp["X"],         ymin, ymin+hp["Y"])},
-                                      {"bounds" : (xmin+hp["X"],         xmax,         ymin, ymin+hp["Y"])}]
-
+        outer_radius = self.zones[-1].shape.outer_radius
+        specs = specs if specs else \
+            CylindricalPincell.MPACTBuildSpecs(bounds=(-outer_radius, outer_radius,
+                                                       -outer_radius, outer_radius))
         self._mpact_build_specs = specs
+
+
+        self._radial_thicknesses = []
+        prev_radius = 0.
+        for zone in self.zones:
+            self._radial_thicknesses.append(zone.shape.inner_radius - prev_radius)
+            prev_radius = zone.shape.inner_radius
+
+        self._module_specs = [{"bounds" : specs.bounds}]
+        if specs.divide_into_quadrants:
+            xmin = specs.bounds[0]
+            xmax = specs.bounds[1]
+            ymin = specs.bounds[2]
+            ymax = specs.bounds[3]
+            hp = {"X": (xmax-xmin)*0.5, "Y": (ymax-ymin)*0.5} # half pitch
+            self._module_specs = [{"bounds" : (        xmin, xmin+hp["X"], ymin+hp["Y"],         ymax)},
+                                  {"bounds" : (xmin+hp["X"],         xmax, ymin+hp["Y"],         ymax)},
+                                  {"bounds" : (        xmin, xmin+hp["X"],         ymin, ymin+hp["Y"])},
+                                  {"bounds" : (xmin+hp["X"],         xmax,         ymin, ymin+hp["Y"])}]
 
 
     def __init__(self,
@@ -147,7 +151,6 @@ class CylindricalPincell(PinCell):
 
     def make_mpact_core(self) -> mpactpy.Core:
         specs = self.mpact_build_specs
-        assert specs, "MPACT Build Specifications must be set to build an MPACT Core"
 
         materials = [zone.material for zone in self.zones] + [self.outer_material]
         materials = [material.mpact_material for material in materials]
