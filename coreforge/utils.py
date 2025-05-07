@@ -20,7 +20,6 @@ def remove_none_2D(map_2D: List[List[T]]) -> List[List[T]]:
     array = np.array(map_2D, dtype=object)
     return array[~np.all(np.equal(array, None), axis=1)][:, ~np.all(np.equal(array, None), axis=0)].tolist()
 
-
 def offset_to_ring(layout: List[List[T]], orientation : str='y') -> List[List[T]]:
     """ Convert a visually structured offset-style hexagonal layout into a ring-based representation.
 
