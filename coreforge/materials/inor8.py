@@ -1,12 +1,13 @@
 import openmc
+import mpactpy
 
 from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
-DEFAULT_MPACT_SPECS = Material.MPACTBuildSpecs(thermal_scattering_isotopes = [],
-                                               is_fluid                    = False,
-                                               is_depletable               = False,
-                                               has_resonance               = True,
-                                               is_fuel                     = False)
+DEFAULT_MPACT_SPECS = mpactpy.Material.MPACTSpecs(thermal_scattering_isotopes = [],
+                                                  is_fluid                    = False,
+                                                  is_depletable               = False,
+                                                  has_resonance               = True,
+                                                  is_fuel                     = False)
 
 class INOR8(Material):
     """ Factory for creating INOR-8 materials
@@ -22,7 +23,7 @@ class INOR8(Material):
         The temperature of the material (K)
     density : float
         The density of the material (g/cm3)
-    mpact_build_specs : Material.MPACTBuildSpecs
+    mpact_build_specs : mpactpy.Material.MPACTSpecs
         Specifications for building the MPACT material
 
     References
@@ -35,7 +36,7 @@ class INOR8(Material):
                  name: str = 'INOR-8',
                  temperature: float = STANDARD_TEMPERATURE,
                  density: float = 8.7745,
-                 mpact_build_specs: Material.MPACTBuildSpecs = DEFAULT_MPACT_SPECS):
+                 mpact_build_specs: mpactpy.Material.MPACTSpecs = DEFAULT_MPACT_SPECS):
 
         components = {'Ni': 68.0,
                       'Mo': 17.0,
