@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import List, Any
 from math import isclose
 
-import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shapes import Shape_2D
@@ -173,26 +172,3 @@ class PinCell(GeometryElement):
                      relative_round(self.x0, TOL),
                      relative_round(self.y0, TOL),
                      tuple(self.zones)))
-
-    def make_openmc_universe(self) -> openmc.Universe:
-
-        cells = []
-        previous_regions = []
-        for zone in self.zones:
-            region = zone.shape.make_region()
-            region = region.rotate((0., 0., zone.rotation))
-            region = region.translate([self.x0, self.y0, 0.])
-            for previous_region in previous_regions:
-                region &= ~previous_region
-            previous_regions.append(region)
-            cells.append(openmc.Cell(fill=zone.material.openmc_material, region=region))
-
-        outer_region = ~cells[0].region
-        for previous_region in previous_regions:
-            if previous_region is not cells[0].region:
-                outer_region &= ~previous_region
-        cells.append(openmc.Cell(fill=self.outer_material.openmc_material, region=outer_region))
-
-        universe = openmc.Universe(name=self.name, cells=cells)
-
-        return universe

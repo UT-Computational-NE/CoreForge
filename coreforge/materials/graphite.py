@@ -3,18 +3,12 @@ import warnings
 from contextlib import contextmanager
 
 import openmc
-import mpactpy
 
 from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
 # g/cm3  CRC Handbook of Chemistry and Physics 104th Edition (Table: Density Ranges of Solid Materials)
 GRAPHITE_THEORETICAL_DENSITY = {'min' : 2.3, 'max': 2.72}
 
-DEFAULT_MPACT_SPECS = mpactpy.Material.MPACTSpecs(thermal_scattering_isotopes = ['C'],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = False,
-                                                  is_fuel                     = False)
 
 class Graphite(Material):
     """ Factory for creating graphite materials
@@ -38,8 +32,6 @@ class Graphite(Material):
         The name for the material
     temperature : float
         The temperature of the material (K)
-    mpact_build_specs : mpactpy.Material.MPACTSpecs
-        Specifications for building the MPACT material
     suppress_warnings : bool
         A flag for suppressing OpenMC warnings that arise during material creation.
         Default setting is True.
@@ -85,7 +77,6 @@ class Graphite(Material):
                  name:                         str = 'Graphite',
                  temperature:                  float = STANDARD_TEMPERATURE,
                  theoretical_graphite_density: float = GRAPHITE_THEORETICAL_DENSITY['max'],
-                 mpact_build_specs:            mpactpy.Material.MPACTSpecs = DEFAULT_MPACT_SPECS,
                  suppress_warnings:            bool = True):
 
         assert graphite_density > 0., f"density = {graphite_density}"
@@ -145,4 +136,4 @@ class Graphite(Material):
         openmc_material.temperature = temperature
         openmc_material.name = name
 
-        super().__init__(openmc_material, mpact_build_specs)
+        super().__init__(openmc_material)

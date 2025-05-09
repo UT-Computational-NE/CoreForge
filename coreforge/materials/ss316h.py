@@ -1,13 +1,6 @@
 import openmc
-import mpactpy
 
 from coreforge.materials.material import Material, STANDARD_TEMPERATURE
-
-DEFAULT_MPACT_SPECS = mpactpy.Material.MPACTSpecs(thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = True,
-                                                  is_fuel                     = False)
 
 class SS316H(Material):
     """ Factory for creating 316H Stainless Steel materials
@@ -23,8 +16,6 @@ class SS316H(Material):
         The temperature of the material (K)
     density : float
         The density of the material (g/cm3)
-    mpact_build_specs : mpactpy.Material.MPACTSpecs
-        Specifications for building the MPACT material
 
     References
     ----------
@@ -34,8 +25,7 @@ class SS316H(Material):
     def __init__(self,
                  name: str = 'SS-316H',
                  temperature: float = STANDARD_TEMPERATURE,
-                 density: float = 8.0,
-                 mpact_build_specs: mpactpy.Material.MPACTSpecs = DEFAULT_MPACT_SPECS):
+                 density: float = 8.0):
 
         components = {'Cr': 18.0,
                       'Ni': 14.0,
@@ -52,4 +42,4 @@ class SS316H(Material):
         openmc_material.temperature = temperature
         openmc_material.name = name
 
-        super().__init__(openmc_material, mpact_build_specs)
+        super().__init__(openmc_material)

@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import List, Any, Literal
 from math import isclose
 
-import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
@@ -171,24 +170,3 @@ class HexLattice(Lattice):
         return hash((relative_round(self.pitch, TOL),
                      self.outer_material,
                      tuple(tuple(row) for row in self.elements)))
-
-
-    def make_openmc_universe(self) -> openmc.Universe:
-
-        outer_universe = openmc.Universe(cells=[openmc.Cell(fill=self.outer_material.openmc_material)])
-
-        universes = []
-        for ring in self.elements:
-            universes.append([])
-            for element in ring:
-                universe = element.make_openmc_universe() if element else outer_universe
-                universes[-1].append(universe)
-
-        lattice_universe             = openmc.HexLattice()
-        lattice_universe.orientation = self.orientation
-        lattice_universe.outer       = outer_universe
-        lattice_universe.pitch       = [self.pitch]
-        lattice_universe.center      = (0., 0.)
-        lattice_universe.universes   = universes
-
-        return lattice_universe

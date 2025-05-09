@@ -2,15 +2,8 @@ from typing import TypedDict
 from math import isclose
 
 import openmc
-import mpactpy
 
 from coreforge.materials.material import Material
-
-DEFAULT_MPACT_SPECS = mpactpy.Material.MPACTSpecs(thermal_scattering_isotopes = [],
-                                                  is_fluid                    = True,
-                                                  is_depletable               = True,
-                                                  has_resonance               = True,
-                                                  is_fuel                     = True)
 
 class Salt(Material):
     """ Factory for creating materials based on the MSRE fuel salt
@@ -38,8 +31,6 @@ class Salt(Material):
         The name for the material
     temperature : float
         The temperature of the material (K)
-    mpact_build_specs : mpactpy.Material.MPACTSpecs
-        Specifications for building the MPACT material
 
     Attributes
     ----------
@@ -86,8 +77,7 @@ class Salt(Material):
                  uranium_enrichment: float = 31.355,
                  lithium_enrichment: float = 99.995,
                  name:               str = 'Salt',
-                 temperature:        float = 900.,
-                 mpact_build_specs:  mpactpy.Material.MPACTSpecs = DEFAULT_MPACT_SPECS):
+                 temperature:        float = 900.):
 
         assert density > 0., f"density = {density}"
         assert all(values >= 0. for values in composition.values()), \
@@ -101,7 +91,6 @@ class Salt(Material):
         self._composition        = composition
         self._uranium_enrichment = uranium_enrichment
         self._lithium_enrichment = lithium_enrichment
-        self._mpact_build_specs  = mpact_build_specs
 
         lif  = openmc.Material()
         lif.add_elements_from_formula('LiF', enrichment=self.lithium_enrichment, enrichment_target='Li7', enrichment_type='wo')
@@ -141,4 +130,4 @@ class Salt(Material):
         openmc_material.temperature = temperature
         openmc_material.name = name
 
-        super().__init__(openmc_material, mpact_build_specs)
+        super().__init__(openmc_material)
