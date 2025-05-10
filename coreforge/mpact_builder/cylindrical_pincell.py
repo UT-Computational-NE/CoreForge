@@ -4,7 +4,7 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder.registry import register_builder, build_material
+from coreforge.mpact_builder.mpact_builder import register_builder, build_material
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.material_specs import MaterialSpecs
 from coreforge import geometry_elements

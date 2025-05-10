@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.openmc_builder.registry import register_builder
+from coreforge.openmc_builder.openmc_builder import register_builder
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.Block)

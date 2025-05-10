@@ -2,7 +2,7 @@ from .cylindrical_pincell import CylindricalPinCell
 from .stack import Stack
 from .rect_lattice import RectLattice
 from . import msre
-from .registry import build, build_material
+from .mpact_builder import build, build_material
 from .material_specs import DEFAULT_MPACT_SPECS
 
 __all__ = [
