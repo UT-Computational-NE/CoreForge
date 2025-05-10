@@ -1,13 +1,7 @@
 import openmc
-import mpactpy
 
 from coreforge.materials.material import Material, STANDARD_TEMPERATURE
 
-DEFAULT_MPACT_SPECS = mpactpy.Material.MPACTSpecs(thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = True,
-                                                  is_fuel                     = False)
 
 class ControlRodPoison(Material):
     """ Factory for creating control rod poison materials
@@ -22,8 +16,6 @@ class ControlRodPoison(Material):
         The temperature of the material (K)
     density : float
         The density of the material (g/cm3)
-    mpact_build_specs : mpactpy.Material.MPACTSpecs
-        Specifications for building the MPACT material
 
     References
     ----------
@@ -34,8 +26,7 @@ class ControlRodPoison(Material):
     def __init__(self,
                  name: str = 'Poison',
                  temperature: float = STANDARD_TEMPERATURE,
-                 density: float = 5.873,
-                 mpact_build_specs: mpactpy.Material.MPACTSpecs = DEFAULT_MPACT_SPECS):
+                 density: float = 5.873):
 
         gd2o3 = openmc.Material()
         gd2o3.add_elements_from_formula('Gd2O3')
@@ -48,4 +39,4 @@ class ControlRodPoison(Material):
         openmc_material.temperature = temperature
         openmc_material.name = name
 
-        super().__init__(openmc_material, mpact_build_specs)
+        super().__init__(openmc_material)

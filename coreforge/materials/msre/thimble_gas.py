@@ -1,13 +1,6 @@
 import openmc
-import mpactpy
 
 from coreforge.materials.material import Material, STANDARD_TEMPERATURE
-
-DEFAULT_MPACT_SPECS = mpactpy.Material.MPACTSpecs(thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = False,
-                                                  is_fuel                     = False)
 
 class ThimbleGas(Material):
     """ Material for MSRE Thimble Gas materials
@@ -23,8 +16,6 @@ class ThimbleGas(Material):
         The temperature of the material (K)
     density : float
         The density of the material (g/cm3)
-    mpact_build_specs : mpactpy.Material.MPACTSpecs
-        Specifications for building the MPACT material
 
     References
     ----------
@@ -38,8 +29,7 @@ class ThimbleGas(Material):
     def __init__(self,
                  name: str = 'Thimble Gas',
                  temperature: float = STANDARD_TEMPERATURE,
-                 density: float = 0.00125932,
-                 mpact_build_specs: mpactpy.Material.MPACTSpecs = DEFAULT_MPACT_SPECS):
+                 density: float = 0.00125932):
 
         components = {'N': 95., 'O':  5.,}
         openmc_material = openmc.Material()
@@ -48,4 +38,4 @@ class ThimbleGas(Material):
         openmc_material.temperature = temperature
         openmc_material.name = name
 
-        super().__init__(openmc_material, mpact_build_specs)
+        super().__init__(openmc_material)

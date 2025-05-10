@@ -5,9 +5,12 @@ from math import isclose
 from numpy.testing import assert_allclose
 
 from coreforge.geometry_elements import Stack
+import coreforge.openmc_builder as openmc_builder
+import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
 from test.unit.msre.test_materials import salt
-from test.unit.test_pincell import cylindrical_pincell as pincell
+from test.unit.test_pincell import cylindrical_pincell as pincell, \
+                                   cylindrical_pincell_mpact_specs as pincell_mpact_specs
 
 @pytest.fixture
 def stack(pincell):
@@ -19,6 +22,16 @@ def stack(pincell):
 def unequal_stack(pincell):
     return Stack([Stack.Segment(element=pincell, length=4.0),
                   Stack.Segment(element=pincell, length=4.0)])
+
+@pytest.fixture
+def stack_mpact_specs(stack, unequal_stack, pincell_mpact_specs):
+    segment_specs = mpact_builder.Stack.Segment.Specs(builder_specs=pincell_mpact_specs)
+    return mpact_builder.Stack.Specs({stack.segments[0]:         segment_specs,
+                                      stack.segments[1]:         segment_specs,
+                                      stack.segments[2]:         segment_specs,
+                                      unequal_stack.segments[0]: segment_specs})
+
+
 
 def test_stack_initialization(stack, pincell):
     geom_element = stack
@@ -41,17 +54,17 @@ def test_hash(stack, unequal_stack):
     assert hash(stack) == hash(deepcopy(stack))
     assert hash(stack) != hash(unequal_stack)
 
-def test_make_openmc_universe(stack):
+def test_openmc_builder(stack):
     geom_element = stack
-    universe = geom_element.make_openmc_universe()
+    universe = openmc_builder.build(geom_element)
     assert universe.name == "stack"
     assert len(universe.cells) == 3
     for cell in universe.cells.values():
         assert cell.fill.name == "pincell"
 
-def test_make_mpact_core(stack):
-    geom_element = stack
-    core         = geom_element.make_mpact_core()
+def test_mpact_builder(stack, stack_mpact_specs):
+    geom_element  = stack
+    core          = mpact_builder.build(geom_element, stack_mpact_specs)
 
     assert isclose(core.mod_dim['X'], 8.0)
     assert isclose(core.mod_dim['Y'], 8.0)
@@ -73,4 +86,4 @@ def test_make_mpact_core(stack):
     geom_element = Stack(name = "bad_stack", segments = [Stack.Segment(element=stack, length=8.0)])
     expected_assertion = "Unsupported Geometry! Stack: bad_stack Segment 0: stack is not a 2D radial geometry"
     with pytest.raises(AssertionError, match=expected_assertion):
-        core = geom_element.make_mpact_core()
+        core = mpact_builder.build(geom_element)

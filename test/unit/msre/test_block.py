@@ -7,6 +7,8 @@ from mpactpy import Pin, RectangularPinMesh as RectMesh, GeneralCylindricalPinMe
 
 from coreforge.shapes import Circle, Stadium, Rectangle, Square
 from coreforge.geometry_elements.msre import Block
+import coreforge.openmc_builder as openmc_builder
+import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
 from test.unit.msre.test_materials import salt
 
@@ -138,13 +140,13 @@ def test_equality(block, unequal_block):
     assert block == deepcopy(block)
     assert block != unequal_block
 
-def test_hash(block, control_chan_block):
+def test_hash(block, unequal_block):
     assert hash(block) == hash(deepcopy(block))
     assert hash(block) != hash(unequal_block)
 
 def test_make_openmc_universe(block):
     geom_element = block
-    universe = geom_element.make_openmc_universe()
+    universe = openmc_builder.build(geom_element)
     assert universe.name == "msre_block"
     assert len(universe.cells) == 6
     assert [cell.fill.name for cell in universe.cells.values()] == ["Graphite",
@@ -154,15 +156,15 @@ def test_make_openmc_universe(block):
                                                                     "Salt",
                                                                     "Salt"]
 
-def test_make_mpact_core(stadium_fuel_chan_block, rectangle_fuel_chan_block,
-                         circle_fuel_chan_block,  control_chan_block,
-                         no_chan_block, salt, graphite):
+def test_mpact_builder(stadium_fuel_chan_block, rectangle_fuel_chan_block,
+                       circle_fuel_chan_block,  control_chan_block,
+                       no_chan_block, salt, graphite):
 
-    salt     = salt.mpact_material
-    graphite = graphite.mpact_material
+    salt     = mpact_builder.build_material(salt)
+    graphite = mpact_builder.build_material(graphite)
 
     # Stadium Fuel Channels
-    core = stadium_fuel_chan_block.make_mpact_core()
+    core = mpact_builder.build(stadium_fuel_chan_block)
 
     assert len(core.materials) == 2
     assert salt in core.materials
@@ -224,11 +226,8 @@ def test_make_mpact_core(stadium_fuel_chan_block, rectangle_fuel_chan_block,
 
 
     # Stadium Fuel Channels (Divided into Quadrants)
-    mpact_build_specs                         = deepcopy(stadium_fuel_chan_block.mpact_build_specs)
-    mpact_build_specs.divide_into_quadrants   = True
-    stadium_fuel_chan_block.mpact_build_specs = mpact_build_specs
-
-    core = stadium_fuel_chan_block.make_mpact_core()
+    mpact_build_specs = mpact_builder.msre.Block.Specs(divide_into_quadrants = True)
+    core = mpact_builder.build(stadium_fuel_chan_block, mpact_build_specs)
 
     assert len(core.modules) == 4
     assert isclose(core.mod_dim['X'], block_pitch*0.5)
@@ -260,7 +259,7 @@ def test_make_mpact_core(stadium_fuel_chan_block, rectangle_fuel_chan_block,
 
 
     # Rectangular Fuel Channels
-    core = rectangle_fuel_chan_block.make_mpact_core()
+    core = mpact_builder.build(rectangle_fuel_chan_block)
 
     N_chan_E_cap  = Pin(RectMesh([    fcr, ccl], [ccl-fcr, ccl], zval, [1,1], [1,1], divz), [salt, graphite, graphite, graphite])
     N_chan_W_cap  = Pin(RectMesh([ccl-fcr, ccl], [ccl-fcr, ccl], zval, [1,1], [1,1], divz), [graphite, salt, graphite, graphite])
@@ -282,7 +281,7 @@ def test_make_mpact_core(stadium_fuel_chan_block, rectangle_fuel_chan_block,
 
 
     # Circular Fuel Channels
-    core             = circle_fuel_chan_block.make_mpact_core()
+    core             = mpact_builder.build(circle_fuel_chan_block)
 
     cap_cell_length  = (half_block_pitch)*0.5
     radii            = [fuel_chan_r, cap_cell_length]
@@ -307,7 +306,7 @@ def test_make_mpact_core(stadium_fuel_chan_block, rectangle_fuel_chan_block,
 
 
     # No Channels
-    core         = no_chan_block.make_mpact_core()
+    core         = mpact_builder.build(no_chan_block)
 
     expected_map = [[prism , prism, prism, prism],
                     [prism , prism, prism, prism],
@@ -318,7 +317,7 @@ def test_make_mpact_core(stadium_fuel_chan_block, rectangle_fuel_chan_block,
 
 
     # Control Rod Channels
-    core             = control_chan_block.make_mpact_core()
+    core             = mpact_builder.build(control_chan_block)
 
     cap_cell_length  = control_chan_r - block_pitch*0.5
     half_flat_length = (block_pitch - cap_cell_length*4.0)*0.5
