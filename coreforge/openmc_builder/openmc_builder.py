@@ -29,4 +29,4 @@ def build(element: GeometryElement) -> openmc.Universe:
         if builder_cls:
             return builder_cls().build(element)
         cls = cls.__base__
-    raise NotImplementedError(f"No MPACT builder registered for {type(element).__name__} {element.name}")
+    raise NotImplementedError(f"No OpenMC builder registered for {type(element).__name__} {element.name}")
