@@ -6,6 +6,8 @@ from numpy.testing import assert_allclose
 
 from coreforge.shapes import Circle, Square, Rectangle
 from coreforge.geometry_elements import Block
+import coreforge.openmc_builder as openmc_builder
+import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
 from test.unit.msre.test_materials import salt
 
@@ -56,9 +58,9 @@ def test_hash(block, unequal_block):
     assert hash(block) == hash(deepcopy(block))
     assert hash(block) != hash(unequal_block)
 
-def test_make_openmc_universe(block):
+def test_openmc_builder(block):
     geom_element = block
-    universe = geom_element.make_openmc_universe()
+    universe = openmc_builder.build(geom_element)
     assert universe.name == "block"
     assert len(universe.cells) == 4
     assert [cell.fill.name for cell in universe.cells.values()] == ["Graphite",
@@ -69,5 +71,5 @@ def test_make_openmc_universe(block):
 def test_make_mpact_core(block):
     geom_element = block
     with pytest.raises(NotImplementedError,
-        match="Cannot make an MPACT Core for Block block."):
-        core = geom_element.make_mpact_core()
+        match="No MPACT builder registered for Block block"):
+        core = mpact_builder.build(geom_element)

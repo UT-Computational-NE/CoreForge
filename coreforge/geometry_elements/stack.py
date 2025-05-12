@@ -1,10 +1,7 @@
 from __future__ import annotations
-from typing import List, Any, Optional, Union
-from math import isclose, inf
-from dataclasses import dataclass
+from typing import List, Any
+from math import isclose
 
-import openmc
-import mpactpy
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
@@ -41,29 +38,7 @@ class Stack(GeometryElement):
             The geometry element which occupies the segment
         length : float
             The length of the segment
-        mpact_build_specs : MPACTBuildSpecs
-            Specifications for building the MPACT Core representation of this element
         """
-
-        @dataclass
-        class MPACTBuildSpecs():
-            """ A dataclass for holding MPACT Core building specifications"
-
-            Attributes
-            ----------
-            target_axial_thicknesses : ThicknessSpec
-                The target thickness of the cells in terms of segment length (cm).
-                Cells will be subdivided to limit cells to within this thickness.
-            """
-
-            target_axial_thicknesses: Optional[float] = None
-
-            def __post_init__(self):
-                if not self.target_axial_thicknesses:
-                    self.target_axial_thicknesses = inf
-
-                assert self.target_axial_thicknesses > 0.0, \
-                    f"target_axial_thicknesses = {self.target_axial_thicknesses}"
 
         @property
         def element(self) -> GeometryElement:
@@ -82,21 +57,11 @@ class Stack(GeometryElement):
             assert length > 0., f"length = {length}"
             self._length = length
 
-        @property
-        def mpact_build_specs(self) -> MPACTBuildSpecs:
-            return self._mpact_build_specs
-
-        @mpact_build_specs.setter
-        def mpact_build_specs(self, specs: Union[MPACTBuildSpecs, None]) -> None:
-            self._mpact_build_specs = specs if specs else Stack.Segment.MPACTBuildSpecs()
-
         def __init__(self,
                      element: GeometryElement,
-                     length:  float,
-                     mpact_build_specs: Optional[MPACTBuildSpecs] = None):
+                     length:  float):
             self.element           = element
             self.length            = length
-            self.mpact_build_specs = mpact_build_specs
 
         def __eq__(self, other: Any) -> bool:
             if self is other:
@@ -149,55 +114,3 @@ class Stack(GeometryElement):
 
     def __hash__(self) -> int:
         return hash((relative_round(self.bottom_pos, TOL), tuple(self.segments)))
-
-
-    def make_openmc_universe(self) -> openmc.Universe:
-
-        cells = []
-        height = self.bottom_pos
-        for segment in self.segments:
-            segment_universe = segment.element.make_openmc_universe()
-            if segment is self.segments[0] and segment is self.segments[-1]:
-                region      = None
-            elif segment is self.segments[0]:
-                upper_bound = openmc.ZPlane(height + segment.length)
-                region      = -upper_bound
-            elif segment is self.segments[-1]:
-                lower_bound = openmc.ZPlane(height)
-                region      = +lower_bound
-            else:
-                lower_bound = openmc.ZPlane(height)
-                upper_bound = openmc.ZPlane(height + segment.length)
-                region      = +lower_bound & -upper_bound
-
-            cells.append(openmc.Cell(fill=segment_universe, region=region))
-            height += segment.length
-
-        universe = openmc.Universe(name=self.name, cells=cells)
-
-        return universe
-
-    def make_mpact_core(self) -> mpactpy.Core:
-
-        def build_lattices(i: int, segment: Stack.Segment) -> List[mpactpy.Lattice]:
-            element        = segment.element
-            mpact_geometry = element.make_mpact_core()
-            assert mpact_geometry.nx == 1 and mpact_geometry.ny == 1, \
-                f"Unsupported Geometry! Stack: {self.name} Segment {i}: {element.name} has multiple MPACT assemblies"
-            assert mpact_geometry.nz == 1, \
-                f"Unsupported Geometry! Stack: {self.name} Segment {i}: {element.name} is not a 2D radial geometry"
-
-            length      = segment.length
-            num_subd    = max(1, int(length // segment.mpact_build_specs.target_axial_thicknesses))
-            subd_length = length / num_subd
-            subd_points = [i * subd_length for i in range(num_subd + 1)]
-
-            lattice = mpact_geometry.lattices[0].with_height(length)
-
-            return [lattice.get_axial_slice(start_pos, stop_pos)
-                    for start_pos, stop_pos in zip(subd_points[:-1], subd_points[1:])]
-
-
-        lattices = [lattice for i, segment in enumerate(self.segments) for lattice in build_lattices(i, segment)]
-        assembly = mpactpy.Assembly(lattices)
-        return mpactpy.Core([[assembly]], "360")

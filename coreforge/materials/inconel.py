@@ -1,13 +1,6 @@
 import openmc
-import mpactpy
 
 from coreforge.materials.material import Material, STANDARD_TEMPERATURE
-
-DEFAULT_MPACT_SPECS = mpactpy.Material.MPACTSpecs(thermal_scattering_isotopes = [],
-                                                  is_fluid                    = False,
-                                                  is_depletable               = False,
-                                                  has_resonance               = True,
-                                                  is_fuel                     = False)
 
 class Inconel(Material):
     """ Factory for creating Inconel materials
@@ -22,8 +15,6 @@ class Inconel(Material):
         The temperature of the material (K)
     density : float
         The density of the material (g/cm3)
-    mpact_build_specs : mpactpy.Material.MPACTSpecs
-        Specifications for building the MPACT material
 
     References
     ----------
@@ -33,8 +24,7 @@ class Inconel(Material):
     def __init__(self,
                  name: str = 'Inconel',
                  temperature: float = STANDARD_TEMPERATURE,
-                 density: float = 8.19,
-                 mpact_build_specs: mpactpy.Material.MPACTSpecs = DEFAULT_MPACT_SPECS):
+                 density: float = 8.19):
 
         components = {'Al':  0.800,
                        'B':  0.006,
@@ -57,4 +47,4 @@ class Inconel(Material):
         openmc_material.temperature = temperature
         openmc_material.name = name
 
-        super().__init__(openmc_material, mpact_build_specs)
+        super().__init__(openmc_material)

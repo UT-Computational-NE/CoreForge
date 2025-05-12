@@ -6,7 +6,9 @@ from numpy.testing import assert_allclose
 from mpactpy import GeneralCylindricalPinMesh, Pin
 
 from coreforge.shapes import Circle, Square, Hexagon, Stadium
-from coreforge.geometry_elements import PinCell, CylindricalPincell
+from coreforge.geometry_elements import PinCell, CylindricalPinCell
+import coreforge.openmc_builder as openmc_builder
+import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
 from test.unit.msre.test_materials import salt
 
@@ -26,11 +28,14 @@ def unequal_pincell(salt, graphite):
 
 @pytest.fixture
 def cylindrical_pincell(salt, graphite):
-    bounds                  = (-4.0, 4.0, -4.0, 4.0)
+    return CylindricalPinCell(radii             = [  1.,       2.,   3.          ],
+                              materials         = [salt, graphite, salt, graphite])
 
-    return CylindricalPincell(radii             = [  1.,       2.,   3.          ],
-                              materials         = [salt, graphite, salt, graphite],
-                              mpact_build_specs = CylindricalPincell.MPACTBuildSpecs(bounds=bounds))
+@pytest.fixture
+def cylindrical_pincell_mpact_specs():
+    return mpact_builder.CylindricalPinCell.Specs(bounds = (-4.0, 4.0, -4.0, 4.0))
+
+
 
 def test_pincell_initialization(pincell):
     geom_element = pincell
@@ -60,9 +65,9 @@ def test_hash(pincell, unequal_pincell):
     assert hash(pincell) == hash(deepcopy(pincell))
     assert hash(pincell) != hash(unequal_pincell)
 
-def test_make_openmc_universe(pincell):
+def test_openmc_builder(pincell):
     geom_element = pincell
-    universe = geom_element.make_openmc_universe()
+    universe = openmc_builder.build(geom_element)
     assert universe.name == "pincell"
     assert len(universe.cells) == 5
     assert [cell.fill.name for cell in universe.cells.values()] == ["Salt",
@@ -71,11 +76,11 @@ def test_make_openmc_universe(pincell):
                                                                     "Graphite",
                                                                     "Salt"]
 
-def test_pincell_make_mpact_core(pincell):
+def test_pincell_mpact_builder(pincell):
     geom_element = pincell
     with pytest.raises(NotImplementedError,
-        match="Cannot make an MPACT Core for PinCell pincell."):
-        core = geom_element.make_mpact_core()
+        match="No MPACT builder registered for PinCell pincell"):
+        core = mpact_builder.build(geom_element)
 
 def test_cylindrical_pincell_initialization(cylindrical_pincell):
     geom_element = cylindrical_pincell
@@ -93,18 +98,14 @@ def test_cylindrical_pincell_initialization(cylindrical_pincell):
     assert geom_element.outer_material.name == "Graphite"
     assert isclose(geom_element.x0, 0.0)
     assert isclose(geom_element.y0, 0.0)
-    geom_element.mpact_build_specs = None
-    assert isclose(geom_element.mpact_build_specs.bounds[0], -3)
-    assert isclose(geom_element.mpact_build_specs.bounds[1],  3)
-    assert isclose(geom_element.mpact_build_specs.bounds[2], -3)
-    assert isclose(geom_element.mpact_build_specs.bounds[3],  3)
 
-def test_cylindrical_pincell_make_mpact_core(cylindrical_pincell, salt, graphite):
+def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pincell_mpact_specs, salt, graphite):
 
     geom_element = cylindrical_pincell
-    core         = geom_element.make_mpact_core()
-    salt         = salt.mpact_material
-    graphite     = graphite.mpact_material
+    specs        = cylindrical_pincell_mpact_specs
+    core         = mpact_builder.build(geom_element, specs)
+    salt         = mpact_builder.build_material(salt)
+    graphite     = mpact_builder.build_material(graphite)
 
     assert len(core.materials) == 2
     assert salt in core.materials
@@ -124,10 +125,8 @@ def test_cylindrical_pincell_make_mpact_core(cylindrical_pincell, salt, graphite
 
     assert core.pins[0] == Pin(GeneralCylindricalPinMesh(expected_radii, -4.0, 4.0, -4.0, 4.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
 
-    mpact_build_specs = deepcopy(geom_element.mpact_build_specs)
-    mpact_build_specs.divide_into_quadrants = True
-    geom_element.mpact_build_specs = mpact_build_specs
-    core = geom_element.make_mpact_core()
+    specs.divide_into_quadrants = True
+    core = mpact_builder.build(geom_element, specs)
 
     assert isclose(core.mod_dim['X'], 4.0)
     assert isclose(core.mod_dim['Y'], 4.0)

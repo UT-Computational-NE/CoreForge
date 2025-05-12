@@ -2,7 +2,6 @@ from __future__ import annotations
 from typing import List, Any, Optional
 from math import isclose
 
-import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shapes import Shape_2D
@@ -158,22 +157,6 @@ class Block(GeometryElement):
                          relative_round(self.distance_from_block_center, TOL),
                          relative_round(self.rotation_about_block_center, TOL)))
 
-        def make_cell(self) -> openmc.Cell:
-            """ A method for creating a new cell based on the channel
-
-            Returns
-            -------
-            openmc.Cell
-                A new cell based on this channel
-            """
-
-            region = self.shape.make_region()
-            region = region.rotate((0., 0., self.shape_rotation))
-            region = region.translate([0., -self.distance_from_block_center, 0.])
-            region = region.rotate((0., 0., self.rotation_about_block_center))
-            cell = openmc.Cell(name=self.name, fill=self.material.openmc_material, region=region)
-            return cell
-
     @property
     def shape(self) -> Shape_2D:
         return self._shape
@@ -236,27 +219,3 @@ class Block(GeometryElement):
                      self.prism_material,
                      self.outer_material,
                      tuple(self.channels)))
-
-    def make_openmc_universe(self) -> openmc.Universe:
-
-        channel_cells = []
-        for channel in self.channels:
-            if channel is None:
-                continue
-            channel_cells.append(channel.make_cell())
-
-        prism_region = self.shape.make_region()
-        outer_region = ~prism_region
-        for channel in channel_cells:
-            prism_region &= ~channel.region
-            outer_region &= ~channel.region
-
-        block_cell = openmc.Cell(fill=self.prism_material.openmc_material, region=prism_region)
-        outer_cell = openmc.Cell(fill=self.outer_material.openmc_material, region=outer_region)
-
-        universe = openmc.Universe(name=self.name)
-        universe.add_cells([block_cell, outer_cell])
-        for channel in channel_cells:
-            universe.add_cell(channel)
-
-        return universe

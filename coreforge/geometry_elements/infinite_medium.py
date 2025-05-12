@@ -1,8 +1,6 @@
 from __future__ import annotations
 from typing import Any
 
-import openmc
-
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Material
 
@@ -40,8 +38,3 @@ class InfiniteMedium(GeometryElement):
 
     def __hash__(self) -> int:
         return hash(self.material)
-
-    def make_openmc_universe(self) -> openmc.Universe:
-
-        universe = openmc.Universe(name=self.name, cells=[openmc.Cell(fill=self.material.openmc_material)])
-        return universe
