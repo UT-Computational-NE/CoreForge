@@ -44,7 +44,7 @@ def test_openmc_builder(infinite_medium):
     assert cell.fill.name == "Air"
     assert cell.region is None
 
-def test_mpact_builder(infinite_medium, infinite_medium_mpact_specs, air):
+def test_mpacts_builder(infinite_medium, infinite_medium_mpact_specs, air):
 
     geom_element = infinite_medium
     specs        = infinite_medium_mpact_specs
