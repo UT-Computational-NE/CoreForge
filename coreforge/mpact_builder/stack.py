@@ -128,7 +128,7 @@ class Stack:
 
 
     @property
-    def specs(self) -> Specs:
+    def specs(self) -> Optional[Specs]:
         return self._specs
 
     @specs.setter
