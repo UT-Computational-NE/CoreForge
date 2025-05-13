@@ -76,7 +76,7 @@ class InfiniteMedium:
                 f"target_cell_thicknesses = {self.target_cell_thicknesses}"
 
             assert all(thickness > 0. for thickness in self.thicknesses.values()), \
-                f"target_cell_thicknesses = {self.thicknesses}"
+                f"thicknesses = {self.thicknesses}"
 
 
     @property
