@@ -34,8 +34,9 @@ class CylindricalPinCell:
             The target thickness of the cells in terms of 'radial' thickness
             and 'azimuthal' arc length (cm).
             Cells will be subdivided to limit cells to within these specifications.
-        bounds : Tuple[float, float, float, float]
-                The bounds of the cylindrical pincell (order: x_min, x_max, y_min, y_max)
+        bounds : Optional[Tuple[float, float, float, float]]
+                The bounds of the cylindrical pincell (order: x_min, x_max, y_min, y_max).
+                Defaults to bounds correponding to the outer most radius.
         height : float
             The height to build the extruded PinCell in the axial direction (cm).
             Default value is 1.0
@@ -53,7 +54,7 @@ class CylindricalPinCell:
             radial:    float
             azimuthal: float
 
-        bounds:                  Tuple[float, float, float, float] = None
+        bounds:                  Optional[Tuple[float, float, float, float]] = None
         target_cell_thicknesses: Optional[Thicknesses] = None
         height:                  float = 1.0
         divide_into_quadrants:   bool = False
@@ -61,7 +62,10 @@ class CylindricalPinCell:
 
         def __post_init__(self):
             if not self.target_cell_thicknesses:
-                self.target_cell_thicknesses = {'radial': inf, 'azimuthal': inf}
+                self.target_cell_thicknesses = {}
+
+                for dim in ["radial", "azimuthal"]:
+                    self.target_cell_thicknesses.setdefault(dim, inf)
 
             if not self.material_specs:
                 self.material_specs = MaterialSpecs()
@@ -81,7 +85,7 @@ class CylindricalPinCell:
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs
+        self._specs = specs if specs else CylindricalPinCell.Specs()
 
 
     def __init__(self, specs: Optional[Specs] = None):
@@ -102,19 +106,19 @@ class CylindricalPinCell:
             A new MPACT geometry based on this geometry element
         """
 
+        specs = self.specs
+
         outer_radius = element.zones[-1].shape.outer_radius
         materials    = [zone.material for zone in element.zones] + [element.outer_material]
         materials    = [build_material(material) for material in materials]
-
-        specs = self.specs if self.specs and self.specs.bounds else \
-                CylindricalPinCell.Specs(bounds=(-outer_radius, outer_radius,
-                                                 -outer_radius, outer_radius))
 
         target_cell_thicknesses = {"R": specs.target_cell_thicknesses["radial"],
                                    "S": specs.target_cell_thicknesses["azimuthal"]}
 
         radii = [zone.shape.inner_radius for zone in element.zones]
         radial_thicknesses = [curr - prev for prev, curr in zip([0.0] + radii[:-1], radii)]
+        bounds = specs.bounds if specs.bounds else (-outer_radius, outer_radius,
+                                                    -outer_radius, outer_radius)
 
         def build_module(bounds: Tuple[float, float, float, float]) -> mpactpy.Module:
             pin = mpactpy.build_gcyl_pin(bounds                  = bounds,
@@ -124,10 +128,10 @@ class CylindricalPinCell:
                                                                     "Z": [specs.height]})
             return mpactpy.Module(1, [[pin]])
 
-        (xmin, xmax, ymin, ymax) = specs.bounds
+        (xmin, xmax, ymin, ymax) = bounds
         hp   = {"X": (xmax-xmin)*0.5, "Y": (ymax-ymin)*0.5} # half pitch
 
-        module_map = [[build_module(specs.bounds)]] if not specs.divide_into_quadrants else \
+        module_map = [[build_module(bounds)]] if not specs.divide_into_quadrants else \
                      [[build_module((        xmin, xmin+hp["X"], ymin+hp["Y"],         ymax)),
                        build_module((xmin+hp["X"],         xmax, ymin+hp["Y"],         ymax))],
                       [build_module((        xmin, xmin+hp["X"],         ymin, ymin+hp["Y"])),

@@ -56,7 +56,7 @@ class RectLattice:
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs
+        self._specs = specs if specs else RectLattice.Specs()
 
 
     def __init__(self, specs: Optional[Specs] = None):
@@ -82,7 +82,7 @@ class RectLattice:
             assemblies.append([])
             for j, entry in enumerate(row):
                 if entry:
-                    entry_specs = self.specs.element_specs[entry] if self.specs else None
+                    entry_specs = self.specs.element_specs.get(entry)
                     mpact_geometry = build(entry, entry_specs)
 
                     assert mpact_geometry.nx == 1 and mpact_geometry.ny == 1, \

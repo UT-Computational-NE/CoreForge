@@ -20,7 +20,7 @@ class MaterialSpecs:
     material_specs: Optional[Dict[Material, mpactpy.Material.MPACTSpecs]] = None
 
     def __post_init__(self):
-        self.material_specs = self.material_specs if self.material_specs else []
+        self.material_specs = self.material_specs if self.material_specs else {}
 
 
 
