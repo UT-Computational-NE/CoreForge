@@ -44,7 +44,7 @@ class Stack:
 
             Attributes
             ----------
-            target_axial_thicknesses : ThicknessSpec
+            target_axial_thicknesses : float
                 The target thickness of the cells in terms of segment length (cm).
                 Cells will be subdivided to limit cells to within this thickness.
             builder_specs : BuilderSpecs

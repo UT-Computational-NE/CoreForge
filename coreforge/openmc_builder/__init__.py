@@ -4,6 +4,7 @@ from .stack import Stack
 from .rect_lattice import RectLattice
 from .hex_lattice import HexLattice
 from .block import Block
+from . import msre
 from .openmc_builder import build
 
 __all__ = [
@@ -13,5 +14,6 @@ __all__ = [
     "RectLattice",
     "HexLattice",
     "Block",
+    "msre",
     "build"
 ]

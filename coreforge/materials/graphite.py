@@ -80,7 +80,7 @@ class Graphite(Material):
                  suppress_warnings:            bool = True):
 
         assert graphite_density > 0., f"density = {graphite_density}"
-        assert 0. <= boron_equiv_contamination <= 1., \
+        assert 0. <= boron_equiv_contamination <= 100., \
             f"boron_equiv_contamination = {boron_equiv_contamination}"
         assert all(values >= 0. for values in pore_intrusion.values()), \
             f"pore_intrusion = {pore_intrusion}"

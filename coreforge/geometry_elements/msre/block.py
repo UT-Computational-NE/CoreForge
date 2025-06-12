@@ -7,6 +7,7 @@ from coreforge.materials import Material
 from coreforge.geometry_elements.block import Block as BaseBlock
 
 
+
 class Block(BaseBlock):
     """ A class for MSRE-like blocks
 
@@ -27,10 +28,11 @@ class Block(BaseBlock):
         The material of the prismatic block
     name : str
         The name of the MSRE Block
-    channels : List[Optional[Block.Channel]]
+    channels : Dict[Optional[Block.Channel]]
         The channels of this MSRE Block (keys: "N", "S", "E", "W")
-    outer_material : Material
+    outer_material : Optional[Material]
         The material that radially surrounds the prism
+        Default: prism_material
 
     Attributes
     ----------
@@ -48,11 +50,6 @@ class Block(BaseBlock):
         Whether or not the block has any control channels
     control_channels_have_equal_shapes : bool
         Whether or not the present control channels have the same shape(NOTE: false if no control channels are present)
-
-    References
-    ----------
-    1. Robertson, R. C., “MSRE Design and Operations Report Part I: Description of Reactor Design”,
-       ORNL-TM-0728, Oak Ridge National Laboratory, Oak Ridge, Tennessee (1965).
     """
 
     class Channel(BaseBlock.Channel):
@@ -80,13 +77,10 @@ class Block(BaseBlock):
 
         Parameters
         ----------
-        shape : Shape_2D
+        shape : Optional[Shape_2D]
             The shape of the channel.  This must be either a Stadium, Circle, or Rectangle.
-
-        Attributes
-        ----------
-        shape : Shape_2D
-            The shape of the channel
+        material : Optional[Material]
+            The material that fills the channel
         """
 
         @property
@@ -106,6 +100,7 @@ class Block(BaseBlock):
                      shape:             Shape_2D,
                      material:          Material,
                      name:              str = "fuel_channel",):
+
             super().__init__(name, shape, material)
 
 
@@ -119,11 +114,8 @@ class Block(BaseBlock):
         ----------
         shape : Shape_2D
             The shape of the channel.  This must be a Circle.
-
-        Attributes
-        ----------
-        shape : Shape_2D
-            The shape of the channel
+        material : Material
+            The material that fills the channel
         """
 
         @property
@@ -197,15 +189,19 @@ class Block(BaseBlock):
                 if isinstance(channel, Block.FuelChannel):
                     self.channels[i].distance_from_block_center = self.pitch*0.5
                 else:
+                    assert self.channels[i].shape.outer_radius > self.pitch*0.5, \
+                        f"Control channel falls outside the block. Channel Radius = " + \
+                        f"{self.channels[i].shape.outer_radius}, Block Half Pitch = " + \
+                        f"{self.pitch*0.5}"
                     self.channels[i].distance_from_block_center = self.pitch
 
 
     def __init__(self,
+                 channels:          Dict[Optional[Block.Channel]],
                  pitch:             float,
                  prism_material:    Material,
                  name:              str = "msre_block",
-                 channels:          Dict[List[Optional[Block.Channel]]] = {},
-                 outer_material:    Material = None):
+                 outer_material:    Optional[Material] = None):
 
         self.pitch = pitch
         channels = [channels[face] if face in channels else None for face in ['N', 'S', 'E', 'W']]
