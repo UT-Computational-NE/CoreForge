@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Optional, Any
+from typing import List, Any
 from math import isclose
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
@@ -7,8 +7,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.stack import Stack
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.materials import Material, INOR8, Helium, Inconel
-from coreforge.materials.msre import Salt, ThimbleGas, ControlRodPoison
+from coreforge.materials import Material
 
 class ControlChannel(GeometryElement):
     """ A class for MSRE-like Control Channels

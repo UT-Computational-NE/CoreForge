@@ -1,4 +1,4 @@
-from typing import Optional, Any
+from typing import Any
 from math import isclose
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
@@ -41,7 +41,7 @@ class Stringer(GeometryElement):
 
         assert length > 0., f"length = {length}"
 
-        self._block = block if block is not None else Block()
+        self._block = block
         self._length = length
         super().__init__(name)
 

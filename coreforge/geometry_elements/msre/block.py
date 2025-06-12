@@ -190,7 +190,7 @@ class Block(BaseBlock):
                     self.channels[i].distance_from_block_center = self.pitch*0.5
                 else:
                     assert self.channels[i].shape.outer_radius > self.pitch*0.5, \
-                        f"Control channel falls outside the block. Channel Radius = " + \
+                        "Control channel falls outside the block. Channel Radius = " + \
                         f"{self.channels[i].shape.outer_radius}, Block Half Pitch = " + \
                         f"{self.pitch*0.5}"
                     self.channels[i].distance_from_block_center = self.pitch
