@@ -4,6 +4,7 @@ from math import isclose
 
 from numpy.testing import assert_allclose
 from mpactpy import GeneralCylindricalPinMesh, Pin
+import mpactpy
 
 from coreforge.shapes import Circle, Square, Hexagon, Stadium
 from coreforge.geometry_elements import PinCell, CylindricalPinCell
@@ -11,6 +12,7 @@ import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
 from test.unit.msre.test_materials import salt
+from test.unit.test_infinite_medium import mpact_voxel_specs
 
 @pytest.fixture
 def pincell(salt, graphite):
@@ -34,6 +36,7 @@ def cylindrical_pincell(salt, graphite):
 @pytest.fixture
 def cylindrical_pincell_mpact_specs():
     return mpact_builder.CylindricalPinCell.Specs(bounds = (-4.0, 4.0, -4.0, 4.0))
+
 
 
 
@@ -76,11 +79,29 @@ def test_openmc_builder(pincell):
                                                                     "Graphite",
                                                                     "Salt"]
 
-def test_pincell_mpact_builder(pincell):
+def test_pincell_mpact_builder(pincell, mpact_voxel_specs, salt, graphite):
     geom_element = pincell
-    with pytest.raises(NotImplementedError,
-        match="No MPACT builder registered for PinCell pincell"):
-        core = mpact_builder.build(geom_element)
+    specs = mpact_voxel_specs
+    core = mpact_builder.build(geom_element, specs)
+    salt_mpact = mpact_builder.build_material(salt)
+    graphite_mpact = mpact_builder.build_material(graphite)
+
+    assert len(core.materials) == 2
+    
+    # Check that both salt and graphite densities are present
+    densities = [mat.density for mat in core.materials]
+    assert salt_mpact.density in densities
+    assert graphite_mpact.density in densities
+
+    assert isclose(core.mod_dim['X'], 8.0)
+    assert isclose(core.mod_dim['Y'], 8.0)
+    assert_allclose(core.mod_dim['Z'], [1.0])
+
+    assert len(core.pins) == 1
+    assert len(core.modules) == 1
+    assert len(core.lattices) == 1
+    assert len(core.assemblies) == 1
+
 
 def test_cylindrical_pincell_initialization(cylindrical_pincell):
     geom_element = cylindrical_pincell
@@ -142,3 +163,4 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
     assert pin["NE"] == Pin(GeneralCylindricalPinMesh(expected_radii,  0.0, 4.0,  0.0, 4.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
     assert pin["SW"] == Pin(GeneralCylindricalPinMesh(expected_radii, -4.0, 0.0, -4.0, 0.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
     assert pin["SE"] == Pin(GeneralCylindricalPinMesh(expected_radii,  0.0, 4.0, -4.0, 0.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
+
