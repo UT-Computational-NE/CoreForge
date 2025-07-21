@@ -34,7 +34,7 @@ def build(element: GeometryElement, specs: Optional[BuilderSpecs] = None) -> mpa
     """
     if isinstance(specs, VoxelBuildSpecs):
         return build_voxelized(element, specs)
-    
+
     cls = type(element)
     while cls is not object:
         builder_cls = _builder_registry.get(cls)
