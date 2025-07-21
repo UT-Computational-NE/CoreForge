@@ -5,7 +5,7 @@ from .stack import Stack
 from .rect_lattice import RectLattice
 from . import msre
 from .mpact_builder import build, build_material
-from .material_specs import DEFAULT_MPACT_SPECS
+from .material_specs import MaterialSpecs, DEFAULT_MPACT_SPECS
 
 __all__ = [
     "VoxelBuildSpecs",
@@ -16,5 +16,6 @@ __all__ = [
     "msre",
     "build",
     "build_material",
+    "MaterialSpecs",
     "DEFAULT_MPACT_SPECS"
 ]

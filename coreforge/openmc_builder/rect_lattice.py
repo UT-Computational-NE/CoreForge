@@ -34,11 +34,14 @@ class RectLattice:
                 universe = build(entry) if entry else outer_universe
                 universes[-1].append(universe)
 
-        lattice_universe            = openmc.RectLattice()
-        lattice_universe.outer      = outer_universe
-        lattice_universe.pitch      = element.pitch
-        lattice_universe.lower_left = (-(element.pitch[0]*element.shape[1])/2.,
-                                       -(element.pitch[1]*element.shape[0])/2.)
-        lattice_universe.universes  = universes
+        rect_lattice            = openmc.RectLattice()
+        rect_lattice.outer      = outer_universe
+        rect_lattice.pitch      = element.pitch
+        rect_lattice.lower_left = (-(element.pitch[0]*element.shape[1])/2.,
+                                   -(element.pitch[1]*element.shape[0])/2.)
+        rect_lattice.universes  = universes
+
+        lattice_cell = openmc.Cell(fill=rect_lattice)
+        lattice_universe = openmc.Universe(cells=[lattice_cell])
 
         return lattice_universe

@@ -52,7 +52,7 @@ class VoxelBuildSpecs(BuilderSpecs):
     x_thicknesses:  Optional[List[float]] = None
     y_thicknesses:  Optional[List[float]] = None
     z_thicknesses:  Optional[List[float]] = None
-    material_specs: MaterialSpecs = field(default_factory=dict)
+    material_specs: MaterialSpecs = field(default_factory=MaterialSpecs)
     overlay_policy: mpactpy.PinMesh.OverlayPolicy = field(default_factory=mpactpy.PinMesh.OverlayPolicy)
     offset:         Tuple[float, float, float] = (0.0, 0.0, 0.0)
 
@@ -61,23 +61,23 @@ class VoxelBuildSpecs(BuilderSpecs):
         for dim in ['x', 'y', 'z']:
             vals = getattr(self, f"{dim}vals")
             thicknesses = getattr(self, f"{dim}_thicknesses")
-            
+
             if vals is None and thicknesses is None:
                 raise ValueError(f"Either {dim}vals or {dim}_thicknesses must be provided")
             if vals is not None and thicknesses is not None:
                 raise ValueError(f"Cannot specify both {dim}vals and {dim}_thicknesses")
-        
+
         # Convert between boundary values and thicknesses
         for dim in ['x', 'y', 'z']:
             vals = getattr(self, f"{dim}vals")
             thicknesses = getattr(self, f"{dim}_thicknesses")
-            
+
             if vals is not None:
                 # Convert boundary values to thicknesses
                 assert len(vals) > 0, f"len({dim}vals) = {len(vals)}"
                 assert all(val > 0. for val in vals), f"{dim}vals = {vals}"
                 assert all(vals[i-1] < vals[i] for i in range(1,len(vals))), f"{dim}vals = {vals}"
-                
+
                 # Calculate thicknesses from boundary values
                 thicknesses = [vals[0]] + [vals[i] - vals[i-1] for i in range(1, len(vals))]
                 setattr(self, f"{dim}_thicknesses", thicknesses)
@@ -85,13 +85,10 @@ class VoxelBuildSpecs(BuilderSpecs):
                 # Convert thicknesses to boundary values
                 assert len(thicknesses) > 0, f"len({dim}_thicknesses) = {len(thicknesses)}"
                 assert all(t > 0. for t in thicknesses), f"{dim}_thicknesses = {thicknesses}"
-                
+
                 # Calculate boundary values from thicknesses
                 vals = [sum(thicknesses[:i+1]) for i in range(len(thicknesses))]
                 setattr(self, f"{dim}vals", vals)
 
-        if not self.material_specs:
-                self.material_specs = MaterialSpecs()
-
         material_specs = self.material_specs.material_specs
-        self.overlay_policy.mat_specs = {mat.openmc_material: spec for mat, spec in material_specs}
+        self.overlay_policy.mat_specs = {mat.openmc_material: spec for mat, spec in material_specs.items()}
