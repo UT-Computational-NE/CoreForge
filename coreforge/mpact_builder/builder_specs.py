@@ -40,7 +40,7 @@ class VoxelBuildSpecs(BuilderSpecs):
         See mpactpy.PinMesh.OverlayPolicy documentation for details.
         Note that the mat_specs of the overlay_policy will be replaced
         with specifications based on material_specs.
-    offset : Tuple[float, float, float] = (0.0, 0.0, 0.0)
+    offset : Tuple[float, float, float]
         Offset of the OpenMC model's lower-left corner relative to the
         MPACT PinMesh lower-left. This may be required based on how the OpenMC
         Universe is built for a given GeometryElement. Default is (0.0, 0.0, 0.0)

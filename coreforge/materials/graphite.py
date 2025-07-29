@@ -42,7 +42,7 @@ class Graphite(Material):
         The density of the graphite (g/cm3)
     boron_equiv_contamination : float
         The boron equivalent contamination of the graphite (wt%)
-    pore_intrusion : Dict[openmc.Material, float]
+    pore_intrusion : Dict[Material, float]
         Specifications on the intrusion of material into the graphite pores
         (key: intruding material, value: fraction of graphite volume filled by intruding material)
     theoretical_graphite_density : float
@@ -63,7 +63,7 @@ class Graphite(Material):
         return self._boron_equiv_contamination
 
     @property
-    def pore_intrusion(self) -> Dict[openmc.Material, float]:
+    def pore_intrusion(self) -> Dict[Material, float]:
         return self._pore_intrusion
 
     @property
@@ -73,7 +73,7 @@ class Graphite(Material):
     def __init__(self,
                  graphite_density:             float,
                  boron_equiv_contamination:    float = 0.,
-                 pore_intrusion:               Dict[openmc.Material, float] = {},
+                 pore_intrusion:               Dict[Material, float] = {},
                  name:                         str = 'Graphite',
                  temperature:                  float = STANDARD_TEMPERATURE,
                  theoretical_graphite_density: float = GRAPHITE_THEORETICAL_DENSITY['max'],
@@ -113,7 +113,7 @@ class Graphite(Material):
         assert sum(values for values in self.pore_intrusion.values()) <= porosity, \
             f"porosity = {porosity}, pore_intrusion = {self.pore_intrusion}"
         for material, intrusion_frac in self.pore_intrusion.items():
-            materials.append(material)
+            materials.append(material.openmc_material)
             vol_fracs.append(intrusion_frac)
 
         @contextmanager
