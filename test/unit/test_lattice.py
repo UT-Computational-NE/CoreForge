@@ -215,7 +215,7 @@ def test_hex_lattice_mpact_builder(hex_x_lattice, mpact_voxel_specs, salt, graph
 
     expected_xvals = [1.0, 2.0, 3.0]
     expected_yvals = [1.0, 2.0, 3.0]
-    expected_mats = [salt] + [graphite]*8
+    expected_mats = [graphite]*6 + [salt] +[graphite]*2
 
     for mat in core.pins[0].materials:
         print(mat.number_densities)

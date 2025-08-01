@@ -112,7 +112,7 @@ def test_pincell_mpact_builder(pincell, mpact_voxel_specs, salt, graphite):
 
     expected_xvals = [16.0, 32.0]
     expected_yvals = [16.0, 32.0]
-    expected_mats = [graphite, salt, salt, salt]
+    expected_mats = [salt, salt, graphite, salt]
 
     assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1, 1], [1, 1], [1]), expected_mats)
 
