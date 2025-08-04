@@ -24,8 +24,9 @@ class Block(GeometryElement):
         The name of the Block
     channels : List[Optional[Channel]]
         The fluid flow channels of this block
-    outer_material : Material
+    outer_material : Optional[Material]
         The material that radially surrounds the prism
+        Default: prism_material
 
     Attributes
     ----------
@@ -195,7 +196,7 @@ class Block(GeometryElement):
                  prism_material: Material,
                  name:           str = 'block',
                  channels:       List[Optional[Channel]] = None,
-                 outer_material: Material = None):
+                 outer_material: Optional[Material] = None):
 
         self.shape            = shape
         self.prism_material   = prism_material

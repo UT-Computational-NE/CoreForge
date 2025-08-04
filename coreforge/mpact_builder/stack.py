@@ -44,22 +44,22 @@ class Stack:
 
             Attributes
             ----------
-            target_axial_thicknesses : ThicknessSpec
+            target_axial_thickness : float
                 The target thickness of the cells in terms of segment length (cm).
                 Cells will be subdivided to limit cells to within this thickness.
             builder_specs : BuilderSpecs
                 Specifications for how to build the segment elements
             """
 
-            target_axial_thicknesses: Optional[float] = None
-            builder_specs:            Optional[BuilderSpecs] = None
+            target_axial_thickness: Optional[float] = None
+            builder_specs:          Optional[BuilderSpecs] = None
 
             def __post_init__(self):
-                if not self.target_axial_thicknesses:
-                    self.target_axial_thicknesses = inf
+                if not self.target_axial_thickness:
+                    self.target_axial_thickness = inf
 
-                assert self.target_axial_thicknesses > 0.0, \
-                    f"target_axial_thicknesses = {self.target_axial_thicknesses}"
+                assert self.target_axial_thickness > 0.0, \
+                    f"target_axial_thickness = {self.target_axial_thickness}"
 
         @property
         def specs(self) -> Specs:
@@ -101,7 +101,7 @@ class Stack:
                 f"Unsupported Geometry! Stack: {stack_name} Segment {i}: {element.name} is not a 2D radial geometry"
 
             length      = segment.length
-            num_subd    = max(1, int(length // self.specs.target_axial_thicknesses))
+            num_subd    = max(1, int(length // self.specs.target_axial_thickness))
             subd_length = length / num_subd
             subd_points = [i * subd_length for i in range(num_subd + 1)]
 

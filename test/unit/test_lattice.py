@@ -3,6 +3,7 @@ from copy import deepcopy
 from math import isclose
 
 from numpy.testing import assert_allclose
+from mpactpy import RectangularPinMesh, Pin
 
 from coreforge.geometry_elements import RectLattice, HexLattice
 import coreforge.openmc_builder as openmc_builder
@@ -58,6 +59,20 @@ def hex_y_lattice(graphite, stack, unequal_stack):
                 [     p1     ]]
     return HexLattice(pitch=1., outer_material=graphite, orientation='y', elements=elements, map_type='offset')
 
+@pytest.fixture
+def mpact_voxel_specs(salt, graphite):
+    mat_specs = mpact_builder.MaterialSpecs({
+        salt:     mpact_builder.DEFAULT_MPACT_SPECS[type(salt)],
+        graphite: mpact_builder.DEFAULT_MPACT_SPECS[type(graphite)],
+    })
+
+    return mpact_builder.VoxelBuildSpecs(
+        xvals          = [1.0, 2.0, 3.0],
+        yvals          = [1.0, 2.0, 3.0],
+        zvals          = [1.0],
+        material_specs = mat_specs
+    )
+
 def test_rect_lattice_initialization(rect_lattice, stack, unequal_stack):
     p1 = stack
     p2 = unequal_stack
@@ -83,10 +98,11 @@ def test_rect_lattice_hash(rect_lattice, unequal_rect_lattice):
 def test_rect_lattice_openmc_builder(rect_lattice):
     geom_element = rect_lattice
     universe = openmc_builder.build(geom_element)
-    assert universe.shape[0] == 3
-    assert universe.shape[1] == 3
-    assert isclose(universe.pitch[0], 8.0)
-    assert isclose(universe.pitch[1], 8.0)
+    lattice = next(iter(universe.cells.values())).fill
+    assert lattice.shape[0] == 3
+    assert lattice.shape[1] == 3
+    assert isclose(lattice.pitch[0], 8.0)
+    assert isclose(lattice.pitch[1], 8.0)
 
 def test_rect_lattice_mpact_builder(rect_lattice, rect_lattice_mpact_specs, stack):
     geom_element = rect_lattice
@@ -165,18 +181,43 @@ def test_hex_lattice_hash(hex_x_lattice, hex_y_lattice):
 def test_hex_lattice_openmc_builder(hex_x_lattice, hex_y_lattice):
     geom_element = hex_x_lattice
     universe = openmc_builder.build(geom_element)
-    assert universe.orientation == 'x'
-    assert universe.num_rings == 2
-    assert isclose(universe.pitch[0], 1.0)
+    lattice = next(iter(universe.cells.values())).fill
+    assert lattice.orientation == 'x'
+    assert lattice.num_rings == 2
+    assert isclose(lattice.pitch[0], 1.0)
 
     geom_element = hex_y_lattice
     universe = openmc_builder.build(geom_element)
-    assert universe.orientation == 'y'
-    assert universe.num_rings == 2
-    assert isclose(universe.pitch[0], 1.0)
+    lattice = next(iter(universe.cells.values())).fill
+    assert lattice.orientation == 'y'
+    assert lattice.num_rings == 2
+    assert isclose(lattice.pitch[0], 1.0)
 
-def test_hex_lattice_mpact_builder(hex_x_lattice):
+def test_hex_lattice_mpact_builder(hex_x_lattice, mpact_voxel_specs, salt, graphite):
     geom_element = hex_x_lattice
-    expected_message = "No MPACT builder registered for HexLattice hex_lattice"
-    with pytest.raises(NotImplementedError, match=expected_message):
-        core = mpact_builder.build(geom_element)
+    specs = mpact_voxel_specs
+    core = mpact_builder.build(geom_element, specs)
+    salt = mpact_builder.build_material(salt)
+    graphite = mpact_builder.build_material(graphite)
+
+    assert len(core.materials) == 2
+    assert salt in core.materials
+    assert graphite in core.materials
+
+    assert isclose(core.mod_dim['X'], 3.0)
+    assert isclose(core.mod_dim['Y'], 3.0)
+    assert_allclose(core.mod_dim['Z'], [1.0])
+
+    assert len(core.pins) == 1
+    assert len(core.modules) == 1
+    assert len(core.lattices) == 1
+    assert len(core.assemblies) == 1
+
+    expected_xvals = [1.0, 2.0, 3.0]
+    expected_yvals = [1.0, 2.0, 3.0]
+    expected_mats = [graphite]*6 + [salt] +[graphite]*2
+
+    for mat in core.pins[0].materials:
+        print(mat.number_densities)
+
+    assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1, 1, 1], [1, 1, 1], [1]), expected_mats)

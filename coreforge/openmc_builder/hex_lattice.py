@@ -34,11 +34,14 @@ class HexLattice:
                 universe = build(entry) if entry else outer_universe
                 universes[-1].append(universe)
 
-        lattice_universe             = openmc.HexLattice()
-        lattice_universe.orientation = element.orientation
-        lattice_universe.outer       = outer_universe
-        lattice_universe.pitch       = [element.pitch]
-        lattice_universe.center      = (0., 0.)
-        lattice_universe.universes   = universes
+        hex_lattice             = openmc.HexLattice()
+        hex_lattice.orientation = element.orientation
+        hex_lattice.outer       = outer_universe
+        hex_lattice.pitch       = [element.pitch]
+        hex_lattice.center      = (0., 0.)
+        hex_lattice.universes   = universes
+
+        lattice_cell = openmc.Cell(fill=hex_lattice)
+        lattice_universe = openmc.Universe(cells=[lattice_cell])
 
         return lattice_universe

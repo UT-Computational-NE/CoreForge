@@ -12,10 +12,10 @@ import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
 from test.unit.msre.test_materials import salt
 
-fuel_chan_r    = 0.508
-fuel_chan_a    = 2.032
-control_chan_r = 3.01625
-block_pitch    = 5.08
+fuel_chan_r    = 0.5
+fuel_chan_a    = 2.00
+control_chan_r = 3.00
+block_pitch    = 5.00
 
 @pytest.fixture
 def stadium_fuel_chan(salt):
