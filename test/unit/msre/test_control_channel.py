@@ -61,9 +61,9 @@ def test_control_channel_initialization(control_channel, salt, thimble, control_
     geom_element = control_channel
     assert geom_element.name == "control_channel"
     assert isclose(geom_element.length, cr_chan_length)
-    geom_element == salt
-    geom_element == thimble
-    geom_element == control_rod
+    assert geom_element.fill_material == salt
+    assert geom_element.thimble == thimble
+    assert geom_element.control_rod == control_rod
 
 def test_equality(control_channel, unequal_control_channel):
     assert control_channel == deepcopy(control_channel)
