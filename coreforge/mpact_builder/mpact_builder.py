@@ -115,10 +115,7 @@ def build_voxelized(element:                GeometryElement,
         default_material.add_nuclide('H1', 1.0)
         default_material = Material(default_material)
 
-    universe     = build_openmc_universe(element)
-    materials    = openmc.Materials(list(universe.get_all_materials().values()))
-    openmc_model = openmc.Model(geometry  = openmc.Geometry(universe),
-                                materials = materials)
+    openmc_geometry = openmc.Geometry(build_openmc_universe(element))
 
     template_material    = build_material(default_material, default_material_specs)
     num_material_regions = len(specs.x_thicknesses) * len(specs.y_thicknesses) * len(specs.z_thicknesses)
@@ -137,4 +134,4 @@ def build_voxelized(element:                GeometryElement,
     assembly_mask: mpactpy.Assembly.OverlayMask = {template_lattice:  lattice_mask}
     include_only:  mpactpy.Core.OverlayMask     = {template_assembly: assembly_mask}
 
-    return template_core.overlay(openmc_model, specs.offset, include_only, specs.overlay_policy)
+    return template_core.overlay(openmc_geometry, specs.offset, include_only, specs.overlay_policy)
