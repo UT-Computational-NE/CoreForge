@@ -77,26 +77,42 @@ class RectLattice:
             A new MPACT geometry based on this geometry element
         """
 
+        # Find unique elements and their build specs
+        unique_elements = {}
+        element_positions = {}
+
+        for i, row in enumerate(element.elements):
+            for j, entry in enumerate(row):
+                if entry:
+                    if entry not in element_positions:
+                        element_positions[entry] = []
+                    element_positions[entry].append((i, j))
+
+        # Build each unique element only once
+        for entry, positions in element_positions.items():
+            mpact_geometry = build(entry, self.specs.element_specs.get(entry))
+
+            i, j = positions[0]
+            assert mpact_geometry.nx == 1 and mpact_geometry.ny == 1, \
+                f"Unsupported Geometry! {element.name} Row {i}, Column {j}: {entry.name} has multiple MPACT assemblies"
+
+            assembly = mpact_geometry.assemblies[0]
+
+            for axis, idx in zip(('X', 'Y'), (0, 1)):
+                assert isclose(assembly.pitch[axis], element.pitch[idx]), (
+                    f"Pitch Conflict! {element.name} Row {i}, Column {j}: {entry.name} "
+                    f"{axis}-pitch {assembly.pitch[axis]} not equal to lattice {axis}-pitch {element.pitch[idx]}"
+                )
+
+            unique_elements[entry] = assembly
+
+        # Map built assemblies back to their positions
         assemblies = []
         for i, row in enumerate(element.elements):
             assemblies.append([])
             for j, entry in enumerate(row):
                 if entry:
-                    entry_specs = self.specs.element_specs.get(entry)
-                    mpact_geometry = build(entry, entry_specs)
-
-                    assert mpact_geometry.nx == 1 and mpact_geometry.ny == 1, \
-                    f"Unsupported Geometry! {element.name} Row {i}, Column {j}: {entry.name} has multiple MPACT assemblies"
-
-                    assembly = mpact_geometry.assemblies[0]
-
-                    for axis, idx in zip(('X', 'Y'), (0, 1)):
-                        assert isclose(assembly.pitch[axis], element.pitch[idx]), (
-                            f"Pitch Conflict! {element.name} Row {i}, Column {j}: {entry.name} "
-                            f"{axis}-pitch {assembly.pitch[axis]} not equal to lattice {axis}-pitch {element.pitch[idx]}"
-                        )
-
-                    assemblies[-1].append(mpact_geometry.assemblies[0])
+                    assemblies[-1].append(unique_elements[entry])
                 else:
                     assemblies[-1].append(None)
 

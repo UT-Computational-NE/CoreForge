@@ -154,11 +154,40 @@ class Stack:
             A new MPACT geometry based on this geometry element
         """
 
+        unique_segments    = {}
+        target_thicknesses = {}
+
+        # First pass: build unique geometries
+        for i, segment in enumerate(element.segments):
+            segment_specs = self.specs.segment_specs.get(segment) if self.specs else Stack.Segment.Specs(None)
+
+            if segment not in unique_segments:
+                mpact_geometry = build(segment.element, segment_specs.builder_specs)
+
+                # Validate geometry using this segment for error reporting
+                assert mpact_geometry.nx == 1 and mpact_geometry.ny == 1, \
+                    f"Unsupported Geometry! Stack: {element.name} Segment {i}: {segment.element.name} has multiple MPACT assemblies"
+                assert mpact_geometry.nz == 1, \
+                    f"Unsupported Geometry! Stack: {element.name} Segment {i}: {segment.element.name} is not a 2D radial geometry"
+
+                length           = segment.length
+                target_thickness = segment_specs.target_axial_thickness
+                num_subd         = max(1, int(length // target_thickness))
+                subd_length      = length / num_subd
+                subd_points      = [i * subd_length for i in range(num_subd + 1)]
+
+                unique_segments[segment]    = mpact_geometry
+                target_thicknesses[segment] = segment_specs.target_axial_thickness
+
+                lattice = mpact_geometry.lattices[0].with_height(length)
+
+                unique_segments[segment] = [lattice.get_axial_slice(start_pos, stop_pos)
+                                            for start_pos, stop_pos in zip(subd_points[:-1], subd_points[1:])]
+
+        # Second pass: create lattices using cached geometries
         lattices = []
         for i, segment in enumerate(element.segments):
-            segment_specs = self.specs.segment_specs.get(segment) if self.specs else None
-            for lattice in Stack.Segment(segment_specs).build(element.name, i, segment):
-                lattices.append(lattice)
+            lattices.extend(unique_segments[segment])
 
         assembly = mpactpy.Assembly(lattices)
         return mpactpy.Core([[assembly]], "360")
