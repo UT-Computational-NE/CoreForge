@@ -174,7 +174,7 @@ class Stack:
                 segment_positions[segment] = []
             segment_positions[segment].append(i)
 
-        unique_segments = segment_positions.keys()
+        unique_segments = list(segment_positions.keys())
         results         = self._build_segments(unique_segments)
 
         # Validate & pitch checks, build assembly mapping

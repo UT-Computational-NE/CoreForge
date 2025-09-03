@@ -102,7 +102,7 @@ class RectLattice:
                         element_positions[entry] = []
                     element_positions[entry].append((i, j))
 
-        unique_entries = element_positions.keys()
+        unique_entries = list(element_positions.keys())
         results        = self._build_entries(unique_entries)
 
         # Validation & pitch checks, build assembly mapping
