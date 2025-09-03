@@ -92,7 +92,7 @@ class RectLattice:
             A new MPACT geometry based on this geometry element
         """
 
-        # Find unique elements and their build specs
+        # Find unique elements and their positions
         element_positions = {}
 
         for i, row in enumerate(element.elements):
@@ -106,14 +106,13 @@ class RectLattice:
         results        = self._build_entries(unique_entries)
 
         # Validation & pitch checks, build assembly mapping
-        unique_elements = {}
-        for entry, mpact_geometry in results.items():
-            positions = element_positions[entry]
-            i, j = positions[0]
-            assert mpact_geometry.nx == 1 and mpact_geometry.ny == 1, \
+        mpact_geometry = {}
+        for entry, mpact_core in results.items():
+            i,j = element_positions[entry][0]
+            assert mpact_core.nx == 1 and mpact_core.ny == 1, \
                 f"Unsupported Geometry! {element.name} Row {i}, Column {j}: {entry.name} has multiple MPACT assemblies"
 
-            assembly = mpact_geometry.assemblies[0]
+            assembly = mpact_core.assemblies[0]
 
             for axis, idx in zip(('X', 'Y'), (0, 1)):
                 assert isclose(assembly.pitch[axis], element.pitch[idx]), (
@@ -121,7 +120,7 @@ class RectLattice:
                     f"{axis}-pitch {assembly.pitch[axis]} not equal to lattice {axis}-pitch {element.pitch[idx]}"
                 )
 
-            unique_elements[entry] = assembly
+            mpact_geometry[entry] = assembly
 
         # Map built assemblies back to their positions
         assemblies = []
@@ -129,7 +128,7 @@ class RectLattice:
             assemblies.append([])
             for j, entry in enumerate(row):
                 if entry:
-                    assemblies[-1].append(unique_elements[entry])
+                    assemblies[-1].append(mpact_geometry[entry])
                 else:
                     assemblies[-1].append(None)
 

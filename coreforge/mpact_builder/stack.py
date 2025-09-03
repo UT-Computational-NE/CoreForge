@@ -1,9 +1,12 @@
 from __future__ import annotations
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, Any
 from dataclasses import dataclass
 from math import inf
+from multiprocessing import cpu_count
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import mpactpy
+import numpy as np
 
 from coreforge.mpact_builder.mpact_builder import register_builder, build
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
@@ -119,12 +122,22 @@ class Stack:
         ----------
         segment_specs : Dict[geometry_elements.Stack.Segment, Segment.Specs]
             Specifications for how to build the segments
+        num_procs : Optional[int]
+            The number of processes to use for parallel segment builds. If set to 1 or None, building is serial.
+            If >1, unique segments are built in parallel using chunked process pools. Defaults to 1 (serial).
         """
 
         segment_specs: Optional[Dict[geometry_elements.Stack.Segment, Stack.Segment.Specs]] = None
+        num_procs: Optional[int] = None
 
         def __post_init__(self):
             self.segment_specs = self.segment_specs if self.segment_specs else {}
+
+            if self.num_procs is None:
+                self.num_procs = 1
+            else:
+                assert self.num_procs > 0, f"num_procs must be > 0 (got {self.num_procs})"
+                self.num_procs = min(self.num_procs, cpu_count())
 
 
     @property
@@ -133,7 +146,7 @@ class Stack:
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs
+        self._specs = specs if specs else Stack.Specs()
 
 
     def __init__(self, specs: Optional[Specs] = None):
@@ -154,42 +167,109 @@ class Stack:
             A new MPACT geometry based on this geometry element
         """
 
-        unique_segments    = {}
-        target_thicknesses = {}
-
-        # First pass: build unique geometries
+        # Find unique segments and their build specs
+        segment_positions = {}
         for i, segment in enumerate(element.segments):
-            segment_specs = self.specs.segment_specs.get(segment) if self.specs else Stack.Segment.Specs(None)
+            if segment not in segment_positions:
+                segment_positions[segment] = []
+            segment_positions[segment].append(i)
 
-            if segment not in unique_segments:
-                mpact_geometry = build(segment.element, segment_specs.builder_specs)
+        unique_segments = segment_positions.keys()
+        results         = self._build_segments(unique_segments)
 
-                # Validate geometry using this segment for error reporting
-                assert mpact_geometry.nx == 1 and mpact_geometry.ny == 1, \
-                    f"Unsupported Geometry! Stack: {element.name} Segment {i}: {segment.element.name} " + \
-                        "has multiple MPACT assemblies"
-                assert mpact_geometry.nz == 1, \
-                    f"Unsupported Geometry! Stack: {element.name} Segment {i}: {segment.element.name} " + \
-                        "is not a 2D radial geometry"
+        # Validate & pitch checks, build assembly mapping
+        segment_lattices = {}
+        for segment, mpact_core in results.items():
+            i = segment_positions[segment][0]
+            assert mpact_core.nx == 1 and mpact_core.ny == 1, \
+                f"Unsupported Geometry! Stack: {element.name} Segment {i}: {segment.element.name} " + \
+                    "has multiple MPACT assemblies"
+            assert mpact_core.nz == 1, \
+                f"Unsupported Geometry! Stack: {element.name} Segment {i}: {segment.element.name} " + \
+                    "is not a 2D radial geometry"
 
-                length           = segment.length
-                target_thickness = segment_specs.target_axial_thickness
-                num_subd         = max(1, int(length // target_thickness))
-                subd_length      = length / num_subd
-                subd_points      = [i * subd_length for i in range(num_subd + 1)]
+            segment_specs    = self.specs.segment_specs.get(segment)
+            segment_specs    = segment_specs if segment_specs else Stack.Segment.Specs(None)
+            length           = segment.length
+            target_thickness = segment_specs.target_axial_thickness
+            num_subd         = max(1, int(length // target_thickness))
+            subd_length      = length / num_subd
+            subd_points      = [i * subd_length for i in range(num_subd + 1)]
 
-                unique_segments[segment]    = mpact_geometry
-                target_thicknesses[segment] = segment_specs.target_axial_thickness
+            lattice = mpact_core.lattices[0].with_height(length)
 
-                lattice = mpact_geometry.lattices[0].with_height(length)
+            segment_lattices[segment] = [lattice.get_axial_slice(start_pos, stop_pos)
+                                         for start_pos, stop_pos in zip(subd_points[:-1], subd_points[1:])]
 
-                unique_segments[segment] = [lattice.get_axial_slice(start_pos, stop_pos)
-                                            for start_pos, stop_pos in zip(subd_points[:-1], subd_points[1:])]
-
-        # Second pass: create lattices using cached geometries
+        # Map built segments back to their positions
         lattices = []
-        for i, segment in enumerate(element.segments):
-            lattices.extend(unique_segments[segment])
+        for segment in element.segments:
+            lattices.extend(segment_lattices[segment])
 
         assembly = mpactpy.Assembly(lattices)
         return mpactpy.Core([[assembly]], "360")
+
+
+    def _build_segments(self, segments: List[geometry_elements.Stack.Segment]
+        ) -> Dict[geometry_elements.Stack.Segment, mpactpy.Core]:
+        """
+        Build each unique segment only once (optionally in parallel, chunked).
+
+        Parameters
+        ----------
+        segments : List[geometry_elements.Stack.Segment]
+            The unique stack segment entries to build.
+
+        Returns
+        -------
+        Dict[geometry_elements.Stack.Segment, mpactpy.Core]
+            Mapping from unique segment to built mpact geometry.
+        """
+        num_unique   = len(segments)
+        use_parallel = self.specs.num_procs and self.specs.num_procs > 1 and num_unique > 1
+
+        if use_parallel:
+            num_chunks = min(self.specs.num_procs, num_unique)
+            chunk_indices = np.array_split(range(num_unique), num_chunks)
+            work_chunks = [[segments[i] for i in indices] for indices in chunk_indices if len(indices) > 0]
+
+            results = {}
+            with ProcessPoolExecutor(max_workers=self.specs.num_procs) as executor:
+                future_to_chunk_index = {
+                    executor.submit(_stack_chunk_worker, chunk, self.specs.segment_specs): i
+                    for i, chunk in enumerate(work_chunks)
+                }
+                chunk_results = [None] * len(work_chunks)
+                for future in as_completed(future_to_chunk_index):
+                    chunk_index = future_to_chunk_index[future]
+                    chunk_results[chunk_index] = future.result()
+
+                for chunk_result in chunk_results:
+                    for segment, mpact_geometry in chunk_result:
+                        results[segment] = mpact_geometry
+        else:
+            results = {}
+            for segment in segments:
+                segment_specs = self.specs.segment_specs.get(segment)
+                build_specs = segment_specs.builder_specs if segment_specs else None
+                results[segment] = build(segment.element, build_specs)
+        return results
+
+
+
+def _stack_chunk_worker(chunk:         List[geometry_elements.Stack.Segment],
+                        segment_specs: Dict[geometry_elements.Stack.Segment, Stack.Segment.Specs]
+    ) -> List[Tuple[geometry_elements.Stack.Segment, Any]]:
+    """ Top-level worker for a chunk of unique segments (for parallel build).
+
+    Parameters
+    ----------
+    chunk : List[geometry_elements.Stack.Segment]
+        The unique stack segment entries to build in this chunk.
+    """
+    results = []
+    for segment in chunk:
+        build_specs = segment_specs.get(segment).builder_specs if segment_specs.get(segment) else None
+        mpact_geometry = build(segment.element, build_specs)
+        results.append((segment, mpact_geometry))
+    return results
