@@ -166,9 +166,11 @@ class Stack:
 
                 # Validate geometry using this segment for error reporting
                 assert mpact_geometry.nx == 1 and mpact_geometry.ny == 1, \
-                    f"Unsupported Geometry! Stack: {element.name} Segment {i}: {segment.element.name} has multiple MPACT assemblies"
+                    f"Unsupported Geometry! Stack: {element.name} Segment {i}: {segment.element.name} " + \
+                        "has multiple MPACT assemblies"
                 assert mpact_geometry.nz == 1, \
-                    f"Unsupported Geometry! Stack: {element.name} Segment {i}: {segment.element.name} is not a 2D radial geometry"
+                    f"Unsupported Geometry! Stack: {element.name} Segment {i}: {segment.element.name} " + \
+                        "is not a 2D radial geometry"
 
                 length           = segment.length
                 target_thickness = segment_specs.target_axial_thickness
