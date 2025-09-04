@@ -128,11 +128,15 @@ class Torispherical_Dome(Cap):
                      relative_round(self.c, TOL)))
 
     def make_region(self) -> openmc.Region:
-        base_plane        = openmc.ZPlane(z0 = 0.)
-        critical_cylinder = openmc.ZCylinder(r = self.r)
-        sphere            = openmc.Sphere(r = self.R)
-        torus             = openmc.ZTorus(z0 = 0., a = self.c, b = self.a, c = self.a)
-        return ((-sphere & -critical_cylinder) | -torus) & +base_plane
+        base_plane   = openmc.ZPlane(z0=0.0)
+        critical_cyl = openmc.ZCylinder(r=self.r)
+        outer_cyl    = openmc.ZCylinder(r=self.a + self.c)
+        sphere       = openmc.Sphere(r=self.R, z0=self.h - self.R)
+        torus        = openmc.ZTorus(z0=0.0, a=self.c, b=self.a, c=self.a)
+
+        crown = -sphere & -critical_cyl
+        knuckle = -torus & +critical_cyl
+        return +base_plane & -outer_cyl & (crown | knuckle)
 
 
 class ASME_Flanged_Dished_Dome(Torispherical_Dome):
