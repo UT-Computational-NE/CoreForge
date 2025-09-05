@@ -209,7 +209,7 @@ class Stack:
 
 def _stack_chunk_worker(chunk:         List[geometry_elements.Stack.Segment],
                         segment_specs: Dict[geometry_elements.Stack.Segment, Stack.Segment.Specs]
-    ) -> List[Tuple[geometry_elements.Stack.Segment, Any]]:
+    ) -> List[Tuple[geometry_elements.Stack.Segment, mpactpy.Core]]:
     """ Top-level worker for a chunk of unique segments (for parallel build).
 
     Parameters

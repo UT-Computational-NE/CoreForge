@@ -131,7 +131,7 @@ class RectLattice:
 
 def _rect_lattice_chunk_worker(chunk:         List[geometry_elements.GeometryElement],
                                element_specs: Dict[geometry_elements.GeometryElement, BuilderSpecs]
-    ) -> List[Tuple[geometry_elements.GeometryElement, Any]]:
+    ) -> List[Tuple[geometry_elements.GeometryElement, mpactpy.Core]]:
     """ Top-level worker for a chunk of unique elements (for parallel build).
 
     Parameters
