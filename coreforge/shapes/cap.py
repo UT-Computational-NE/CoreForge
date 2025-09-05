@@ -131,7 +131,7 @@ class Torispherical_Dome(Cap):
         base_plane   = openmc.ZPlane(z0=0.0)
         critical_cyl = openmc.ZCylinder(r=self.r)
         outer_cyl    = openmc.ZCylinder(r=self.a + self.c)
-        sphere       = openmc.Sphere(r=self.R, z0=self.h - self.R)
+        sphere       = openmc.Sphere(z0=self.R - self.h, r=self.R)
         torus        = openmc.ZTorus(z0=0.0, a=self.c, b=self.a, c=self.a)
 
         crown = -sphere & -critical_cyl
