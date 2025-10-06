@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 class Air(Material):
     """ Factory for creating dry air materials
@@ -38,7 +38,7 @@ class Air(Material):
 
     def __init__(self,
                  name: str = 'Air',
-                 temperature: float = STANDARD_TEMPERATURE,
+                 temperature: float = ROOM_TEMPERATURE,
                  density: float = 0.0012):
 
         components = { 'N': 78.08,

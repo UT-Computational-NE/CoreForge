@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 class B4C(Material):
     """ Factory for creating B4C Poison material
@@ -24,7 +24,7 @@ class B4C(Material):
 
     def __init__(self,
                  name: str = 'B4C',
-                 temperature: float = STANDARD_TEMPERATURE,
+                 temperature: float = ROOM_TEMPERATURE,
                  density: float = 1.76):
 
         openmc_material = openmc.Material()

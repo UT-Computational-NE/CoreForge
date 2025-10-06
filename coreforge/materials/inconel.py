@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 class Inconel(Material):
     """ Factory for creating Inconel materials
@@ -23,7 +23,7 @@ class Inconel(Material):
 
     def __init__(self,
                  name: str = 'Inconel',
-                 temperature: float = STANDARD_TEMPERATURE,
+                 temperature: float = ROOM_TEMPERATURE,
                  density: float = 8.19):
 
         components = {'Al':  0.800,

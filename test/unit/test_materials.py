@@ -93,7 +93,7 @@ def test_graphite(graphite):
     material = mpact_builder.build_material(graphite)
 
     num_dens = {'C'  : 0.0932567267810358, 'B10': 1.642700833205197e-08, 'B11': 6.645396206175213e-08}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Graphite])
 
@@ -113,7 +113,7 @@ def test_inconel(inconel):
                 'Mo98': 0.0006657981507262733, 'Mo100': 0.00026706476126612904, 'Ni58': 0.02778096100680029,
                 'Ni60': 0.010701176442779044,  'Ni61': 0.00046517273042179734,  'Ni62': 0.0014831742159119416,
                 'Ni64': 0.0003777207468009612, 'Nb93': 0.004568020683944462,    'P31': 1.2458238228939442e-05}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Inconel])
 
@@ -125,7 +125,7 @@ def test_air(air):
     num_dens = {'N14':  3.8309042069284913e-05, 'N15':  1.408419250713269e-07,  'O16':  1.0312753274594694e-05,
                 'O17':  3.910015386903025e-09,  'Ar36': 1.5935034402538069e-09, 'Ar38': 3.0045373618694377e-10,
                 'Ar40': 4.7577493978213445e-07}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Air])
 
@@ -141,7 +141,7 @@ def test_ss304(ss304):
                 'Ni62': 0.00030933072906339496, 'Ni64': 7.877741720211267e-05,'N14' : 0.00033841344948970997,
                 'N15' : 1.244165844970936e-06,  'Fe54': 0.0033110526543034652,'Fe56': 0.05197644572163562,
                 'Fe57': 0.001200362801448938,   'Fe58': 0.00015974625295356323}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[SS304])
 
@@ -159,7 +159,7 @@ def test_ss316h(ss316h):
                 'Mo100': 0.00014677766538745524,'Mn55' : 0.0017538712125192586, 'P31'  : 6.999377969529131e-05,
                 'Fe54' : 0.003130089248410418,  'Fe56' : 0.049135707253832255,  'Fe57' : 0.0011347577617419463,
                 'Fe58' : 0.00015101542652724343}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[SS316H])
 
@@ -169,7 +169,7 @@ def test_water(water):
     material = mpact_builder.build_material(water)
 
     num_dens = {'H'  : 0.06687084844887618, 'O16': 0.03342275219865702, 'O17': 1.2672025781062035e-05}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Water])
 
@@ -178,9 +178,10 @@ def test_water(water):
 def test_helium(helium):
     material = mpact_builder.build_material(helium)
 
-    num_dens = {'He3': 5.370665761547269e-11,
-                'He4': 2.6853275101078733e-05}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    print(helium.number_densities)
+    num_dens = {'He3': 4.996933865769493e-11,
+                'He4': 2.4984619359508816e-05}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Helium])
 
@@ -202,7 +203,7 @@ def test_inor8(inor8):
                 'W180' : 1.410696599225658e-07, 'W182' : 3.115288323289996e-05, 'W183' : 1.6822556945765977e-05,
                 'W184' : 3.601978650022848e-05, 'W186' : 3.342175359665455e-05, 'P31'  : 2.047201399787779e-05,
                 'Co59' : 0.00014704733332743196}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[INOR8])
 
@@ -212,7 +213,7 @@ def test_b4c(b4c):
     material = mpact_builder.build_material(b4c)
 
     num_dens = {'C'  : 0.019180730627934073, 'B10': 0.015206483241826132, 'B11': 0.06151643926991015}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[B4C])
 

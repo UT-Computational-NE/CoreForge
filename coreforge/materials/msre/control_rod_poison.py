@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 
 class ControlRodPoison(Material):
@@ -25,7 +25,7 @@ class ControlRodPoison(Material):
 
     def __init__(self,
                  name: str = 'Poison',
-                 temperature: float = STANDARD_TEMPERATURE,
+                 temperature: float = ROOM_TEMPERATURE,
                  density: float = 5.873):
 
         gd2o3 = openmc.Material()

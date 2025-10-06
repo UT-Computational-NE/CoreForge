@@ -1,12 +1,12 @@
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 
 class Helium(Material):
     """ Factory for creating Helium Gas materials
 
-    Default density calculated using CoolProps (Reference 1) at 273.15K and 1 atm
+    Default density calculated using CoolProp (Reference 1) at 293.6K and 1 atm
 
     Parameters
     ----------
@@ -27,8 +27,8 @@ class Helium(Material):
 
     def __init__(self,
                  name: str = 'Helium',
-                 temperature: float = STANDARD_TEMPERATURE,
-                 density: float = 0.00017848):
+                 temperature: float = ROOM_TEMPERATURE,
+                 density: float = 0.00016606):
 
         openmc_material = openmc.Material()
         openmc_material.set_density('g/cm3', density)
