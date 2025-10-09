@@ -6,6 +6,7 @@ import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 STANDARD_TEMPERATURE = 273.15
+ROOM_TEMPERATURE     = 293.6
 
 class Material(ABC):
     """ An interface class for translating materials into solver specific representations
@@ -53,7 +54,9 @@ class Material(ABC):
 
     def __init__(self, openmc_material: openmc.Material) -> None:
 
-        self._openmc_material = openmc_material
+        self._openmc_material             = openmc_material.clone()
+        self._openmc_material.temperature = self.temperature if self.temperature is not None else ROOM_TEMPERATURE
+
 
     def __eq__(self, other: Any) -> bool:
         if self is other:

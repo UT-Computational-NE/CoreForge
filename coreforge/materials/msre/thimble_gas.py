@@ -1,11 +1,11 @@
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 class ThimbleGas(Material):
     """ Material for MSRE Thimble Gas materials
 
-    - Default density calculated using CoolProps (Reference 1) at 273.15K and 1 atm
+    - Default density calculated using CoolProp (Reference 1) at 293.6K and 1 atm
     - Composition from Reference 2 Section 5.3.5.2
 
     Parameters
@@ -28,8 +28,8 @@ class ThimbleGas(Material):
 
     def __init__(self,
                  name: str = 'Thimble Gas',
-                 temperature: float = STANDARD_TEMPERATURE,
-                 density: float = 0.00125932):
+                 temperature: float = ROOM_TEMPERATURE,
+                 density: float = 0.00117036):
 
         components = {'N': 95., 'O':  5.,}
         openmc_material = openmc.Material()

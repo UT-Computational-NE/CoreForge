@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 
 class Insulation(Material):
@@ -28,7 +28,7 @@ class Insulation(Material):
 
     def __init__(self,
                  name: str = 'Insulation',
-                 temperature: float = STANDARD_TEMPERATURE,
+                 temperature: float = ROOM_TEMPERATURE,
                  density: float = 0.160185):
 
         openmc_material = openmc.Material()

@@ -40,9 +40,9 @@ def test_salt(salt):
 def test_thimble_gas(thimble_gas):
     material = mpact_builder.build_material(thimble_gas)
 
-    num_dens = {'N14': 5.1248390373520565e-05, 'N15': 1.884130107967543e-07, 'O16': 2.3697368312685885e-06,
-                'O17': 8.984707794762167e-10}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    num_dens = {'N14': 4.762813753259977e-05, 'N15': 1.7510327106381968e-07, 'O16': 2.1973775396694824e-06,
+                'O17': 8.347923925535761e-10, 'O18': 4.406117947398875e-09}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[ThimbleGas])
 
@@ -52,7 +52,7 @@ def test_insulation(insulation):
     material = mpact_builder.build_material(insulation)
 
     num_dens = {'Si' : 0.0016057278006239388, 'O16': 0.003210238459575004, 'O17': 1.2171416728729455e-06}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Insulation])
 
@@ -65,7 +65,7 @@ def test_control_rod_poison(control_rod_poison):
                 'Gd156': 0.002796150724470201,   'Gd157': 0.0021377507981416044, 'Gd158': 0.0033930817780087833,
                 'Gd160': 0.0029860212426438006,  'O16'  : 0.051692735794137225,  'O17'  : 1.9598974877456564e-05,
                 'Al27' : 0.02081514033711775}
-    expected_material = mpactpy.material.Material(temperature                 = 273.15,
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[ControlRodPoison])
 

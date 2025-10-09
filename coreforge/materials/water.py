@@ -1,12 +1,12 @@
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 
 class Water(Material):
     """ Factory for creating water materials
 
-    Default water density corresponds to standard temperature and pressure
+    Default water density assumed to be 1 g/cm3
 
     Parameters
     ----------
@@ -20,7 +20,7 @@ class Water(Material):
 
     def __init__(self,
                  name: str = 'Water',
-                 temperature: float = STANDARD_TEMPERATURE,
+                 temperature: float = ROOM_TEMPERATURE,
                  density: float = 1.0):
 
         openmc_material = openmc.Material()

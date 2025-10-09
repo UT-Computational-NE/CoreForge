@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 class SS316H(Material):
     """ Factory for creating 316H Stainless Steel materials
@@ -24,7 +24,7 @@ class SS316H(Material):
 
     def __init__(self,
                  name: str = 'SS-316H',
-                 temperature: float = STANDARD_TEMPERATURE,
+                 temperature: float = ROOM_TEMPERATURE,
                  density: float = 8.0):
 
         components = {'Cr': 18.0,

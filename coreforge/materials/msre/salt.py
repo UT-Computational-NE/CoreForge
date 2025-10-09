@@ -30,7 +30,7 @@ class Salt(Material):
     name : str
         The name for the material
     temperature : float
-        The temperature of the material (K)
+        The temperature of the material (K) Default 900K
 
     Attributes
     ----------

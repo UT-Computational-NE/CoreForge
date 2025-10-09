@@ -4,7 +4,7 @@ from contextlib import contextmanager
 
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 # g/cm3  CRC Handbook of Chemistry and Physics 104th Edition (Table: Density Ranges of Solid Materials)
 GRAPHITE_THEORETICAL_DENSITY = {'min' : 2.3, 'max': 2.72}
@@ -75,7 +75,7 @@ class Graphite(Material):
                  boron_equiv_contamination:    float = 0.,
                  pore_intrusion:               Dict[Material, float] = {},
                  name:                         str = 'Graphite',
-                 temperature:                  float = STANDARD_TEMPERATURE,
+                 temperature:                  float = ROOM_TEMPERATURE,
                  theoretical_graphite_density: float = GRAPHITE_THEORETICAL_DENSITY['max'],
                  suppress_warnings:            bool = True):
 

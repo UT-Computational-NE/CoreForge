@@ -1,6 +1,6 @@
 import openmc
 
-from coreforge.materials.material import Material, STANDARD_TEMPERATURE
+from coreforge.materials.material import Material, ROOM_TEMPERATURE
 
 class INOR8(Material):
     """ Factory for creating INOR-8 materials
@@ -25,7 +25,7 @@ class INOR8(Material):
 
     def __init__(self,
                  name: str = 'INOR-8',
-                 temperature: float = STANDARD_TEMPERATURE,
+                 temperature: float = ROOM_TEMPERATURE,
                  density: float = 8.7745):
 
         components = {'Ni': 68.0,
