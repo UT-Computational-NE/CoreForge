@@ -202,7 +202,7 @@ class Block:
 
         @specs.setter
         def specs(self, specs: Block.Channel.Specs) -> None:
-            Block.Channel.specs.__set__(self, specs)
+            super(Block.FuelChannel, type(self)).specs.fset(self, specs)
 
             channel                 = specs.channel
             self._channel_thickness = channel.shape.inner_radius
@@ -295,7 +295,7 @@ class Block:
 
         @specs.setter
         def specs(self, specs: Block.Channel.Specs) -> None:
-            Block.Channel.specs.__set__(self, specs)
+            super(Block.ControlChannel, type(self)).specs.fset(self, specs)
 
             channel               = specs.channel
             half_block_pitch      = specs.block_pitch * 0.5
