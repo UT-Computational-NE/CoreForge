@@ -25,17 +25,17 @@ class MaterialSpecs:
 
 
 DEFAULT_MPACT_SPECS ={
-    materials.Air: mpactpy.Material.MPACTSpecs([], False, False, False, False),
-    materials.B4C: mpactpy.Material.MPACTSpecs([], False, False, False, False),
-    materials.Graphite: mpactpy.Material.MPACTSpecs(['C'], False, False, False, False),
-    materials.Helium: mpactpy.Material.MPACTSpecs([], False, False, False, False),
-    materials.Inconel: mpactpy.Material.MPACTSpecs([], False, False, True, False),
-    materials.INOR8: mpactpy.Material.MPACTSpecs([], False, False, True, False),
-    materials.SS304: mpactpy.Material.MPACTSpecs([], False, False, True, False),
-    materials.SS316H: mpactpy.Material.MPACTSpecs([], False, False, True, False),
-    materials.Water: mpactpy.Material.MPACTSpecs(['H'], True, False, False, False),
-    materials_msre.ControlRodPoison: mpactpy.Material.MPACTSpecs([], False, False, True, False),
-    materials_msre.Insulation: mpactpy.Material.MPACTSpecs([], False, False, False, False),
-    materials_msre.Salt: mpactpy.Material.MPACTSpecs([], True, True, True, True),
-    materials_msre.ThimbleGas: mpactpy.Material.MPACTSpecs([], False, False, False, False)
+    materials.Air: mpactpy.Material.MPACTSpecs({}, False, False, False, False),
+    materials.B4C: mpactpy.Material.MPACTSpecs({}, False, False, False, False),
+    materials.Graphite: mpactpy.Material.MPACTSpecs({'C':"C_in_Graphite"}, False, False, False, False),
+    materials.Helium: mpactpy.Material.MPACTSpecs({}, False, False, False, False),
+    materials.Inconel: mpactpy.Material.MPACTSpecs({}, False, False, True, False),
+    materials.INOR8: mpactpy.Material.MPACTSpecs({}, False, False, True, False),
+    materials.SS304: mpactpy.Material.MPACTSpecs({}, False, False, True, False),
+    materials.SS316H: mpactpy.Material.MPACTSpecs({}, False, False, True, False),
+    materials.Water: mpactpy.Material.MPACTSpecs({'H': "H1"}, True, False, False, False),
+    materials_msre.ControlRodPoison: mpactpy.Material.MPACTSpecs({}, False, False, True, False),
+    materials_msre.Insulation: mpactpy.Material.MPACTSpecs({}, False, False, False, False),
+    materials_msre.Salt: mpactpy.Material.MPACTSpecs({}, True, True, True, True),
+    materials_msre.ThimbleGas: mpactpy.Material.MPACTSpecs({}, False, False, False, False)
 }
