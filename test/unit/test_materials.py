@@ -3,7 +3,7 @@ from math import isclose
 
 import mpactpy
 
-from coreforge.materials import Material, Graphite, Inconel, Air, SS304, SS316H, Water, Helium, INOR8, B4C
+from coreforge.materials import Material, Graphite, Inconel, Air, SS304, SS316H, Water, Helium, INOR8, B4C, Mo, Zr, UZrH, Al6061T6
 import coreforge.mpact_builder as mpact_builder
 
 @pytest.fixture
@@ -41,6 +41,22 @@ def inor8():
 @pytest.fixture
 def b4c():
     return B4C()
+
+@pytest.fixture
+def mo():
+    return Mo()
+
+@pytest.fixture
+def zr():
+    return Zr()
+
+@pytest.fixture
+def uzrh():
+    return UZrH()
+
+@pytest.fixture
+def al6061t6():
+    return Al6061T6()
 
 def materials_are_close(lhs: mpactpy.material.Material,
                         rhs: mpactpy.material.Material) -> bool:
@@ -218,3 +234,56 @@ def test_b4c(b4c):
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[B4C])
 
     assert materials_are_close(material, expected_material)
+
+def test_mo(mo):
+    material = mpact_builder.build_material(mo)
+
+    num_dens = {'Mo92': 0.009549482369139634, 'Mo94': 0.005967618298385837, 'Mo95': 0.010280079192235626,
+                'Mo96': 0.010784384963930204, 'Mo97': 0.0061809784325643135, 'Mo98': 0.015639944381143384,
+                'Mo100': 0.006252098477290471}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
+                                                  number_densities            = num_dens,
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Mo])
+
+    assert materials_are_close(material, expected_material)
+
+def test_zr(zr):
+    material = mpact_builder.build_material(zr)
+
+    num_dens = {'Zr90': 0.022077110297960726, 'Zr91': 0.004814483528534876, 'Zr92': 0.00735903676598691,
+                'Zr94': 0.007457729387338338, 'Zr96': 0.0012014753903652098}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
+                                                  number_densities            = num_dens,
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Zr])
+
+    assert materials_are_close(material, expected_material)
+
+def test_uzrh(uzrh):
+    material = mpact_builder.build_material(uzrh)
+
+    num_dens = {'Zr'  : 0.03236252669648184,    'H'   : 0.05017992823867929,    'Mn55': 9.161779589954229e-05,
+                'U235': 0.00022782770293680135, 'U238': 0.0009111657877251246,  'Cr50': 3.9958261676252606e-05,
+                'Cr52': 0.0007705553020924119,  'Cr53': 8.737478577355029e-05,  'Cr54': 2.174943357061851e-05,
+                'Fe54': 0.00018306448319297205, 'Fe56': 0.0028737208880903267,  'Fe57': 6.636674762804238e-05,
+                'Fe58': 8.83219576739403e-06,   'Ni58': 0.00027730385362067074, 'Ni60': 0.00010681694794974817,
+                'Ni61': 4.6432587668093355e-06, 'Ni62': 1.480474075617908e-05,  'Ni64': 3.7703310067187678e-06}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
+                                                  number_densities            = num_dens,
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[UZrH])
+
+    assert materials_are_close(material, expected_material)
+
+def test_al6061t6(al6061t6):
+    material = mpact_builder.build_material(al6061t6)
+
+    num_dens = {'Mg24': 0.0005351155852920017,  'Mg25': 6.503067876051443e-05, 'Mg26': 6.8851718642783e-05,
+                'Si28': 0.00032153335601827154, 'Si29': 1.577116461221087e-05, 'Si30': 1.0062105023655176e-05,
+                'B10' : 2.3945249929578925e-07, 'Al27': 0.05901561597803719,   'Cr50': 2.6872280480586553e-06,
+                'Cr52': 4.983052010820289e-05,  'Cr53': 5.543557861124277e-06, 'Cr54': 1.3544141367559698e-06,
+                'Cu63': 5.001752206004382e-05,  'Cu65': 2.1628225745539073e-05}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
+                                                  number_densities            = num_dens,
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Al6061T6])
+
+    assert materials_are_close(material, expected_material)
+
