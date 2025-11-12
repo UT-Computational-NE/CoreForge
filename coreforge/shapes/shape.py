@@ -25,7 +25,7 @@ class Shape(ABC):
         return self._outer_radius
 
     def __init__(self, inner_radius: float, outer_radius: float):
-        assert inner_radius > 0., f"inner_radius = {inner_radius}"
+        assert inner_radius >= 0., f"inner_radius = {inner_radius}"
         assert outer_radius >= inner_radius, f"outer_radius = {outer_radius}"
 
         self._inner_radius = inner_radius
