@@ -4,7 +4,7 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build
+from coreforge.mpact_builder.mpact_builder import register_builder, build, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.msre.block import Block
@@ -66,13 +66,15 @@ class Stringer:
         self.specs = specs
 
 
-    def build(self, element: geometry_elements_msre.Stringer) -> mpactpy.Core:
+    def build(self, element: geometry_elements_msre.Stringer, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of an MSRE Stringer
 
         Parameters
         ----------
         element: geometry_elements_msre.Stringer
             The geometry element to be built
+        bounds: Optional[Bounds]
+            The spatial bounds for the geometry.
 
         Returns
         -------
@@ -85,4 +87,4 @@ class Stringer:
                                             self.specs.block_specs)
         stack_specs = Stack.Specs({stack.segments[0]: segment_specs})
 
-        return build(element.as_stack(), stack_specs)
+        return build(element.as_stack(), stack_specs, bounds)

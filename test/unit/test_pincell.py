@@ -34,7 +34,7 @@ def cylindrical_pincell(salt, graphite):
 
 @pytest.fixture
 def cylindrical_pincell_mpact_specs():
-    return mpact_builder.CylindricalPinCell.Specs(bounds = (-4.0, 4.0, -4.0, 4.0))
+    return mpact_builder.CylindricalPinCell.Specs()
 
 @pytest.fixture
 def mpact_voxel_specs(salt, graphite):
@@ -138,7 +138,9 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
 
     geom_element = cylindrical_pincell
     specs        = cylindrical_pincell_mpact_specs
-    core         = mpact_builder.build(geom_element, specs)
+    bounds       = mpact_builder.Bounds(X={'min': -4.0, 'max': 4.0},
+                                        Y={'min': -4.0, 'max': 4.0})
+    core         = mpact_builder.build(geom_element, specs, bounds)
     salt         = mpact_builder.build_material(salt)
     graphite     = mpact_builder.build_material(graphite)
 
@@ -161,7 +163,7 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
     assert core.pins[0] == Pin(GeneralCylindricalPinMesh(expected_radii, -4.0, 4.0, -4.0, 4.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
 
     specs.divide_into_quadrants = True
-    core = mpact_builder.build(geom_element, specs)
+    core = mpact_builder.build(geom_element, specs, bounds)
 
     assert isclose(core.mod_dim['X'], 4.0)
     assert isclose(core.mod_dim['Y'], 4.0)

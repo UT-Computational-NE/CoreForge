@@ -51,9 +51,8 @@ def unequal_control_channel(thimble, control_rod, salt):
                           control_rod   = control_rod)
 
 @pytest.fixture
-def control_channel_mpact_specs(block):
-    hp = block.pitch * 0.5
-    return mpact_builder.msre.ControlChannel.Specs(PinCell.Specs(bounds=(-hp, hp, -hp, hp)))
+def control_channel_mpact_specs():
+    return mpact_builder.msre.ControlChannel.Specs()
 
 
 
@@ -92,7 +91,10 @@ def test_openmc_builder(control_channel):
 
 def test_mpact_builder(control_channel, control_channel_mpact_specs, block):
     geom_element  = control_channel
-    core          = mpact_builder.build(geom_element, control_channel_mpact_specs)
+    hp            = block.pitch * 0.5
+    bounds        = mpact_builder.Bounds(X={'min': -hp, 'max': hp},
+                                         Y={'min': -hp, 'max': hp})
+    core          = mpact_builder.build(geom_element, control_channel_mpact_specs, bounds)
 
     assert isclose(core.mod_dim['X'], block.pitch)
     assert isclose(core.mod_dim['Y'], block.pitch)

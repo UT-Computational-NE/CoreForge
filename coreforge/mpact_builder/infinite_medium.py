@@ -1,10 +1,10 @@
-from typing import TypedDict, Optional
+from typing import TypedDict, Optional, Dict
 from dataclasses import dataclass
 from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build_material
+from coreforge.mpact_builder.mpact_builder import register_builder, build_material, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.material_specs import MaterialSpecs
 from coreforge import geometry_elements
@@ -33,9 +33,6 @@ class InfiniteMedium:
         target_cell_thicknesses : Thicknesses
             The target side length of the cells (cm).  Defaults to infinity for dimensions
             where no targets provided. (keys: "X", "Y", "Z")
-        thicknesses : Thicknesses
-            The thicknesses of each material region division in each axis-direction. Defaults
-            to 1.0 for dimensions where no values are provided. (keys: "X", "Y", "Z")
         divide_into_quadrants : bool
             An optional setting to divide the pincell into 4 separate MPACT Module quadrants.
             This will represent the pincell with 4 MPACT Modules rather than just one.
@@ -51,20 +48,13 @@ class InfiniteMedium:
             Y: float
             Z: float
 
-        thicknesses:             Optional[Thicknesses] = None
         target_cell_thicknesses: Optional[Thicknesses] = None
         divide_into_quadrants:   bool = False
         material_specs:          Optional[MaterialSpecs] = None
 
         def __post_init__(self):
-            if self.thicknesses is None:
-                self.thicknesses = {}
-
             if self.target_cell_thicknesses is None:
                 self.target_cell_thicknesses = {}
-
-            for dim in ["X", "Y", "Z"]:
-                self.thicknesses.setdefault(dim, 1.0)
 
             for dim in ["X", "Y", "Z"]:
                 self.target_cell_thicknesses.setdefault(dim, inf)
@@ -74,9 +64,6 @@ class InfiniteMedium:
 
             assert all(thickness > 0. for thickness in self.target_cell_thicknesses.values()), \
                 f"target_cell_thicknesses = {self.target_cell_thicknesses}"
-
-            assert all(thickness > 0. for thickness in self.thicknesses.values()), \
-                f"thicknesses = {self.thicknesses}"
 
 
     @property
@@ -92,13 +79,16 @@ class InfiniteMedium:
         self.specs = specs
 
 
-    def build(self, element: geometry_elements.InfiniteMedium) -> mpactpy.Core:
+    def build(self, element: geometry_elements.InfiniteMedium, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a InfiniteMedium
 
         Parameters
         ----------
         element: geometry_elements.InfiniteMedium
             The geometry element to be built
+        bounds: Optional[Bounds]
+            The spatial bounds for the geometry (Bounds dataclass with X, Y, Z AxisBounds).
+            Defaults to 1.0 thickness in each dimension if not provided.
 
         Returns
         -------
@@ -107,23 +97,28 @@ class InfiniteMedium:
         """
 
         specs = self.specs
-
         materials = [build_material(element.material)]
 
-        def build_module(thicknesses: InfiniteMedium.Specs.Thicknesses) -> mpactpy.Module:
-            pin = mpactpy.build_rec_pin(thicknesses             = {"X": [thicknesses["X"]],
-                                                                   "Y": [thicknesses["Y"]],
-                                                                   "Z": [thicknesses["Z"]]},
+        thicknesses = {"X": 1.0, "Y": 1.0, "Z": 1.0}
+        if bounds:
+            thicknesses["X"] = bounds.X['max'] - bounds.X['min'] if bounds.X else thicknesses["X"]
+            thicknesses["Y"] = bounds.Y['max'] - bounds.Y['min'] if bounds.Y else thicknesses["Y"]
+            thicknesses["Z"] = bounds.Z['max'] - bounds.Z['min'] if bounds.Z else thicknesses["Z"]
+
+        def build_module(module_thicknesses: Dict[str, float]) -> mpactpy.Module:
+            pin = mpactpy.build_rec_pin(thicknesses             = {"X": [module_thicknesses["X"]],
+                                                                   "Y": [module_thicknesses["Y"]],
+                                                                   "Z": [module_thicknesses["Z"]]},
                                         materials               = materials,
                                         target_cell_thicknesses = specs.target_cell_thicknesses)
             return mpactpy.Module(1, [[pin]])
 
         # half radial thicknesses
-        ht   = {"X": specs.thicknesses["X"]*0.5,
-                "Y": specs.thicknesses["Y"]*0.5,
-                "Z": specs.thicknesses["Z"]}
+        ht   = {"X": thicknesses["X"]*0.5,
+                "Y": thicknesses["Y"]*0.5,
+                "Z": thicknesses["Z"]}
 
-        module_map = [[build_module(specs.thicknesses)]] if not specs.divide_into_quadrants else \
+        module_map = [[build_module(thicknesses)]] if not specs.divide_into_quadrants else \
                      [[build_module(ht),build_module(ht)],
                       [build_module(ht),build_module(ht)],]
 

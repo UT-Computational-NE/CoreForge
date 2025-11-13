@@ -1,4 +1,5 @@
-from typing import Optional
+from typing import Optional, TypedDict
+from dataclasses import dataclass
 
 import mpactpy
 import openmc
@@ -11,13 +12,55 @@ from coreforge.openmc_builder import build as build_openmc_universe
 
 _builder_registry = {}
 
+
+class AxisBounds(TypedDict):
+    """ Bounds for a single axis
+
+    Attributes
+    ----------
+    min : float
+        Minimum value for this axis
+    max : float
+        Maximum value for this axis
+    """
+    min: float
+    max: float
+
+
+@dataclass
+class Bounds:
+    """ Bounds for X, Y, and Z axes
+
+    Attributes
+    ----------
+    X : Optional[AxisBounds]
+        Bounds for the X axis
+    Y : Optional[AxisBounds]
+        Bounds for the Y axis
+    Z : Optional[AxisBounds]
+        Bounds for the Z axis
+    """
+    X: Optional[AxisBounds] = None
+    Y: Optional[AxisBounds] = None
+    Z: Optional[AxisBounds] = None
+
+    def __post_init__(self):
+        for axis_name in ['X', 'Y', 'Z']:
+            axis_bounds = getattr(self, axis_name)
+            if axis_bounds is not None:
+                if axis_bounds['min'] >= axis_bounds['max']:
+                    raise ValueError(
+                        f"Bounds.{axis_name}: min ({axis_bounds['min']}) must be less than max ({axis_bounds['max']})"
+                    )
+
+
 def register_builder(geometry_cls):
     def decorator(builder_cls):
         _builder_registry[geometry_cls] = builder_cls
         return builder_cls
     return decorator
 
-def build(element: GeometryElement, specs: Optional[BuilderSpecs] = None) -> mpactpy.Core:
+def build(element: GeometryElement, specs: Optional[BuilderSpecs] = None, bounds: Optional[Bounds] = None) -> mpactpy.Core:
     """ Function for building an MPACT Core from a GeometryElement
 
     Parameters
@@ -26,6 +69,8 @@ def build(element: GeometryElement, specs: Optional[BuilderSpecs] = None) -> mpa
         The geometry element to be built
     specs: Optional[BuilderSpecs]
         The build specifications
+    bounds: Optional[Bounds]
+        The spatial bounds for the geometry
 
     Returns
     -------
@@ -39,7 +84,7 @@ def build(element: GeometryElement, specs: Optional[BuilderSpecs] = None) -> mpa
     while cls is not object:
         builder_cls = _builder_registry.get(cls)
         if builder_cls:
-            return builder_cls(specs).build(element)
+            return builder_cls(specs).build(element, bounds)
         cls = cls.__base__
     return build_voxelized(element, specs)
 

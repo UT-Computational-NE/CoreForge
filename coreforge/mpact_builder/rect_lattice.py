@@ -1,12 +1,11 @@
 from __future__ import annotations
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
-from math import isclose
 from multiprocessing import cpu_count
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build
+from coreforge.mpact_builder.mpact_builder import register_builder, build, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.utils import build_elements
 from coreforge import geometry_elements
@@ -69,19 +68,28 @@ class RectLattice:
         self.specs = specs
 
 
-    def build(self, element: geometry_elements.RectLattice) -> mpactpy.Core:
+    def build(self, element: geometry_elements.RectLattice, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a RectLattice
 
         Parameters
         ----------
         element: geometry_elements.RectLattice
             The geometry element to be built
+        bounds: Optional[Bounds]
+            The spatial bounds for the geometry (Bounds dataclass with Z AxisBounds).
+            X and Y bounds should NOT be provided as they are determined by lattice pitch.
 
         Returns
         -------
         mpactpy.Core
             A new MPACT geometry based on this geometry element
         """
+
+        if bounds and (bounds.X or bounds.Y):
+            raise AssertionError("RectLattice builder does not accept X or Y bounds - they are determined by lattice pitch")
+
+        half_pitch_x = element.pitch[0] * 0.5
+        half_pitch_y = element.pitch[1] * 0.5
 
         # Find unique elements and their positions
         element_positions = {}
@@ -97,23 +105,20 @@ class RectLattice:
         results        = build_elements(unique_entries,
                                         _rect_lattice_chunk_worker,
                                         self.specs.num_procs,
-                                        self.specs.element_specs)
+                                        self.specs.element_specs,
+                                        Bounds(X = {'min': -half_pitch_x, 'max': half_pitch_x},
+                                               Y = {'min': -half_pitch_y, 'max': half_pitch_y},
+                                               Z = bounds.Z if bounds else None))
 
         # Validation & pitch checks, build assembly mapping
         mpact_geometry = {}
         for entry, mpact_core in results.items():
             i,j = element_positions[entry][0]
+
             assert mpact_core.nx == 1 and mpact_core.ny == 1, \
                 f"Unsupported Geometry! {element.name} Row {i}, Column {j}: {entry.name} has multiple MPACT assemblies"
 
             assembly = mpact_core.assemblies[0]
-
-            for axis, idx in zip(('X', 'Y'), (0, 1)):
-                assert isclose(assembly.pitch[axis], element.pitch[idx]), (
-                    f"Pitch Conflict! {element.name} Row {i}, Column {j}: {entry.name} "
-                    f"{axis}-pitch {assembly.pitch[axis]} not equal to lattice {axis}-pitch {element.pitch[idx]}"
-                )
-
             mpact_geometry[entry] = assembly
 
         # Map built assemblies back to their positions
@@ -130,7 +135,8 @@ class RectLattice:
 
 
 def _rect_lattice_chunk_worker(chunk:         List[geometry_elements.GeometryElement],
-                               element_specs: Dict[geometry_elements.GeometryElement, BuilderSpecs]
+                               element_specs: Dict[geometry_elements.GeometryElement, BuilderSpecs],
+                               bounds:        Optional[Bounds] = None
     ) -> List[Tuple[geometry_elements.GeometryElement, mpactpy.Core]]:
     """ Top-level worker for a chunk of unique elements (for parallel build).
 
@@ -140,6 +146,8 @@ def _rect_lattice_chunk_worker(chunk:         List[geometry_elements.GeometryEle
         The unique geometry element entries to build in this chunk.
     element_specs : Dict[geometry_elements.GeometryElement, BuilderSpecs]
         Specifications for how to build each geometry element.
+    bounds: Optional[Bounds]
+        The spatial bounds to pass to element builds
 
     Returns
     -------
@@ -148,6 +156,6 @@ def _rect_lattice_chunk_worker(chunk:         List[geometry_elements.GeometryEle
     """
     results = []
     for entry in chunk:
-        mpact_geometry = build(entry, element_specs.get(entry))
+        mpact_geometry = build(entry, element_specs.get(entry), bounds)
         results.append((entry, mpact_geometry))
     return results

@@ -8,7 +8,7 @@ import mpactpy
 from mpactpy.pin import build_rec_pin, build_gcyl_pin
 
 from coreforge.shapes import Rectangle, Stadium, Circle
-from coreforge.mpact_builder.mpact_builder import register_builder, build_material
+from coreforge.mpact_builder.mpact_builder import register_builder, build_material, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.material_specs import MaterialSpecs
 import coreforge.geometry_elements.msre as geometry_elements_msre
@@ -39,9 +39,6 @@ class Block:
             The target thickness of the cells in terms of lateral 'cartesian' length,
             'radial' thickness, and 'azimuthal' arc length (cm).
             Cells will be subdivided to limit cells to within these specifications.
-        height : float
-            The height to build the extruded PinCell in the axial direction (cm).
-            Default value is 1.0
         divide_into_quadrants : bool
             An optional setting to divide the pincell into 4 separate MPACT Module quadrants.
             This will represent the pincell with 4 MPACT Modules rather than just one.
@@ -58,7 +55,6 @@ class Block:
             azimuthal: float
 
         target_cell_thicknesses: Optional[ThicknessSpec] = None
-        height:                  float = 1.0
         divide_into_quadrants:   bool = False
         material_specs:          Optional[MaterialSpecs] = None
 
@@ -68,8 +64,6 @@ class Block:
 
             assert all(thickness > 0. for thickness in self.target_cell_thicknesses.values()), \
                 f"target_cell_thicknesses = {self.target_cell_thicknesses}"
-
-            assert self.height > 0., f"height = {self.height}"
 
             if not self.material_specs:
                 self.material_specs = MaterialSpecs()
@@ -391,7 +385,7 @@ class Block:
         self.specs = specs
 
 
-    def build(self, element: geometry_elements_msre.Block) -> mpactpy.Core:
+    def build(self, element: geometry_elements_msre.Block, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of an MSRE Block
 
         MPACT geometry construction currently only support fuel and control
@@ -403,6 +397,10 @@ class Block:
         ----------
         element: geometry_elements_msre.Block
             The geometry element to be built
+        bounds: Optional[Bounds]
+            The spatial bounds for the geometry. Block does not accept X or Y bounds
+            as they are determined by the block pitch. Z bounds define the height.
+            Defaults to height from specs (1.0 cm) if not provided.
 
         Returns
         -------
@@ -410,7 +408,12 @@ class Block:
             A new MPACT geometry based on this geometry element
         """
 
+        if bounds and (bounds.X or bounds.Y):
+            raise AssertionError("Block builder does not accept X or Y bounds - they are determined by block pitch")
+
         specs = self.specs if self.specs else Block.Specs()
+
+        height = bounds.Z['max'] - bounds.Z['min'] if bounds and bounds.Z else 1.0
 
         flat_length     = 0.
         cap_cell_length = element.pitch*0.25
@@ -439,7 +442,7 @@ class Block:
                                  Block.ControlChannel
                 channel_specs = Block.Channel.Specs(channel                 = channel,
                                                     target_cell_thicknesses = specs.target_cell_thicknesses,
-                                                    height                  = specs.height,
+                                                    height                  = height,
                                                     block_pitch             = element.pitch,
                                                     cap_cell_length         = cap_cell_length,
                                                     flat_length             = flat_length,
@@ -448,7 +451,7 @@ class Block:
                 channel_builder = ChannelBuilder(channel_specs)
             channel_builders.append(channel_builder)
 
-        pins     = self._build_pins(channel_builders, cap_cell_length, flat_length, prism_mpact_material)
+        pins     = self._build_pins(channel_builders, cap_cell_length, flat_length, prism_mpact_material, height)
         lattice  = self._build_lattice(pins)
         assembly = mpactpy.Assembly([lattice])
         core     = mpactpy.Core([[assembly]])
@@ -460,7 +463,8 @@ class Block:
                     channel_builders: List[Optional[Block.Channel]],
                     cap_cell_length: float,
                     flat_length:     float,
-                    prism_material:  mpactpy.Material) -> Dict[str, mpactpy.Pin]:
+                    prism_material:  mpactpy.Material,
+                    height:          float) -> Dict[str, mpactpy.Pin]:
         """ Helper method for building the MPACT Pins
 
         Parameters
@@ -473,6 +477,8 @@ class Block:
             The flat length (cm) to use for MPACT Pin construction
         prism_material : mpactpy.Material
             The MPACT material of the prismatic block
+        height : float
+            The height to build the extruded pins in the axial direction (cm)
 
         Returns
         -------
@@ -484,10 +490,10 @@ class Block:
 
         ccl = cap_cell_length
         hfl = flat_length * 0.5
-        pins = {'corner':     self._build_prism_pin(ccl, ccl, prism_material),
-                'center':     self._build_prism_pin(hfl, hfl, prism_material) if has_flats else None,
-                'H_spacer':   self._build_prism_pin(hfl, ccl, prism_material) if has_flats else None,
-                'V_spacer':   self._build_prism_pin(ccl, hfl, prism_material) if has_flats else None}
+        pins = {'corner':     self._build_prism_pin(ccl, ccl, prism_material, height),
+                'center':     self._build_prism_pin(hfl, hfl, prism_material, height) if has_flats else None,
+                'H_spacer':   self._build_prism_pin(hfl, ccl, prism_material, height) if has_flats else None,
+                'V_spacer':   self._build_prism_pin(ccl, hfl, prism_material, height) if has_flats else None}
 
         #                      orientation,  pin_type,   quadrant,      name
         channel_pin_specs = [[("horizontal",   "cap",      "SW",   "N_chan_W_cap" ),
@@ -521,7 +527,7 @@ class Block:
         return pins
 
 
-    def _build_prism_pin(self, w: float, h: float, prism_material:  mpactpy.Material) -> mpactpy.Pin:
+    def _build_prism_pin(self, w: float, h: float, prism_material: mpactpy.Material, height: float) -> mpactpy.Pin:
         """ Helper method for building the prism pins of the block
 
         Parameters
@@ -532,6 +538,8 @@ class Block:
             Pin cell height (cm)
         prism_material : mpactpy.Material
             The MPACT material of the prismatic block
+        height : float
+            The height to build the extruded pin in the axial direction (cm)
 
         Returns
         -------
@@ -539,7 +547,7 @@ class Block:
         """
 
         specs = self.specs if self.specs else Block.Specs()
-        return build_rec_pin(thicknesses             = {"X": [w], "Y": [h], "Z": [specs.height]},
+        return build_rec_pin(thicknesses             = {"X": [w], "Y": [h], "Z": [height]},
                              materials               = [prism_material],
                              target_cell_thicknesses = {"X": specs.target_cell_thicknesses["cartesian"],
                                                         "Y": specs.target_cell_thicknesses["cartesian"]})

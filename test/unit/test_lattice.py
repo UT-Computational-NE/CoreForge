@@ -134,15 +134,9 @@ def test_rect_lattice_mpact_builder(rect_lattice, rect_lattice_mpact_specs, stac
     geom_element = RectLattice(pitch=(8., 8.), elements=elements, outer_material=graphite)
     mpact_build_specs = rect_lattice_mpact_specs
     mpact_build_specs.element_specs[rect_lattice] = rect_lattice_mpact_specs
-    expected_assertion = "Unsupported Geometry! rect_lattice Row 1, Column 0: rect_lattice has multiple MPACT assemblies"
+    expected_assertion = "RectLattice builder does not accept X or Y bounds - they are determined by lattice pitch"
     with pytest.raises(AssertionError, match=expected_assertion):
         core = mpact_builder.build(geom_element, mpact_build_specs)
-
-    geom_element = rect_lattice
-    geom_element.pitch = (8.0, 7.0)
-    expected_assertion = "Pitch Conflict! rect_lattice Row 0, Column 1: stack Y-pitch 8.0 not equal to lattice Y-pitch 7.0"
-    with pytest.raises(AssertionError, match=expected_assertion):
-        core = mpact_builder.build(geom_element, rect_lattice_mpact_specs)
 
 
 def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal_stack):

@@ -64,7 +64,9 @@ def test_openmc_builder(stack):
 
 def test_mpact_builder(stack, stack_mpact_specs):
     geom_element  = stack
-    core          = mpact_builder.build(geom_element, stack_mpact_specs)
+    bounds        = mpact_builder.Bounds(X={'min': -4.0, 'max': 4.0},
+                                         Y={'min': -4.0, 'max': 4.0})
+    core          = mpact_builder.build(geom_element, stack_mpact_specs, bounds)
 
     assert isclose(core.mod_dim['X'], 8.0)
     assert isclose(core.mod_dim['Y'], 8.0)

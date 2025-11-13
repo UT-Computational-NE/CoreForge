@@ -22,7 +22,7 @@ def unequal_infinite_medium(graphite):
 
 @pytest.fixture
 def infinite_medium_mpact_specs():
-    return mpact_builder.InfiniteMedium.Specs(thicknesses = {"X": 8.0, "Y": 8.0})
+    return mpact_builder.InfiniteMedium.Specs()
 
 @pytest.fixture
 def mpact_voxel_specs(salt, graphite, air):
@@ -81,7 +81,9 @@ def test_mpacts_builder(infinite_medium, infinite_medium_mpact_specs, air):
 
     geom_element = infinite_medium
     specs        = infinite_medium_mpact_specs
-    core         = mpact_builder.build(geom_element, specs)
+    bounds       = mpact_builder.Bounds(X={'min': 0.0, 'max': 8.0},
+                                        Y={'min': 0.0, 'max': 8.0})
+    core         = mpact_builder.build(geom_element, specs, bounds)
     air          = mpact_builder.build_material(air)
 
     assert len(core.materials) == 1
@@ -103,7 +105,7 @@ def test_mpacts_builder(infinite_medium, infinite_medium_mpact_specs, air):
     assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats)
 
     specs.divide_into_quadrants = True
-    core = mpact_builder.build(geom_element, specs)
+    core = mpact_builder.build(geom_element, specs, bounds)
 
     assert isclose(core.mod_dim['X'], 4.0)
     assert isclose(core.mod_dim['Y'], 4.0)

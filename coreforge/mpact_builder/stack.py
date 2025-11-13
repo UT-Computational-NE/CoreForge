@@ -6,7 +6,7 @@ from multiprocessing import cpu_count
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build
+from coreforge.mpact_builder.mpact_builder import register_builder, build, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.utils import build_elements
 from coreforge import geometry_elements
@@ -147,19 +147,28 @@ class Stack:
         self.specs = specs
 
 
-    def build(self, element: geometry_elements.Stack) -> mpactpy.Core:
+    def build(self, element: geometry_elements.Stack, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a Stack
 
         Parameters
         ----------
         element: geometry_elements.Stack
             The geometry element to be built
+        bounds: Optional[Bounds]
+            The spatial bounds for the geometry.
+            X and Y bounds are passed to child segments.
+            Z bounds, if provided, are applied to the final assembled stack to extract an axial slice.
 
         Returns
         -------
         mpactpy.Core
             A new MPACT geometry based on this geometry element
         """
+
+        segment_bounds = None
+        if bounds:
+            if bounds.X or bounds.Y:
+                segment_bounds = Bounds(X=bounds.X, Y=bounds.Y)
 
         # Find unique segments and their build specs
         segment_positions = {}
@@ -172,7 +181,8 @@ class Stack:
         results         = build_elements(unique_segments,
                                          _stack_chunk_worker,
                                          self.specs.num_procs,
-                                         self.specs.segment_specs)
+                                         self.specs.segment_specs,
+                                         segment_bounds)
 
         # Validate & pitch checks, build assembly mapping
         segment_lattices = {}
@@ -204,11 +214,17 @@ class Stack:
             lattices.extend(segment_lattices[segment])
 
         assembly = mpactpy.Assembly(lattices)
-        return mpactpy.Core([[assembly]], "360")
+        core     =  mpactpy.Core([[assembly]], "360")
+
+        if bounds and bounds.Z:
+            core = core.get_axial_slice(bounds.Z['min'], bounds.Z['max'])
+
+        return core
 
 
 def _stack_chunk_worker(chunk:         List[geometry_elements.Stack.Segment],
-                        segment_specs: Dict[geometry_elements.Stack.Segment, Stack.Segment.Specs]
+                        segment_specs: Dict[geometry_elements.Stack.Segment, Stack.Segment.Specs],
+                        bounds:        Optional[Bounds] = None
     ) -> List[Tuple[geometry_elements.Stack.Segment, mpactpy.Core]]:
     """ Top-level worker for a chunk of unique segments (for parallel build).
 
@@ -218,10 +234,12 @@ def _stack_chunk_worker(chunk:         List[geometry_elements.Stack.Segment],
         The unique stack segment entries to build in this chunk.
     segment_specs: Dict[geometry_elements.Stack.Segment, Stack.Segment.Specs]
         The segment specifications for each unique stack segment.
+    bounds: Optional[Bounds]
+        The spatial bounds to pass to child element builds (X and Y only, Z is not passed)
     """
     results = []
     for segment in chunk:
         build_specs = segment_specs.get(segment).builder_specs if segment_specs and segment_specs.get(segment) else None
-        mpact_geometry = build(segment.element, build_specs)
+        mpact_geometry = build(segment.element, build_specs, bounds)
         results.append((segment, mpact_geometry))
     return results
