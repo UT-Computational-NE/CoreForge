@@ -1,6 +1,6 @@
 import pytest
 from copy import deepcopy
-from math import isclose
+from math import isclose, sqrt
 
 from numpy.testing import assert_allclose
 from mpactpy import RectangularPinMesh, Pin
@@ -43,10 +43,10 @@ def hex_x_lattice(graphite, stack, unequal_stack):
     p2 = unequal_stack
     elements = [[   p1,   p1,   ],
 
-                [p2,  None,  p1,],
+                [p2,   p2,  p1, ],
 
                 [   p1,   p1,   ]]
-    return HexLattice(pitch=1., outer_material=graphite, orientation='x', elements=elements, map_type='offset')
+    return HexLattice(pitch=6., outer_material=graphite, orientation='x', elements=elements, map_type='offset')
 
 @pytest.fixture
 def hex_y_lattice(graphite, stack, unequal_stack):
@@ -54,10 +54,15 @@ def hex_y_lattice(graphite, stack, unequal_stack):
     p2 = unequal_stack
     elements = [[     p1     ],
                 [p1,       p1],
-                [    None,   ],
+                [     p2,    ],
                 [p2,       p1],
                 [     p1     ]]
-    return HexLattice(pitch=1., outer_material=graphite, orientation='y', elements=elements, map_type='offset')
+    return HexLattice(pitch=6., outer_material=graphite, orientation='y', elements=elements, map_type='offset')
+
+@pytest.fixture
+def hex_lattice_mpact_specs(stack, unequal_stack, stack_mpact_specs):
+    return mpact_builder.HexLattice.Specs(element_specs={stack:         stack_mpact_specs,
+                                                         unequal_stack: stack_mpact_specs})
 
 @pytest.fixture
 def mpact_voxel_specs(salt, graphite):
@@ -146,8 +151,8 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
     assert geom_element.name == "hex_lattice"
     assert geom_element.num_rings == 2
     assert geom_element.orientation == "x"
-    assert isclose(geom_element.pitch, 1.0)
-    expected_elements = [[p1, p1, p1, p2, p1, p1], [None]]
+    assert isclose(geom_element.pitch, 6.0)
+    expected_elements = [[p1, p1, p1, p2, p1, p1], [p2]]
     for ring, expected_ring in zip(geom_element.elements, expected_elements):
         assert len(ring) == len(expected_ring)
         for i, element, expected_element in zip(range(len(ring)), ring, expected_ring):
@@ -157,8 +162,8 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
     assert geom_element.name == "hex_lattice"
     assert geom_element.num_rings == 2
     assert geom_element.orientation == "y"
-    assert isclose(geom_element.pitch, 1.0)
-    expected_elements = [[p1, p1, p1, p1, p2, p1], [None]]
+    assert isclose(geom_element.pitch, 6.0)
+    expected_elements = [[p1, p1, p1, p1, p2, p1], [p2]]
     for ring, expected_ring in zip(geom_element.elements, expected_elements):
         assert len(ring) == len(expected_ring)
         for element, expected_element in zip(ring, expected_ring):
@@ -178,40 +183,60 @@ def test_hex_lattice_openmc_builder(hex_x_lattice, hex_y_lattice):
     lattice = next(iter(universe.cells.values())).fill
     assert lattice.orientation == 'x'
     assert lattice.num_rings == 2
-    assert isclose(lattice.pitch[0], 1.0)
+    assert isclose(lattice.pitch[0], 6.0)
 
     geom_element = hex_y_lattice
     universe = openmc_builder.build(geom_element)
     lattice = next(iter(universe.cells.values())).fill
     assert lattice.orientation == 'y'
     assert lattice.num_rings == 2
-    assert isclose(lattice.pitch[0], 1.0)
+    assert isclose(lattice.pitch[0], 6.0)
 
-def test_hex_lattice_mpact_builder(hex_x_lattice, mpact_voxel_specs, salt, graphite):
+def test_hex_lattice_mpact_builder_x_oriented(hex_x_lattice, hex_lattice_mpact_specs, stack):
     geom_element = hex_x_lattice
-    specs = mpact_voxel_specs
-    core = mpact_builder.build(geom_element, specs)
-    salt = mpact_builder.build_material(salt)
-    graphite = mpact_builder.build_material(graphite)
+    core = mpact_builder.build(geom_element, hex_lattice_mpact_specs)
+    hex_width  = geom_element.pitch * sqrt(3.0) / 2.0
+    hex_height = geom_element.pitch
+    assert isclose(core.mod_dim['X'], hex_width/2)
+    assert isclose(core.mod_dim['Y'], hex_height/2)
+    assert_allclose(core.mod_dim['Z'], [1.0, 3.0, 4.0])
+    assert core.nx == 6
+    assert core.ny == 6
+    assert core.nz == 3
+    assert isclose(core.height, 8.0)
 
-    assert len(core.materials) == 2
-    assert salt in core.materials
-    assert graphite in core.materials
+    assert len(core.pins)       == 12
+    assert len(core.modules)    == 12
+    assert len(core.lattices)   == 12
+    assert len(core.assemblies) == 4
 
-    assert isclose(core.mod_dim['X'], 3.0)
-    assert isclose(core.mod_dim['Y'], 3.0)
-    assert_allclose(core.mod_dim['Z'], [1.0])
+    for assembly in core.assemblies:
+        assert len(assembly.lattice_map) == 3
+        assert isclose(assembly.lattice_map[0].pitch['Z'], 3.0)
+        assert isclose(assembly.lattice_map[1].pitch['Z'], 1.0)
+        assert isclose(assembly.lattice_map[2].pitch['Z'], 4.0)
 
-    assert len(core.pins) == 1
-    assert len(core.modules) == 1
-    assert len(core.lattices) == 1
-    assert len(core.assemblies) == 1
 
-    expected_xvals = [1.0, 2.0, 3.0]
-    expected_yvals = [1.0, 2.0, 3.0]
-    expected_mats = [graphite]*6 + [salt] +[graphite]*2
+def test_hex_lattice_mpact_builder_y_oriented(hex_y_lattice, hex_lattice_mpact_specs, stack):
+    geom_element = hex_y_lattice
+    core = mpact_builder.build(geom_element, hex_lattice_mpact_specs)
+    hex_width  = geom_element.pitch
+    hex_height = geom_element.pitch * sqrt(3.0) / 2.0
+    assert isclose(core.mod_dim['X'], hex_width/2)
+    assert isclose(core.mod_dim['Y'], hex_height/2)
+    assert_allclose(core.mod_dim['Z'], [1.0, 3.0, 4.0])
+    assert core.nx == 6
+    assert core.ny == 6
+    assert core.nz == 3
+    assert isclose(core.height, 8.0)
 
-    for mat in core.pins[0].materials:
-        print(mat.number_densities)
+    assert len(core.pins)       == 12
+    assert len(core.modules)    == 12
+    assert len(core.lattices)   == 12
+    assert len(core.assemblies) == 4
 
-    assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1, 1, 1], [1, 1, 1], [1]), expected_mats)
+    for assembly in core.assemblies:
+        assert len(assembly.lattice_map) == 3
+        assert isclose(assembly.lattice_map[0].pitch['Z'], 3.0)
+        assert isclose(assembly.lattice_map[1].pitch['Z'], 1.0)
+        assert isclose(assembly.lattice_map[2].pitch['Z'], 4.0)
