@@ -1,7 +1,7 @@
-from .fuel_element_pincell import FuelElementPincell
-from .graphite_element_pincell import GraphiteElementPincell
+from .fuel_element import FuelElement
+from .graphite_element import GraphiteElement
 
 __all__ = [
-    "FuelElementPincell",
-    "GraphiteElementPincell",
+    "FuelElement",
+    "GraphiteElement",
 ]
