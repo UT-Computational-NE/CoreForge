@@ -12,12 +12,6 @@ class TransientRod:
 
     Provides feature specifications (cladding, absorber, air follower) and nested
     pincells for the absorber and air-follower regions.
-
-    References
-    ----------
-    .. [1] D. R. Redhouse, et al., "Radiation Characterization Summary: NETL Beam Port
-           1/5 Free-Field Environment at the 128-inch Core Centerline Adjacent Location,
-           (NETL-FF-BP1/5-128-cca).", Nov. 2022. https://doi.org/10.2172/1898256
     """
 
     @dataclass(frozen=True)
@@ -61,7 +55,21 @@ class TransientRod:
             assert self.radius > 0.0, "Absorber radius must be positive."
 
     class AbsorberPincell(CylindricalPinCell):
-        """Absorber region pincell with concentric cladding."""
+        """Absorber region pincell with concentric cladding.
+
+        Parameters
+        ----------
+        cladding : TransientRod.Cladding
+            Cladding definition with thickness, outer radius, and material.
+        absorber : TransientRod.Absorber
+            Absorber definition with radius and material.
+        fill_gas : Material, optional
+            Material filling any gap between absorber and cladding. Defaults to ``Air``.
+        outer_material : Material, optional
+            Coolant/exterior material outside the cladding. Defaults to ``Water``.
+        name : str, optional
+            Name for this pincell instance.
+        """
 
         GAP_TOL = 1.0e-8
 
@@ -98,6 +106,18 @@ class TransientRod:
             super().__init__(radii=radii, materials=materials, name=name)
 
         def _build_radial_profile(self) -> tuple[List[float], List[Material]]:
+            """Construct ordered radial boundaries and materials.
+
+            Gaps are only added if wider than GAP_TOL; otherwise adjacent regions
+            are considered in hard contact (prevents near-duplicate radii).
+
+            Returns
+            -------
+            radii : List[float]
+                Monotonic list of region outer radii from innermost to outermost solid.
+            materials : List[Material]
+                Materials aligned with ``radii`` plus the final outer/coolant material.
+            """
             cladding_inner_radius = self.cladding.outer_radius - self.cladding.thickness
             assert self.absorber.radius < cladding_inner_radius + self.GAP_TOL, (
                 "Absorber must be inside the cladding."
@@ -170,6 +190,15 @@ class TransientRod:
             super().__init__(radii=radii, materials=materials, name=name)
 
         def _build_radial_profile(self) -> tuple[List[float], List[Material]]:
+            """Construct ordered radial boundaries and materials.
+
+            Returns
+            -------
+            radii : List[float]
+                Monotonic list of region outer radii from innermost to outermost solid.
+            materials : List[Material]
+                Materials aligned with ``radii`` plus the final outer/coolant material.
+            """
             cladding_inner_radius = self.cladding.outer_radius - self.cladding.thickness
             assert cladding_inner_radius > 0.0, "Cladding inner radius must be positive."
 
