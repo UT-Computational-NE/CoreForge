@@ -3,6 +3,7 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from multiprocessing import cpu_count
 from math import sqrt
+import os
 
 import mpactpy
 
@@ -86,144 +87,134 @@ class HexLattice:
             A new MPACT geometry based on this geometry element
         """
 
-        # Assert that X and Y bounds are not provided
         if bounds and (bounds.X or bounds.Y):
             raise AssertionError("HexLattice builder does not accept X or Y bounds - they are determined by lattice pitch")
 
-        pitch      = element.pitch
-        hex_height = pitch if element.orientation == 'x' else pitch * sqrt(3.0) / 2.0
-        hex_width  = pitch if element.orientation == 'y' else pitch * sqrt(3.0) / 2.0
+        entries = self._build_unique_entries(element, bounds)
 
-        quadrant_results = self._build_unique_entries(element, hex_height, hex_width, bounds)
+        axial_positions = self._ring_to_axial(element)
+        offset_positions = [self._axial_to_offset(axial, element.orientation) for axial in axial_positions]
 
-        num_rings = element.num_rings
-        grid_width  = 2 * (2*num_rings - 1)
-        grid_height = 2 * (2*num_rings - 1)
+        placements = []
+        min_r = min_c = float("inf")
+        max_r = max_c = float("-inf")
+        for elem, (r, c) in zip(self._flatten_rings(element.elements), offset_positions):
+            if elem and elem in entries:
+                quads = entries[elem]
+                base_r = r * 2
+                base_c = c * 2
+                if element.orientation == 'y' and (c % 2):
+                    base_r += 1  # stagger down on odd columns for pointy-top
+                if element.orientation == 'x' and (r % 2):
+                    base_c += 1  # stagger right on odd rows for flat-top
+                placements.append((base_r, base_c, quads))
 
-        # Initialize grid with None
+                # Track min/max index values for grid sizing
+                min_r = min(min_r, base_r)
+                min_c = min(min_c, base_c)
+                max_r = max(max_r, base_r)
+                max_c = max(max_c, base_c)
+
+
+        # Shifts for adjusting axial coordinates to MPACT positive-only grid
+        shift_r = -min_r if min_r < 0 else 0
+        shift_c = -min_c if min_c < 0 else 0
+
+        grid_height = int(max_r + shift_r + 2)  # +2 accounts for the zero indexing of the center element
+        grid_width  = int(max_c + shift_c + 2)
         assembly_map = [[None for _ in range(grid_width)] for _ in range(grid_height)]
 
-        # Process each ring from outer to inner
-        ring_index = 0
-        for ring_elements in element.elements:
-            if len(ring_elements) == 1:
-                # Center element
-                center_row = grid_height // 2 - 1
-                center_col = grid_width // 2 - 1
-                elem = ring_elements[0]
-                if elem and elem in quadrant_results:
-                    quads = quadrant_results[elem]
-                    assembly_map[center_row][center_col]         = quads['NW']
-                    assembly_map[center_row][center_col + 1]     = quads['NE']
-                    assembly_map[center_row + 1][center_col]     = quads['SW']
-                    assembly_map[center_row + 1][center_col + 1] = quads['SE']
-            else:
-                # Ring elements - distribute around center
-                num_face_elements = len(ring_elements) // 6
-                center_row = grid_height // 2 - 1
-                center_col = grid_width // 2 - 1
-
-                idx = 0
-                # Process each of the 6 faces
-                for face in range(6):
-                    for elem_in_face in range(num_face_elements):
-                        elem = ring_elements[idx]
-                        idx += 1
-
-                        # Calculate position offset based on orientation
-                        row_offset, col_offset = self._calculate_hex_position_offset(
-                            element.orientation, face, ring_index, elem_in_face, num_face_elements
-                        )
-
-                        row = center_row + row_offset
-                        col = center_col + col_offset
-
-                        if elem and elem in quadrant_results:
-                            quads = quadrant_results[elem]
-                            if 0 <= row < grid_height - 1 and 0 <= col < grid_width - 1:
-                                assembly_map[row][col]         = quads['NW']
-                                assembly_map[row][col + 1]     = quads['NE']
-                                assembly_map[row + 1][col]     = quads['SW']
-                                assembly_map[row + 1][col + 1] = quads['SE']
-            ring_index += 1
+        for base_r, base_c, quads in placements:
+            r0 = int(base_r + shift_r)
+            c0 = int(base_c + shift_c)
+            assembly_map[r0][c0]         = quads['NW']
+            assembly_map[r0][c0 + 1]     = quads['NE']
+            assembly_map[r0 + 1][c0]     = quads['SW']
+            assembly_map[r0 + 1][c0 + 1] = quads['SE']
 
         return mpactpy.Core(assembly_map, min_thickness=self.specs.min_thickness)
 
 
 
-    def _calculate_hex_position_offset(self,
-                                       orientation: str,
-                                       face: int,
-                                       ring_index: int,
-                                       elem_in_face: int,
-                                       num_face_elements: int) -> Tuple[int, int]:
-        """ Calculate the row and column offset for a hex element in the rectangular grid
+    def _flatten_rings(self, rings: List[List[geometry_elements.GeometryElement]]) -> List[geometry_elements.GeometryElement]:
+        """Flatten a ring-ordered lattice into a single list (outer to inner).
 
         Parameters
         ----------
+        rings : List[List[geometry_elements.GeometryElement]]
+            Ring-based layout, outermost ring first.
+
+        Returns
+        -------
+        List[geometry_elements.GeometryElement]
+            Flattened entries in ring order.
+        """
+        entries: List[geometry_elements.GeometryElement] = []
+        for ring in rings:
+            entries.extend(ring)
+        return entries
+
+    def _ring_to_axial(self, element: geometry_elements.HexLattice) -> List[Tuple[int, int]]:
+        """Convert ring-based ordering to axial (q, r) coordinates on a distance-constant ring.
+
+        Parameters
+        ----------
+        element : geometry_elements.HexLattice
+            Hex lattice with ring-ordered elements.
+
+        Returns
+        -------
+        List[Tuple[int, int]]
+            Axial coordinates corresponding to each lattice entry, ordered to match `element.elements`.
+
+        References
+        ----------
+        - Red Blob Games: Hexagonal Grids
+          https://www.redblobgames.com/grids/hexagons/#coordinates-axial
+        """
+        coords: List[Tuple[int, int]] = []
+        num_rings = element.num_rings
+        for ring_index, ring in enumerate(element.elements):
+            radius = num_rings - ring_index - 1
+            if radius == 0:
+                coords.append((0, 0))
+                continue
+            q, r = radius, -radius  # start at (radius, -radius) to stay on ring
+            directions = [(0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1), (1, 0)]
+            for direction in directions:
+                for _ in range(radius):
+                    coords.append((q, r))
+                    q += direction[0]
+                    r += direction[1]
+        return coords
+
+    def _axial_to_offset(self, axial: Tuple[int, int], orientation: str) -> Tuple[int, int]:
+        """Convert axial (q, r) to offset (row, col) using even-q (y) or even-r (x).
+
+        Parameters
+        ----------
+        axial : Tuple[int, int]
+            Axial coordinates (q, r).
         orientation : str
-            The hex orientation ('x' or 'y')
-        face : int
-            The face index (0-5)
-        ring_index : int
-            The index of the current ring (0 = outermost)
-        elem_in_face : int
-            The position of the element within the current face
-        num_face_elements : int
-            The number of elements per face in this ring
+            Lattice orientation: 'y' for pointy-top, 'x' for flat-top.
 
         Returns
         -------
         Tuple[int, int]
-            (row_offset, col_offset) in units of assemblies (not quadrants)
+            Offset coordinates (row, col) in the staggered grid.
         """
-        if orientation == 'x':
-            if face == 0:  # SE face
-                row_offset = (ring_index + elem_in_face + 1) * 2
-                col_offset = -(ring_index + elem_in_face) * 2
-            elif face == 1:  # S face
-                row_offset = (ring_index + num_face_elements) * 2
-                col_offset = -(ring_index + num_face_elements - elem_in_face - 1) * 2
-            elif face == 2:  # SW face
-                row_offset = (ring_index + num_face_elements - elem_in_face - 1) * 2
-                col_offset = (elem_in_face + 1) * 2
-            elif face == 3:  # NW face
-                row_offset = -(ring_index + elem_in_face + 1) * 2
-                col_offset = (ring_index + elem_in_face) * 2
-            elif face == 4:  # N face
-                row_offset = -(ring_index + num_face_elements) * 2
-                col_offset = (ring_index + num_face_elements - elem_in_face - 1) * 2
-            else:  # NE face (face == 5)
-                row_offset = -(ring_index + num_face_elements - elem_in_face - 1) * 2
-                col_offset = -(elem_in_face + 1) * 2
-
-        else:  # 'y' orientation
-            if face == 0:  # NE face
-                row_offset = -(ring_index + elem_in_face) * 2 - 2
-                col_offset = (elem_in_face + 1) * 2
-            elif face == 1:  # E face
-                row_offset = -(ring_index - elem_in_face) * 2
-                col_offset = (ring_index + num_face_elements) * 2
-            elif face == 2:  # SE face
-                row_offset = (elem_in_face + 1) * 2
-                col_offset = (ring_index + num_face_elements - elem_in_face - 1) * 2
-            elif face == 3:  # SW face
-                row_offset = (ring_index + elem_in_face) * 2 + 2
-                col_offset = -(elem_in_face + 1) * 2
-            elif face == 4:  # W face
-                row_offset = (ring_index - elem_in_face) * 2
-                col_offset = -(ring_index + num_face_elements) * 2
-            else:  # NW face (face == 5)
-                row_offset = -(elem_in_face + 1) * 2
-                col_offset = -(ring_index + num_face_elements - elem_in_face - 1) * 2
-
-        return row_offset, col_offset
+        q, r = axial
+        if orientation == 'y':  # pointy-top
+            row = r + (q - (q & 1)) // 2
+            col = q
+        else:  # 'x' flat-top
+            row = r
+            col = q + (r - (r & 1)) // 2
+        return row, col
 
 
     def _build_unique_entries(self,
                               element:    geometry_elements.HexLattice,
-                              hex_height: float,
-                              hex_width:  float,
                               bounds:     Bounds
     ) -> Dict[geometry_elements.GeometryElement, Dict[str, mpactpy.Assembly]]:
         """ Build unique lattice entries in parallel or serially
@@ -232,10 +223,6 @@ class HexLattice:
         ----------
         element : geometry_elements.HexLattice
             The hex lattice geometry element
-        hex_height : float
-            The height of each hex cell
-        hex_width : float
-            The width of each hex cell
         bounds: Bounds
             The spatial bounds to pass to child element builds (Z passed through)
 
@@ -245,10 +232,11 @@ class HexLattice:
             Mapping from geometry elements to built MPACT assemblies for each quadrant ('NE', 'NW', 'SE', 'SW')
         """
 
-        unique_entries = self._get_unique_entries(element)
+        hex_height  = element.pitch if element.orientation == 'x' else element.pitch * sqrt(3.0) / 2.0
+        hex_width   = element.pitch if element.orientation == 'y' else element.pitch * sqrt(3.0) / 2.0
+        half_height = hex_height * 0.5
+        half_width  = hex_width * 0.5
 
-        half_height     = hex_height * 0.5
-        half_width      = hex_width * 0.5
         quadrant_bounds = {'NE': Bounds(X={'min': 0.0, 'max': half_width},
                                         Y={'min': 0.0, 'max': half_height},
                                         Z=bounds.Z if bounds else None),
@@ -265,7 +253,7 @@ class HexLattice:
         # Build quadrants for each unique entry
         quadrant_results = {}
         for quad_name, quad_bounds in quadrant_bounds.items():
-            results = build_elements(unique_entries,
+            results = build_elements(self._get_unique_entries(element),
                                     _hex_lattice_chunk_worker,
                                     self.specs.num_procs,
                                     self.specs.element_specs,
