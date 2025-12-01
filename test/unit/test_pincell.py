@@ -180,3 +180,13 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
     assert pin["SW"] == Pin(GeneralCylindricalPinMesh(expected_radii, -4.0, 0.0, -4.0, 0.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
     assert pin["SE"] == Pin(GeneralCylindricalPinMesh(expected_radii,  0.0, 4.0, -4.0, 0.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
 
+
+def test_cylindrical_pincell_min_zone_thickness(salt, graphite):
+    radii = [1.0, 1.001, 3.0]  # tiny gap between 1.0 and 1.001
+    materials = [salt, graphite, salt, graphite]
+    pin = CylindricalPinCell(radii=radii, materials=materials, min_zone_thickness=0.01)
+
+    # The tiny graphite zone should be removed; remaining radii/materials collapse accordingly.
+    assert [zone.shape.outer_radius for zone in pin.zones] == pytest.approx([1.0, 3.0])
+    assert [zone.material for zone in pin.zones] == [salt, salt]
+    assert pin.outer_material == graphite
