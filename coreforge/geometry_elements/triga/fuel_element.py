@@ -537,9 +537,9 @@ class FuelElement(GeometryElement):
         outer_material = outer_material or Water()
         cladding_inner_radius = cladding.outer_radius - cladding.thickness
 
-        assert zr_fill_rod.radius < fuel_meat.inner_radius, (
+        assert zr_fill_rod.radius <= fuel_meat.inner_radius, (
             "Zr fill rod must fit inside fuel meat inner radius.")
-        assert fuel_meat.outer_radius < cladding_inner_radius, (
+        assert fuel_meat.outer_radius <= cladding_inner_radius, (
             "Fuel meat must fit inside cladding.")
 
         radii = [zr_fill_rod.radius,
@@ -592,7 +592,7 @@ class FuelElement(GeometryElement):
         outer_material = outer_material or Water()
         cladding_inner_radius = cladding.outer_radius - cladding.thickness
 
-        assert moly_disc.radius < cladding_inner_radius, "Moly disc must fit inside cladding."
+        assert moly_disc.radius <= cladding_inner_radius, "Moly disc must fit inside cladding."
 
         radii     = [moly_disc.radius,   cladding_inner_radius, cladding.outer_radius]
         materials = [moly_disc.material, fill_gas,              cladding.material, outer_material]
@@ -634,7 +634,7 @@ class FuelElement(GeometryElement):
         outer_material = outer_material or Water()
         cladding_inner_radius = cladding.outer_radius - cladding.thickness
 
-        assert reflector.radius < cladding_inner_radius, "Reflector must fit inside cladding."
+        assert reflector.radius <= cladding_inner_radius, "Reflector must fit inside cladding."
 
         radii     = [reflector.radius,   cladding_inner_radius, cladding.outer_radius]
         materials = [reflector.material, fill_gas,              cladding.material, outer_material]
