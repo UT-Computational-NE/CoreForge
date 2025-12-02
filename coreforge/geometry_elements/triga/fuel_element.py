@@ -76,6 +76,16 @@ class FuelElement(GeometryElement):
         of the upper air gap.
     gap_tolerance : float, optional
         Minimum thickness to retain a radial gap
+    fuel_region_pincell : CylindricalPinCell
+        Pincell representing the fuel meat radial region.
+    moly_disc_region_pincell : CylindricalPinCell
+        Pincell representing the molybdenum disc region.
+    upper_reflector_region_pincell : CylindricalPinCell
+        Pincell representing the upper graphite reflector region.
+    lower_reflector_region_pincell : CylindricalPinCell
+        Pincell representing the lower graphite reflector region.
+    air_gap_region_pincell : CylindricalPinCell
+        Pincell representing the upper air gap region.
 
     References
     ----------
@@ -163,11 +173,14 @@ class FuelElement(GeometryElement):
             Cladding thickness [cm].
         outer_radius : float
             Cladding outer radius [cm].
+        inner_radius : float
+            Derived inner radius (outer minus thickness) [cm].
         material : Material
             Cladding material (defaults to ``SS304``).
         """
         thickness: float
         outer_radius: float
+        inner_radius: float = field(init=False)
         material: Material = field(default_factory=SS304)
 
         def __post_init__(self) -> None:
@@ -175,6 +188,7 @@ class FuelElement(GeometryElement):
             assert self.outer_radius > self.thickness, (
                 "Cladding outer radius must exceed thickness."
             )
+            object.__setattr__(self, "inner_radius", self.outer_radius - self.thickness)
 
         def __eq__(self, other: object) -> bool:
             if self is other:
@@ -182,11 +196,13 @@ class FuelElement(GeometryElement):
             return (isinstance(other, FuelElement.Cladding) and
                     isclose(self.thickness, other.thickness, rel_tol=TOL) and
                     isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
+                    isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
                     self.material == other.material)
 
         def __hash__(self) -> int:
             return hash((relative_round(self.thickness, TOL),
                          relative_round(self.outer_radius, TOL),
+                         relative_round(self.inner_radius, TOL),
                          self.material))
 
     @dataclass(frozen=True)
@@ -535,17 +551,16 @@ class FuelElement(GeometryElement):
         """
         fill_gas = fill_gas or Air()
         outer_material = outer_material or Water()
-        cladding_inner_radius = cladding.outer_radius - cladding.thickness
 
         assert zr_fill_rod.radius <= fuel_meat.inner_radius, (
             "Zr fill rod must fit inside fuel meat inner radius.")
-        assert fuel_meat.outer_radius <= cladding_inner_radius, (
+        assert fuel_meat.outer_radius <= cladding.inner_radius, (
             "Fuel meat must fit inside cladding.")
 
         radii = [zr_fill_rod.radius,
                  fuel_meat.inner_radius,
                  fuel_meat.outer_radius,
-                 cladding_inner_radius,
+                 cladding.inner_radius,
                  cladding.outer_radius]
 
         materials = [zr_fill_rod.material,
@@ -590,11 +605,10 @@ class FuelElement(GeometryElement):
         """
         fill_gas = fill_gas or Air()
         outer_material = outer_material or Water()
-        cladding_inner_radius = cladding.outer_radius - cladding.thickness
 
-        assert moly_disc.radius <= cladding_inner_radius, "Moly disc must fit inside cladding."
+        assert moly_disc.radius <= cladding.inner_radius, "Moly disc must fit inside cladding."
 
-        radii     = [moly_disc.radius,   cladding_inner_radius, cladding.outer_radius]
+        radii     = [moly_disc.radius,   cladding.inner_radius, cladding.outer_radius]
         materials = [moly_disc.material, fill_gas,              cladding.material, outer_material]
 
         return CylindricalPinCell(radii=radii, materials=materials, name=name,
@@ -632,11 +646,10 @@ class FuelElement(GeometryElement):
         """
         fill_gas = fill_gas or Air()
         outer_material = outer_material or Water()
-        cladding_inner_radius = cladding.outer_radius - cladding.thickness
 
-        assert reflector.radius <= cladding_inner_radius, "Reflector must fit inside cladding."
+        assert reflector.radius <= cladding.inner_radius, "Reflector must fit inside cladding."
 
-        radii     = [reflector.radius,   cladding_inner_radius, cladding.outer_radius]
+        radii     = [reflector.radius,   cladding.inner_radius, cladding.outer_radius]
         materials = [reflector.material, fill_gas,              cladding.material, outer_material]
 
         return CylindricalPinCell(radii=radii, materials=materials, name=name,
@@ -671,9 +684,8 @@ class FuelElement(GeometryElement):
         """
         fill_gas = fill_gas or Air()
         outer_material = outer_material or Water()
-        cladding_inner_radius = cladding.outer_radius - cladding.thickness
 
-        radii     = [cladding_inner_radius, cladding.outer_radius]
+        radii     = [cladding.inner_radius, cladding.outer_radius]
         materials = [fill_gas,              cladding.material, outer_material]
 
         return CylindricalPinCell(radii=radii, materials=materials, name=name,
