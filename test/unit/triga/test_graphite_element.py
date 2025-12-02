@@ -39,7 +39,7 @@ def unequal_graphite_element(graphite_element):
 
 
 def test_graphite_element_initialization(graphite_element):
-    pin = graphite_element.graphite_region_pincell
+    pin = graphite_element.graphite_pincell
     radii = [zone.shape.outer_radius for zone in pin.zones]
     materials = [zone.material for zone in pin.zones]
 
@@ -50,11 +50,8 @@ def test_graphite_element_initialization(graphite_element):
     assert isinstance(pin.outer_material, Water)
 
 
-def test_equality(graphite_element, unequal_graphite_element):
+def test_equality_and_hash(graphite_element, unequal_graphite_element):
     assert graphite_element == deepcopy(graphite_element)
     assert graphite_element != unequal_graphite_element
-
-
-def test_hash(graphite_element, unequal_graphite_element):
     assert hash(graphite_element) == hash(deepcopy(graphite_element))
     assert hash(graphite_element) != hash(unequal_graphite_element)

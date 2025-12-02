@@ -1,106 +1,164 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from math import isclose
+from typing import Optional
 
+from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
+
+from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.materials import Al6061T6, Material, Water
 
 
-class CentralThimble:
+class CentralThimble(GeometryElement):
     """TRIGA NETL central thimble definitions and pincell builder.
 
-    Provides the thimble wall specification and a nested ``Pincell`` class that
-    constructs the concentric cylindrical model.
-
-    References
+    Parameters
     ----------
-    .. [1] D. R. Redhouse, et al., "Radiation Characterization Summary: NETL Beam Port
-           1/5 Free-Field Environment at the 128-inch Core Centerline Adjacent Location,
-           (NETL-FF-BP1/5-128-cca).", Nov. 2022. https://doi.org/10.2172/1898256
+    cladding : CentralThimble.Cladding
+        Thimble wall definition with thickness, outer radius, and material.
+    fill_material : Optional[Material]
+        Material filling the thimble interior (defaults to ``Water``).
+    outer_material : Optional[Material]
+        Coolant/exterior material outside the thimble (defaults to ``Water``).
+    name : str, optional
+        Name for the central thimble element.
+
+    Attributes
+    ----------
+    cladding : CentralThimble.Cladding
+        Thimble wall specification.
+    fill_material : Material
+        Material filling the thimble interior.
+    outer_material : Material
+        Coolant/exterior material.
+    thimble_pincell : CylindricalPinCell
+        Pincell representing the thimble cross section.
     """
 
     @dataclass(frozen=True)
     class Cladding:
         """Central thimble wall specification.
 
-        Parameters
+        Attributes
         ----------
-        inner_radius : float
-            Inner radius of the thimble [cm].
+        thickness : float
+            Thimble wall thickness [cm].
         outer_radius : float
             Outer radius of the thimble [cm].
-        material : Material, optional
+        inner_radius : float
+            Derived inner radius (outer minus thickness) [cm].
+        material : Material
             Cladding material. Defaults to ``Al6061T6``.
         """
-        inner_radius: float
+        thickness: float
         outer_radius: float
+        inner_radius: float = field(init=False)
         material: Material = field(default_factory=Al6061T6)
 
         def __post_init__(self) -> None:
-            assert self.inner_radius > 0.0, "Thimble inner radius must be positive."
-            assert self.outer_radius > self.inner_radius, (
-                "Thimble outer radius must be larger than inner radius."
+            assert self.thickness > 0.0, "Thimble wall thickness must be positive."
+            assert self.outer_radius > self.thickness, (
+                "Thimble outer radius must exceed thickness."
             )
+            object.__setattr__(self, "inner_radius", self.outer_radius - self.thickness)
 
-    class Pincell(CylindricalPinCell):
-        """Central thimble pincell.
+        def __eq__(self, other: object) -> bool:
+            if self is other:
+                return True
+            return (isinstance(other, CentralThimble.Cladding) and
+                    isclose(self.thickness, other.thickness, rel_tol=TOL) and
+                    isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
+                    isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
+                    self.material == other.material)
+
+        def __hash__(self) -> int:
+            return hash((relative_round(self.thickness, TOL),
+                         relative_round(self.outer_radius, TOL),
+                         relative_round(self.inner_radius, TOL),
+                         self.material))
+
+    @property
+    def cladding(self) -> Cladding:
+        return self._cladding
+
+    @property
+    def fill_material(self) -> Material:
+        return self._fill_material
+
+    @property
+    def outer_material(self) -> Material:
+        return self._outer_material
+
+    @property
+    def thimble_pincell(self) -> CylindricalPinCell:
+        return self._thimble_pincell
+
+    def __init__(self,
+                 cladding:       Cladding,
+                 fill_material:  Optional[Material] = None,
+                 outer_material: Optional[Material] = None,
+                 name:           str = "triga_netl_central_thimble"):
+        super().__init__(name)
+        self._cladding = cladding
+        self._fill_material = fill_material or Water()
+        self._outer_material = outer_material or Water()
+
+        self._thimble_pincell = self.build_thimble_pincell(
+            cladding=self.cladding,
+            fill_material=self.fill_material,
+            outer_material=self.outer_material,
+            name=self.name + "_pincell",
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
+        if not isinstance(other, CentralThimble):
+            return False
+        return (
+            self.cladding == other.cladding and
+            self.fill_material == other.fill_material and
+            self.outer_material == other.outer_material
+        )
+
+    def __hash__(self) -> int:
+        return hash((
+            self.cladding,
+            self.fill_material,
+            self.outer_material,
+        ))
+
+    @staticmethod
+    def build_thimble_pincell(cladding:       Cladding,
+                              fill_material:  Optional[Material] = None,
+                              outer_material: Optional[Material] = None,
+                              name:           str = "triga_netl_central_thimble") -> CylindricalPinCell:
+        """Build a pincell for the central thimble cross section.
 
         Parameters
         ----------
         cladding : CentralThimble.Cladding
-            Thimble cladding wall definition.
+            Thimble wall definition with thickness, outer radius, and material.
         fill_material : Material, optional
-            Material filling the thimble interior. Defaults to ``Water``.
+            Material filling the thimble interior (defaults to ``Water``).
         outer_material : Material, optional
-            Material surrounding the thimble exterior. Defaults to ``Water``.
+            Coolant/exterior material outside the thimble (defaults to ``Water``).
+        gap_tolerance : float, optional
+            Minimum thickness to retain a radial zone; thinner gaps are removed.
         name : str, optional
-            Name for this pincell instance.
+            Name for the pincell.
+
+        Returns
+        -------
+        CylindricalPinCell
+            Concentric pincell representing the thimble cross section.
         """
+        fill_material = fill_material or Water()
+        outer_material = outer_material or Water()
 
-        @property
-        def cladding(self) -> CentralThimble.Cladding:
-            return self._cladding
+        radii = [cladding.inner_radius, cladding.outer_radius]
+        materials = [fill_material, cladding.material, outer_material]
 
-        @property
-        def fill_material(self) -> Material:
-            return self._fill_material
-
-        def __init__(
-            self,
-            cladding: CentralThimble.Cladding,
-            fill_material: Optional[Material] = None,
-            outer_material: Optional[Material] = None,
-            name: str = "triga_netl_central_thimble",
-        ):
-            self._cladding = cladding
-            self._fill_material = fill_material or Water()
-            self._outer_material = outer_material or Water()
-
-            radii, materials = self._build_radial_profile()
-            super().__init__(radii=radii, materials=materials, name=name)
-
-        def _build_radial_profile(self) -> tuple[List[float], List[Material]]:
-            """Construct ordered radial boundaries and materials.
-
-            Returns
-            -------
-            radii : List[float]
-                Monotonic list of region outer radii from innermost to outermost solid.
-            materials : List[Material]
-                Materials aligned with ``radii`` plus the final outer/coolant material.
-            """
-            radii: List[float] = []
-            materials: List[Material] = []
-
-            def append_region(radius: float, material: Material) -> None:
-                if radii:
-                    assert radius > radii[-1], "Region radii must be strictly increasing."
-                radii.append(radius)
-                materials.append(material)
-
-            append_region(self.cladding.inner_radius, self.fill_material)
-            append_region(self.cladding.outer_radius, self.cladding.material)
-            materials.append(self._outer_material)
-
-            return radii, materials
+        return CylindricalPinCell(radii=radii, materials=materials, name=name)

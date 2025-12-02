@@ -91,17 +91,12 @@ def test_initialization(air):
                        air.number_densities[iso])
                        for iso in material.number_densities.keys())
 
-def test_equality(air, graphite):
+def test_equality_and_hash(air, graphite):
     material         = Material(air.openmc_material)
     equal_material   = Material(material.openmc_material)
     unequal_material = Material(graphite.openmc_material)
     assert material == equal_material
     assert material != unequal_material
-
-def test_hash(air, graphite):
-    material         = Material(air.openmc_material)
-    equal_material   = Material(material.openmc_material)
-    unequal_material = Material(graphite.openmc_material)
     assert hash(material) == hash(equal_material)
     assert hash(material) != hash(unequal_material)
 
@@ -286,4 +281,3 @@ def test_al6061t6(al6061t6):
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Al6061T6])
 
     assert materials_are_close(material, expected_material)
-

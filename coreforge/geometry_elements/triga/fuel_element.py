@@ -76,15 +76,15 @@ class FuelElement(GeometryElement):
         of the upper air gap.
     gap_tolerance : float, optional
         Minimum thickness to retain a radial gap
-    fuel_region_pincell : CylindricalPinCell
+    fuel_pincell : CylindricalPinCell
         Pincell representing the fuel meat radial region.
-    moly_disc_region_pincell : CylindricalPinCell
+    moly_disc_pincell : CylindricalPinCell
         Pincell representing the molybdenum disc region.
-    upper_reflector_region_pincell : CylindricalPinCell
+    upper_reflector_pincell : CylindricalPinCell
         Pincell representing the upper graphite reflector region.
-    lower_reflector_region_pincell : CylindricalPinCell
+    lower_reflector_pincell : CylindricalPinCell
         Pincell representing the lower graphite reflector region.
-    air_gap_region_pincell : CylindricalPinCell
+    air_gap_pincell : CylindricalPinCell
         Pincell representing the upper air gap region.
 
     References
@@ -385,23 +385,23 @@ class FuelElement(GeometryElement):
         return self._interior_length
 
     @property
-    def fuel_region_pincell(self) -> CylindricalPinCell:
+    def fuel_pincell(self) -> CylindricalPinCell:
         return self._fuel_region_pincell
 
     @property
-    def moly_disc_region_pincell(self) -> CylindricalPinCell:
+    def moly_disc_pincell(self) -> CylindricalPinCell:
         return self._moly_disc_region_pincell
 
     @property
-    def upper_reflector_region_pincell(self) -> CylindricalPinCell:
+    def upper_reflector_pincell(self) -> CylindricalPinCell:
         return self._upper_reflector_region_pincell
 
     @property
-    def lower_reflector_region_pincell(self) -> CylindricalPinCell:
+    def lower_reflector_pincell(self) -> CylindricalPinCell:
         return self._lower_reflector_region_pincell
 
     @property
-    def air_gap_region_pincell(self) -> CylindricalPinCell:
+    def air_gap_pincell(self) -> CylindricalPinCell:
         return self._air_gap_region_pincell
 
 
@@ -439,7 +439,7 @@ class FuelElement(GeometryElement):
                                  + self._upper_graphite_reflector.thickness
                                  + self._upper_air_gap.thickness)
 
-        self._fuel_region_pincell = self.fuel_meat_pincell(
+        self._fuel_region_pincell = self.build_fuel_region_pincell(
             cladding       = self.cladding,
             fuel_meat      = self.fuel_meat,
             zr_fill_rod    = self.zr_fill_rod,
@@ -448,7 +448,7 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_fuel_meat_pincell",
         )
-        self._moly_disc_region_pincell = self.moly_disc_pincell(
+        self._moly_disc_region_pincell = self.build_moly_disc_region_pincell(
             cladding       = self.cladding,
             moly_disc      = self.moly_disc,
             fill_gas       = self.fill_gas,
@@ -456,7 +456,7 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_moly_disc_pincell",
         )
-        self._upper_reflector_region_pincell = self.graphite_reflector_pincell(
+        self._upper_reflector_region_pincell = self.build_graphite_reflector_pincell(
             cladding       = self.cladding,
             reflector      = self.upper_graphite_reflector,
             fill_gas       = self.fill_gas,
@@ -464,7 +464,7 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_upper_graphite_reflector_pincell",
         )
-        self._lower_reflector_region_pincell = self.graphite_reflector_pincell(
+        self._lower_reflector_region_pincell = self.build_graphite_reflector_pincell(
             cladding       = self.cladding,
             reflector      = self.lower_graphite_reflector,
             fill_gas       = self.fill_gas,
@@ -472,7 +472,7 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_lower_graphite_reflector_pincell",
         )
-        self._air_gap_region_pincell = self.air_gap_pincell(
+        self._air_gap_region_pincell = self.build_air_gap_pincell(
             cladding       = self.cladding,
             fill_gas       = self.fill_gas,
             outer_material = self.outer_material,
@@ -518,13 +518,13 @@ class FuelElement(GeometryElement):
 
 
     @staticmethod
-    def fuel_meat_pincell(cladding:       Cladding,
-                          fuel_meat:      FuelMeat,
-                          zr_fill_rod:    ZrFillRod,
-                          fill_gas:       Optional[Material] = None,
-                          outer_material: Optional[Material] = None,
-                          gap_tolerance:  float = 1.0e-8,
-                          name:           str = "fuel_meat_pincell") -> CylindricalPinCell:
+    def build_fuel_region_pincell(cladding:       Cladding,
+                                  fuel_meat:      FuelMeat,
+                                  zr_fill_rod:    ZrFillRod,
+                                  fill_gas:       Optional[Material] = None,
+                                  outer_material: Optional[Material] = None,
+                                  gap_tolerance:  float = 1.0e-8,
+                                  name:           str = "fuel_meat_pincell") -> CylindricalPinCell:
         """Build a pincell for the fuel meat region.
 
         Parameters
@@ -575,12 +575,12 @@ class FuelElement(GeometryElement):
 
 
     @staticmethod
-    def moly_disc_pincell(cladding:       Cladding,
-                          moly_disc:      MolyDisc,
-                          fill_gas:       Optional[Material] = None,
-                          outer_material: Optional[Material] = None,
-                          gap_tolerance:  float = 1.0e-8,
-                          name:           str = "moly_disc_pincell") -> CylindricalPinCell:
+    def build_moly_disc_region_pincell(cladding:       Cladding,
+                                       moly_disc:      MolyDisc,
+                                       fill_gas:       Optional[Material] = None,
+                                       outer_material: Optional[Material] = None,
+                                       gap_tolerance:  float = 1.0e-8,
+                                       name:           str = "moly_disc_pincell") -> CylindricalPinCell:
         """Build a pincell for the molybdenum disc region.
 
         Parameters
@@ -616,12 +616,12 @@ class FuelElement(GeometryElement):
 
 
     @staticmethod
-    def graphite_reflector_pincell(cladding:       Cladding,
-                                   reflector:      GraphiteReflector,
-                                   fill_gas:       Optional[Material] = None,
-                                   outer_material: Optional[Material] = None,
-                                   gap_tolerance:  float = 1.0e-8,
-                                   name:           Optional[str] = "graphite_reflector_pincell") -> CylindricalPinCell:
+    def build_graphite_reflector_pincell(cladding:       Cladding,
+                                         reflector:      GraphiteReflector,
+                                         fill_gas:       Optional[Material] = None,
+                                         outer_material: Optional[Material] = None,
+                                         gap_tolerance:  float = 1.0e-8,
+                                         name:           Optional[str] = "graphite_reflector_pincell") -> CylindricalPinCell:
         """Build a pincell for the graphite reflector region.
 
         Parameters
@@ -657,11 +657,11 @@ class FuelElement(GeometryElement):
 
 
     @staticmethod
-    def air_gap_pincell(cladding:       Cladding,
-                        fill_gas:       Optional[Material] = None,
-                        outer_material: Optional[Material] = None,
-                        gap_tolerance:  float = 1.0e-8,
-                        name:           str = "air_gap_pincell") -> CylindricalPinCell:
+    def build_air_gap_pincell(cladding:       Cladding,
+                              fill_gas:       Optional[Material] = None,
+                              outer_material: Optional[Material] = None,
+                              gap_tolerance:  float = 1.0e-8,
+                              name:           str = "air_gap_pincell") -> CylindricalPinCell:
         """Build a pincell for the air gap region (uses fill_gas for core).
 
         Parameters

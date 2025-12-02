@@ -60,11 +60,9 @@ def test_initialization(infinite_medium):
     assert geom_element.name == "infinite_medium"
     assert geom_element.material.name == "Air"
 
-def test_equality(infinite_medium, unequal_infinite_medium):
+def test_equality_and_hash(infinite_medium, unequal_infinite_medium):
     assert infinite_medium == deepcopy(infinite_medium)
     assert infinite_medium != unequal_infinite_medium
-
-def test_hash(infinite_medium, unequal_infinite_medium):
     assert hash(infinite_medium) == hash(deepcopy(infinite_medium))
     assert hash(infinite_medium) != hash(unequal_infinite_medium)
 

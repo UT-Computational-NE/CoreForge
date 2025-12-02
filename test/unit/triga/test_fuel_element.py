@@ -55,7 +55,7 @@ def unequal_fuel_element(fuel_element):
 
 
 def test_fuel_element_initialization(fuel_element):
-    pin = fuel_element.fuel_region_pincell
+    pin = fuel_element.fuel_pincell
     radii = [zone.shape.outer_radius for zone in pin.zones]
     materials = [zone.material for zone in pin.zones]
     assert radii == pytest.approx([0.10, 0.12, 0.50, 0.60, 0.70])
@@ -66,23 +66,20 @@ def test_fuel_element_initialization(fuel_element):
     assert isinstance(materials[4], SS304)
     assert isinstance(pin.outer_material, Water)
 
-    moly_pin = fuel_element.moly_disc_region_pincell
+    moly_pin = fuel_element.moly_disc_pincell
     assert [z.shape.outer_radius for z in moly_pin.zones] == pytest.approx([0.40, 0.60, 0.70])
     assert isinstance(moly_pin.zones[0].material, type(fuel_element.moly_disc.material))
 
-    refl_pin = fuel_element.upper_reflector_region_pincell
+    refl_pin = fuel_element.upper_reflector_pincell
     assert [z.shape.outer_radius for z in refl_pin.zones] == pytest.approx([0.50, 0.60, 0.70])
     assert isinstance(refl_pin.zones[0].material, Graphite)
 
-    air_pin = fuel_element.air_gap_region_pincell
+    air_pin = fuel_element.air_gap_pincell
     assert [z.shape.outer_radius for z in air_pin.zones] == pytest.approx([0.60, 0.70])
     assert isinstance(air_pin.zones[0].material, Air)
 
-def test_equality(fuel_element, unequal_fuel_element):
+def test_equality_and_hash(fuel_element, unequal_fuel_element):
     assert fuel_element == deepcopy(fuel_element)
     assert fuel_element != unequal_fuel_element
-
-def test_hash(fuel_element, unequal_fuel_element):
     assert hash(fuel_element) == hash(deepcopy(fuel_element))
     assert hash(fuel_element) != hash(unequal_fuel_element)
-

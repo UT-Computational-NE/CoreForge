@@ -71,11 +71,9 @@ def test_pincell_initialization(pincell):
     assert isclose(geom_element.x0, 1.0)
     assert isclose(geom_element.y0, -2.0)
 
-def test_equality(pincell, unequal_pincell):
+def test_equality_and_hash(pincell, unequal_pincell):
     assert pincell == deepcopy(pincell)
     assert pincell != unequal_pincell
-
-def test_hash(pincell, unequal_pincell):
     assert hash(pincell) == hash(deepcopy(pincell))
     assert hash(pincell) != hash(unequal_pincell)
 

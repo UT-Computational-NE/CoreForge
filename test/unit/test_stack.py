@@ -46,11 +46,9 @@ def test_stack_initialization(stack, pincell):
     assert geom_element.segments[1].element == pincell
     assert geom_element.segments[2].element == pincell
 
-def test_equality(stack, unequal_stack):
+def test_equality_and_hash(stack, unequal_stack):
     assert stack == deepcopy(stack)
     assert stack != unequal_stack
-
-def test_hash(stack, unequal_stack):
     assert hash(stack) == hash(deepcopy(stack))
     assert hash(stack) != hash(unequal_stack)
 

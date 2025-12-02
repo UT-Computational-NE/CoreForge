@@ -64,11 +64,9 @@ def test_control_channel_initialization(control_channel, salt, thimble, control_
     assert geom_element.thimble == thimble
     assert geom_element.control_rod == control_rod
 
-def test_equality(control_channel, unequal_control_channel):
+def test_equality_and_hash(control_channel, unequal_control_channel):
     assert control_channel == deepcopy(control_channel)
     assert control_channel != unequal_control_channel
-
-def test_hash(control_channel, unequal_control_channel):
     assert hash(control_channel) == hash(deepcopy(control_channel))
     assert hash(control_channel) != hash(unequal_control_channel)
 

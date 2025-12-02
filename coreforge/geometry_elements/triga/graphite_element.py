@@ -51,7 +51,7 @@ class GraphiteElement(GeometryElement):
         Axial length of the graphite meat.
     gap_tolerance : float, optional
         Minimum thickness to retain a radial gap.
-    graphite_region_pincell : CylindricalPinCell
+    graphite_pincell : CylindricalPinCell
         Pincell representing the graphite meat radial region.
     """
 
@@ -200,7 +200,7 @@ class GraphiteElement(GeometryElement):
         return self._interior_length
 
     @property
-    def graphite_region_pincell(self) -> CylindricalPinCell:
+    def graphite_pincell(self) -> CylindricalPinCell:
         return self._graphite_region_pincell
 
     def __init__(self,
@@ -223,7 +223,7 @@ class GraphiteElement(GeometryElement):
 
         self._interior_length = self._graphite_meat.length
 
-        self._graphite_region_pincell = self.graphite_meat_pincell(
+        self._graphite_region_pincell = self.build_graphite_meat_pincell(
             cladding       = self.cladding,
             graphite_meat  = self.graphite_meat,
             fill_gas       = self.fill_gas,
@@ -259,12 +259,12 @@ class GraphiteElement(GeometryElement):
         ))
 
     @staticmethod
-    def graphite_meat_pincell(cladding:       Cladding,
-                              graphite_meat:  GraphiteMeat,
-                              fill_gas:       Optional[Material] = None,
-                              outer_material: Optional[Material] = None,
-                              gap_tolerance:  float = 1.0e-8,
-                              name:           str = "graphite_meat_pincell") -> CylindricalPinCell:
+    def build_graphite_meat_pincell(cladding:       Cladding,
+                                    graphite_meat:  GraphiteMeat,
+                                    fill_gas:       Optional[Material] = None,
+                                    outer_material: Optional[Material] = None,
+                                    gap_tolerance:  float = 1.0e-8,
+                                    name:           str = "graphite_meat_pincell") -> CylindricalPinCell:
         """Build a pincell for the graphite meat region.
 
         Parameters
