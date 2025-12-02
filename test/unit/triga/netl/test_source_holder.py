@@ -22,30 +22,26 @@ def unequal_source_holder(source_holder):
     return SourceHolder(cavity=cavity, cladding=cladding, outer_material=source_holder.outer_material)
 
 
-def test_cavity_pincell(source_holder):
-    pin = source_holder.cavity_pincell
+def test_initialization(source_holder):
+    cavity_pin = source_holder.cavity_pincell
+    cavity_radii = [zone.shape.outer_radius for zone in cavity_pin.zones]
+    cavity_mats = [zone.material for zone in cavity_pin.zones]
 
-    radii = [zone.shape.outer_radius for zone in pin.zones]
-    materials = [zone.material for zone in pin.zones]
-
-    assert radii == pytest.approx([
+    assert cavity_radii == pytest.approx([
         source_holder.cavity.radius,
         source_holder.cladding.outer_radius,
     ])
-    assert isinstance(materials[0], Air)
-    assert isinstance(materials[1], Al6061T6)
-    assert isinstance(pin.outer_material, Water)
+    assert isinstance(cavity_mats[0], Air)
+    assert isinstance(cavity_mats[1], Al6061T6)
+    assert isinstance(cavity_pin.outer_material, Water)
 
+    solid_pin = source_holder.solid_pincell
+    solid_radii = [zone.shape.outer_radius for zone in solid_pin.zones]
+    solid_mats = [zone.material for zone in solid_pin.zones]
 
-def test_solid_pincell(source_holder):
-    pin = source_holder.solid_pincell
-
-    radii = [zone.shape.outer_radius for zone in pin.zones]
-    materials = [zone.material for zone in pin.zones]
-
-    assert radii == pytest.approx([source_holder.cladding.outer_radius])
-    assert isinstance(materials[0], Al6061T6)
-    assert isinstance(pin.outer_material, Water)
+    assert solid_radii == pytest.approx([source_holder.cladding.outer_radius])
+    assert isinstance(solid_mats[0], Al6061T6)
+    assert isinstance(solid_pin.outer_material, Water)
 
 
 def test_equality_and_hash(source_holder, unequal_source_holder):

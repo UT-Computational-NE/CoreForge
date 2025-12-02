@@ -14,9 +14,6 @@ from coreforge.materials import Air, Al6061T6, Graphite, Material, Water
 class GraphiteElement(GeometryElement):
     """TRIGA graphite element definitions and pincell builder.
 
-    Gaps are only added if wider than ``gap_tolerance``; otherwise the adjacent regions
-    are considered in hard contact (prevents near-duplicate radii).
-
     Parameters
     ----------
     cladding : GraphiteElement.Cladding
@@ -50,7 +47,7 @@ class GraphiteElement(GeometryElement):
     interior_length : float
         Axial length of the graphite meat.
     gap_tolerance : float, optional
-        Minimum thickness to retain a radial gap.
+        Minimum thickness to retain a radial gap (defaults to 1e-8).
     graphite_pincell : CylindricalPinCell
         Pincell representing the graphite meat radial region.
     """
@@ -184,7 +181,7 @@ class GraphiteElement(GeometryElement):
         return self._outer_material
 
     @property
-    def gap_tolerance(self) -> float:
+    def gap_tolerance(self) -> Optional[float]:
         return self._gap_tolerance
 
     @property
@@ -208,10 +205,10 @@ class GraphiteElement(GeometryElement):
                  graphite_meat:     GraphiteMeat,
                  upper_end_fitting: EndFitting,
                  lower_end_fitting: EndFitting,
-                 gap_tolerance:     float = 1.0e-8,
+                 gap_tolerance:     Optional[float] = 1.0e-8,
                  fill_gas:          Optional[Material] = None,
                  outer_material:    Optional[Material] = None,
-                 name:              str = "triga_graphite_element"):
+                 name:              str = "graphite_element"):
         super().__init__(name)
         self._cladding          = cladding
         self._graphite_meat     = graphite_meat
@@ -244,7 +241,9 @@ class GraphiteElement(GeometryElement):
             self.lower_end_fitting == other.lower_end_fitting and
             self.fill_gas == other.fill_gas and
             self.outer_material == other.outer_material and
-            isclose(self.gap_tolerance, other.gap_tolerance, rel_tol=TOL)
+            ((self.gap_tolerance is None and other.gap_tolerance is None) or
+             (self.gap_tolerance is not None and other.gap_tolerance is not None and
+              isclose(self.gap_tolerance, other.gap_tolerance, rel_tol=TOL)))
         )
 
     def __hash__(self) -> int:
@@ -255,7 +254,7 @@ class GraphiteElement(GeometryElement):
             self.lower_end_fitting,
             self.fill_gas,
             self.outer_material,
-            relative_round(self.gap_tolerance, TOL),
+            None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
 
     @staticmethod

@@ -99,7 +99,7 @@ class CentralThimble(GeometryElement):
                  cladding:       Cladding,
                  fill_material:  Optional[Material] = None,
                  outer_material: Optional[Material] = None,
-                 name:           str = "triga_netl_central_thimble"):
+                 name:           str = "central_thimble"):
         super().__init__(name)
         self._cladding = cladding
         self._fill_material = fill_material or Water()
@@ -134,7 +134,7 @@ class CentralThimble(GeometryElement):
     def build_thimble_pincell(cladding:       Cladding,
                               fill_material:  Optional[Material] = None,
                               outer_material: Optional[Material] = None,
-                              name:           str = "triga_netl_central_thimble") -> CylindricalPinCell:
+                              name:           str = "central_thimble") -> CylindricalPinCell:
         """Build a pincell for the central thimble cross section.
 
         Parameters

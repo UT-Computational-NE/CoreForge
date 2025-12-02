@@ -14,9 +14,6 @@ from coreforge.materials import Air, Graphite, Material, Mo, SS304, UZrH, Water,
 class FuelElement(GeometryElement):
     """TRIGA fuel element definitions and pincell builder.
 
-    Gaps are only added if wider than ``gap_tolerance``; otherwise the adjacent regions
-    are considered in hard contact (prevents near-duplicate radii).
-
     Parameters
     ----------
     cladding : FuelElement.Cladding
@@ -75,7 +72,7 @@ class FuelElement(GeometryElement):
         Axial length from the bottom of the lower graphite reflector to the top
         of the upper air gap.
     gap_tolerance : float, optional
-        Minimum thickness to retain a radial gap
+        Minimum thickness to retain a radial gap (defaults to 1e-8).
     fuel_pincell : CylindricalPinCell
         Pincell representing the fuel meat radial region.
     moly_disc_pincell : CylindricalPinCell
@@ -345,7 +342,7 @@ class FuelElement(GeometryElement):
         return self._outer_material
 
     @property
-    def gap_tolerance(self) -> float:
+    def gap_tolerance(self) -> Optional[float]:
         return self._gap_tolerance
 
     @property
@@ -415,10 +412,10 @@ class FuelElement(GeometryElement):
                      moly_disc:                MolyDisc,
                      lower_graphite_reflector: GraphiteReflector,
                      lower_end_fitting:        EndFitting,
-                     gap_tolerance:            float = 1.0e-8,
+                     gap_tolerance:            Optional[float] = 1.0e-8,
                      fill_gas:                 Optional[Material] = None,
                      outer_material:           Optional[Material] = None,
-                     name:                     str = "triga_fuel_element"):
+                     name:                     str = "fuel_element"):
         super().__init__(name)
         self._cladding                 = cladding
         self._fill_gas                 = fill_gas or Air()
@@ -497,7 +494,9 @@ class FuelElement(GeometryElement):
             self.moly_disc == other.moly_disc and
             self.lower_graphite_reflector == other.lower_graphite_reflector and
             self.lower_end_fitting == other.lower_end_fitting and
-            self.gap_tolerance == other.gap_tolerance
+            ((self.gap_tolerance is None and other.gap_tolerance is None) or
+             (self.gap_tolerance is not None and other.gap_tolerance is not None and
+              isclose(self.gap_tolerance, other.gap_tolerance, rel_tol=TOL)))
         )
 
     def __hash__(self) -> int:
@@ -513,7 +512,7 @@ class FuelElement(GeometryElement):
             self.moly_disc,
             self.lower_graphite_reflector,
             self.lower_end_fitting,
-            self.gap_tolerance,
+            None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
 
 

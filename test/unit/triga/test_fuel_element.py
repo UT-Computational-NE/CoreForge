@@ -54,7 +54,7 @@ def unequal_fuel_element(fuel_element):
     )
 
 
-def test_fuel_element_initialization(fuel_element):
+def test_initialization(fuel_element):
     pin = fuel_element.fuel_pincell
     radii = [zone.shape.outer_radius for zone in pin.zones]
     materials = [zone.material for zone in pin.zones]

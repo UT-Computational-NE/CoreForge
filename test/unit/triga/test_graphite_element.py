@@ -38,7 +38,7 @@ def unequal_graphite_element(graphite_element):
     )
 
 
-def test_graphite_element_initialization(graphite_element):
+def test_initialization(graphite_element):
     pin = graphite_element.graphite_pincell
     radii = [zone.shape.outer_radius for zone in pin.zones]
     materials = [zone.material for zone in pin.zones]

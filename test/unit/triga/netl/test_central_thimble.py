@@ -17,7 +17,7 @@ def unequal_thimble():
     return CentralThimble(cladding=clad, fill_material=Water(), outer_material=Water())
 
 
-def test_thimble_profile(central_thimble):
+def test_initialization(central_thimble):
     pin = central_thimble.thimble_pincell
 
     radii = [zone.shape.outer_radius for zone in pin.zones]

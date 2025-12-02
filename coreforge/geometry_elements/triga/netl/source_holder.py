@@ -14,9 +14,6 @@ from coreforge.materials import Air, Al6061T6, Material, Water
 class SourceHolder(GeometryElement):
     """TRIGA NETL source holder cavity and pincell builder.
 
-    The pincell represents only the cavity region (fill + cladding), not axial
-    positioning; axial length/offset can be added by callers as needed.
-
     Parameters
     ----------
     cavity : SourceHolder.Cavity
@@ -26,7 +23,7 @@ class SourceHolder(GeometryElement):
     outer_material : Optional[Material]
         Material surrounding the cladding exterior. Defaults to ``Water``.
     gap_tolerance : float, optional
-        Minimum thickness to retain a radial zone; thinner gaps are removed.
+        Minimum thickness to retain a radial zone; thinner gaps are removed. Defaults to ``None`` (no filtering).
     name : str, optional
         Name for the source holder element.
 
@@ -38,8 +35,8 @@ class SourceHolder(GeometryElement):
         Cladding specification.
     outer_material : Material
         Exterior/coolant material.
-    gap_tolerance : float
-        Minimum thickness to retain a radial zone.
+    gap_tolerance : float, optional
+        Minimum thickness to retain a radial zone (defaults to ``None`` for no filtering).
     cavity_pincell : CylindricalPinCell
         Pincell representing the cavity and cladding cross section.
     solid_pincell : CylindricalPinCell
@@ -48,7 +45,15 @@ class SourceHolder(GeometryElement):
 
     @dataclass(frozen=True)
     class Cavity:
-        """Source holder cavity specification."""
+        """Source holder cavity specification.
+
+        Parameters
+        ----------
+        radius : float
+            Radius of the cavity [cm].
+        material : Material, optional
+            Filling material (defaults to ``Air``).
+        """
         radius: float
         material: Material = field(default_factory=Air)
 
@@ -67,7 +72,15 @@ class SourceHolder(GeometryElement):
 
     @dataclass(frozen=True)
     class Cladding:
-        """Source holder cladding specification."""
+        """Source holder cladding specification.
+
+        Parameters
+        ----------
+        outer_radius : float
+            Outer radius of the source holder cladding [cm].
+        material : Material, optional
+            Cladding material (defaults to ``Al6061T6``).
+        """
         outer_radius: float
         material: Material = field(default_factory=Al6061T6)
 
@@ -97,7 +110,7 @@ class SourceHolder(GeometryElement):
         return self._outer_material
 
     @property
-    def gap_tolerance(self) -> float:
+    def gap_tolerance(self) -> Optional[float]:
         return self._gap_tolerance
 
     @property
@@ -112,8 +125,8 @@ class SourceHolder(GeometryElement):
                  cavity:         Cavity,
                  cladding:       Cladding,
                  outer_material: Optional[Material] = None,
-                 gap_tolerance:  float = 1.0e-8,
-                 name:           str = "triga_netl_source_holder"):
+                 gap_tolerance:  Optional[float] = None,
+                 name:           str = "source_holder"):
         super().__init__(name)
         self._cavity = cavity
         self._cladding = cladding
@@ -142,7 +155,9 @@ class SourceHolder(GeometryElement):
             self.cavity == other.cavity and
             self.cladding == other.cladding and
             self.outer_material == other.outer_material and
-            isclose(self.gap_tolerance, other.gap_tolerance, rel_tol=TOL)
+            ((self.gap_tolerance is None and other.gap_tolerance is None) or
+             (self.gap_tolerance is not None and other.gap_tolerance is not None and
+              isclose(self.gap_tolerance, other.gap_tolerance, rel_tol=TOL)))
         )
 
     def __hash__(self) -> int:
@@ -150,16 +165,35 @@ class SourceHolder(GeometryElement):
             self.cavity,
             self.cladding,
             self.outer_material,
-            relative_round(self.gap_tolerance, TOL),
+            None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
 
     @staticmethod
     def build_cavity_pincell(cavity:         Cavity,
                              cladding:       Cladding,
                              outer_material: Optional[Material] = None,
-                             gap_tolerance:  float = 1.0e-8,
-                             name:           str = "triga_netl_source_holder_cavity") -> CylindricalPinCell:
-        """Build a pincell for the source holder cavity/cladding cross section."""
+                             gap_tolerance:  Optional[float] = None,
+                             name:           str = "source_holder_cavity") -> CylindricalPinCell:
+        """Build a pincell for the source holder cavity/cladding cross section.
+
+        Parameters
+        ----------
+        cavity : SourceHolder.Cavity
+            Cavity definition (radius and material).
+        cladding : SourceHolder.Cladding
+            Cladding definition (outer radius and material).
+        outer_material : Material, optional
+            Exterior/coolant material (defaults to ``Water``).
+        gap_tolerance : float, optional
+            Minimum zone thickness to retain (defaults to ``None`` for no filtering).
+        name : str, optional
+            Name for the pincell.
+
+        Returns
+        -------
+        CylindricalPinCell
+            Concentric pincell representing the cavity plus cladding.
+        """
         outer_material = outer_material or Water()
 
         assert cavity.radius <= cladding.outer_radius, "Cavity must fit inside the cladding."
@@ -173,8 +207,23 @@ class SourceHolder(GeometryElement):
     @staticmethod
     def build_solid_pincell(cladding:       Cladding,
                             outer_material: Optional[Material] = None,
-                            name:           str = "triga_netl_source_holder_solid") -> CylindricalPinCell:
-        """Build a pincell for a solid source holder (no cavity)."""
+                            name:           str = "source_holder_solid") -> CylindricalPinCell:
+        """Build a pincell for a solid source holder (no cavity).
+
+        Parameters
+        ----------
+        cladding : SourceHolder.Cladding
+            Cladding definition (outer radius and material).
+        outer_material : Material, optional
+            Exterior/coolant material (defaults to ``Water``).
+        name : str, optional
+            Name for the pincell.
+
+        Returns
+        -------
+        CylindricalPinCell
+            Concentric pincell representing a solid rod.
+        """
         outer_material = outer_material or Water()
 
         radii = [cladding.outer_radius]
