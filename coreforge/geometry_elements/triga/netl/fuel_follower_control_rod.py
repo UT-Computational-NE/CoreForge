@@ -89,10 +89,6 @@ class FuelFollowerControlRod(GeometryElement):
         Pincell representing the absorber region.
     fuel_follower_pincell : CylindricalPinCell
         Pincell representing the fuel-follower region.
-    element_plug_pincell : CylindricalPinCell
-        Pincell representing plug regions (shared geometry).
-    magneform_fitting_pincell : CylindricalPinCell
-        Pincell representing Magneform fittings (shared geometry).
     air_gap_pincell : CylindricalPinCell
         Pincell representing axial air gaps (shared geometry).
     upper_element_plug_pincell : CylindricalPinCell
@@ -387,14 +383,6 @@ class FuelFollowerControlRod(GeometryElement):
         return self._fuel_follower_pincell
 
     @property
-    def element_plug_pincell(self) -> CylindricalPinCell:
-        return self._element_plug_pincell
-
-    @property
-    def magneform_fitting_pincell(self) -> CylindricalPinCell:
-        return self._magneform_fitting_pincell
-
-    @property
     def air_gap_pincell(self) -> CylindricalPinCell:
         return self._air_gap_pincell
 
@@ -419,23 +407,23 @@ class FuelFollowerControlRod(GeometryElement):
         return self._lower_magneform_fitting_pincell
 
     def __init__(self,
-                 cladding:                 Cladding,
-                 absorber:                 Absorber,
-                 fuel_follower:            FuelFollower,
-                 zr_fill_rod:              ZrFillRod,
-                 upper_element_plug:      ElementPlug,
-                 upper_air_gap:           AirGap,
-                 upper_magneform_fitting: MagneformFitting,
-                 above_absorber_air_gap:  AirGap,
-                 middle_magneform_fitting:MagneformFitting,
+                 cladding:                    Cladding,
+                 absorber:                    Absorber,
+                 fuel_follower:               FuelFollower,
+                 zr_fill_rod:                 ZrFillRod,
+                 upper_element_plug:          ElementPlug,
+                 upper_air_gap:               AirGap,
+                 upper_magneform_fitting:     MagneformFitting,
+                 above_absorber_air_gap:      AirGap,
+                 middle_magneform_fitting:    MagneformFitting,
                  above_fuel_follower_air_gap: AirGap,
-                 lower_magneform_fitting: MagneformFitting,
-                 lower_air_gap:           AirGap,
-                 lower_element_plug:      ElementPlug,
-                 fill_gas:                Optional[Material] = None,
-                 outer_material:          Optional[Material] = None,
-                 gap_tolerance:           Optional[float] = 1e-8,
-                 name:                    str = "fuel_follower_control_rod"):
+                 lower_magneform_fitting:     MagneformFitting,
+                 lower_air_gap:               AirGap,
+                 lower_element_plug:          ElementPlug,
+                 fill_gas:                    Optional[Material] = None,
+                 outer_material:              Optional[Material] = None,
+                 gap_tolerance:               Optional[float] = 1e-8,
+                 name:                        str = "fuel_follower_control_rod"):
         super().__init__(name)
         self._cladding = cladding
         self._absorber = absorber
@@ -475,42 +463,36 @@ class FuelFollowerControlRod(GeometryElement):
             cladding=self.cladding,
             plug=self.upper_element_plug,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_upper_element_plug_pincell",
         )
         self._lower_element_plug_pincell = self.build_element_plug_pincell(
             cladding=self.cladding,
             plug=self.lower_element_plug,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_lower_element_plug_pincell",
         )
         self._upper_magneform_fitting_pincell = self.build_magneform_fitting_pincell(
             cladding=self.cladding,
             fitting=self.upper_magneform_fitting,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_upper_magneform_fitting_pincell",
         )
         self._middle_magneform_fitting_pincell = self.build_magneform_fitting_pincell(
             cladding=self.cladding,
             fitting=self.middle_magneform_fitting,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_middle_magneform_fitting_pincell",
         )
         self._lower_magneform_fitting_pincell = self.build_magneform_fitting_pincell(
             cladding=self.cladding,
             fitting=self.lower_magneform_fitting,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_lower_magneform_fitting_pincell",
         )
         self._air_gap_pincell = self.build_air_gap_pincell(
             cladding=self.cladding,
             fill_gas=self.fill_gas,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_air_gap_pincell",
         )
 
@@ -656,7 +638,6 @@ class FuelFollowerControlRod(GeometryElement):
     def build_element_plug_pincell(cladding:       Cladding,
                                    plug:           ElementPlug,
                                    outer_material: Optional[Material] = None,
-                                   gap_tolerance:  Optional[float] = None,
                                    name:           str = "fuel_follower_control_rod_plug") -> CylindricalPinCell:
         """Build a pincell for plug regions (solid inside cladding).
 
@@ -668,8 +649,6 @@ class FuelFollowerControlRod(GeometryElement):
             Plug material and axial metadata.
         outer_material : Material, optional
             Exterior/coolant material (defaults to ``Water``).
-        gap_tolerance : float, optional
-            Minimum zone thickness to retain (defaults to ``None`` for no filtering).
         name : str, optional
             Name for the pincell.
 
@@ -682,13 +661,12 @@ class FuelFollowerControlRod(GeometryElement):
         radii = [cladding.inner_radius, cladding.outer_radius]
         materials = [plug.material, cladding.material, outer_material]
         return CylindricalPinCell(radii=radii, materials=materials, name=name,
-                                  min_zone_thickness=gap_tolerance or 0.0)
+                                  min_zone_thickness=None)
 
     @staticmethod
     def build_magneform_fitting_pincell(cladding:       Cladding,
                                         fitting:        MagneformFitting,
                                         outer_material: Optional[Material] = None,
-                                        gap_tolerance:  Optional[float] = None,
                                         name:           str = "fuel_follower_control_rod_magneform") -> CylindricalPinCell:
         """Build a pincell for Magneform fitting regions (solid inside cladding).
 
@@ -700,8 +678,6 @@ class FuelFollowerControlRod(GeometryElement):
             Fitting material and axial metadata.
         outer_material : Material, optional
             Exterior/coolant material (defaults to ``Water``).
-        gap_tolerance : float, optional
-            Minimum zone thickness to retain (defaults to ``None`` for no filtering).
         name : str, optional
             Name for the pincell.
 
@@ -714,13 +690,12 @@ class FuelFollowerControlRod(GeometryElement):
         radii = [cladding.inner_radius, cladding.outer_radius]
         materials = [fitting.material, cladding.material, outer_material]
         return CylindricalPinCell(radii=radii, materials=materials, name=name,
-                                  min_zone_thickness=gap_tolerance or 0.0)
+                                  min_zone_thickness=None)
 
     @staticmethod
     def build_air_gap_pincell(cladding:       Cladding,
                               fill_gas:       Optional[Material] = None,
                               outer_material: Optional[Material] = None,
-                              gap_tolerance:  Optional[float] = None,
                               name:           str = "fuel_follower_control_rod_air_gap") -> CylindricalPinCell:
         """Build a pincell for air-gap regions (uses fill_gas core).
 
@@ -732,8 +707,6 @@ class FuelFollowerControlRod(GeometryElement):
             Air-gap material (defaults to ``Air``).
         outer_material : Material, optional
             Exterior/coolant material (defaults to ``Water``).
-        gap_tolerance : float, optional
-            Minimum zone thickness to retain (defaults to ``None`` for no filtering).
         name : str, optional
             Name for the pincell.
 
@@ -747,4 +720,4 @@ class FuelFollowerControlRod(GeometryElement):
         radii = [cladding.inner_radius, cladding.outer_radius]
         materials = [fill_gas, cladding.material, outer_material]
         return CylindricalPinCell(radii=radii, materials=materials, name=name,
-                                  min_zone_thickness=gap_tolerance or 0.0)
+                                  min_zone_thickness=None)

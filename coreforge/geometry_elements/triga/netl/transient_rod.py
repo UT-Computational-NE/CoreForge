@@ -57,10 +57,6 @@ class TransientRod(GeometryElement):
         Pincell representing the absorber region.
     air_follower_pincell : CylindricalPinCell
         Pincell representing the air-follower region (cladding with fill gas).
-    element_plug_pincell : CylindricalPinCell
-        Pincell representing the element plug region.
-    magneform_fitting_pincell : CylindricalPinCell
-        Pincell representing the Magneform fitting region.
     upper_element_plug_pincell : CylindricalPinCell
         Pincell for the upper element plug.
     lower_element_plug_pincell : CylindricalPinCell
@@ -73,7 +69,17 @@ class TransientRod(GeometryElement):
 
     @dataclass(frozen=True)
     class Cladding:
-        """Transient rod cladding specification."""
+        """Transient rod cladding specification.
+
+        Parameters
+        ----------
+        thickness : float
+            Cladding thickness [cm].
+        outer_radius : float
+            Cladding outer radius [cm].
+        material : Material, optional
+            Cladding material (defaults to ``Al6061T6``).
+        """
         thickness: float
         outer_radius: float
         inner_radius: float = field(init=False)
@@ -103,7 +109,15 @@ class TransientRod(GeometryElement):
 
     @dataclass(frozen=True)
     class Absorber:
-        """Transient rod absorber specification."""
+        """Transient rod absorber specification.
+
+        Parameters
+        ----------
+        radius : float
+            Radius of the absorber [cm].
+        material : Material, optional
+            Absorber material (defaults to ``B4C``).
+        """
         radius: float
         material: Material = field(default_factory=B4C)
 
@@ -246,14 +260,6 @@ class TransientRod(GeometryElement):
         return self._air_follower_pincell
 
     @property
-    def element_plug_pincell(self) -> CylindricalPinCell:
-        return self._element_plug_pincell
-
-    @property
-    def magneform_fitting_pincell(self) -> CylindricalPinCell:
-        return self._magneform_fitting_pincell
-
-    @property
     def upper_element_plug_pincell(self) -> CylindricalPinCell:
         return self._upper_element_plug_pincell
 
@@ -270,17 +276,17 @@ class TransientRod(GeometryElement):
         return self._lower_magneform_fitting_pincell
 
     def __init__(self,
-                 cladding:       Cladding,
-                 absorber:       Absorber,
-                 air_follower:   AirFollower,
+                 cladding:                Cladding,
+                 absorber:                Absorber,
+                 air_follower:            AirFollower,
                  upper_element_plug:      ElementPlug,
                  upper_magneform_fitting: MagneformFitting,
                  lower_magneform_fitting: MagneformFitting,
                  lower_element_plug:      ElementPlug,
-                 fill_gas:       Optional[Material] = None,
-                 outer_material: Optional[Material] = None,
-                 gap_tolerance:  Optional[float] = None,
-                 name:           str = "transient_rod"):
+                 fill_gas:                Optional[Material] = None,
+                 outer_material:          Optional[Material] = None,
+                 gap_tolerance:           Optional[float] = None,
+                 name:                    str = "transient_rod"):
         super().__init__(name)
         self._cladding = cladding
         self._absorber = absorber
@@ -306,35 +312,30 @@ class TransientRod(GeometryElement):
             cladding=self.cladding,
             fill_gas=self.fill_gas,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_air_follower_pincell",
         )
         self._upper_element_plug_pincell = self.build_element_plug_pincell(
             cladding=self.cladding,
             plug=self.upper_element_plug,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_upper_element_plug_pincell",
         )
         self._upper_magneform_fitting_pincell = self.build_magneform_fitting_pincell(
             cladding=self.cladding,
             fitting=self.upper_magneform_fitting,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_upper_magneform_fitting_pincell",
         )
         self._lower_element_plug_pincell = self.build_element_plug_pincell(
             cladding=self.cladding,
             plug=self.lower_element_plug,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_lower_element_plug_pincell",
         )
         self._lower_magneform_fitting_pincell = self.build_magneform_fitting_pincell(
             cladding=self.cladding,
             fitting=self.lower_magneform_fitting,
             outer_material=self.outer_material,
-            gap_tolerance=self.gap_tolerance,
             name=self.name + "_lower_magneform_fitting_pincell",
         )
 
@@ -419,7 +420,6 @@ class TransientRod(GeometryElement):
     def build_element_plug_pincell(cladding:       Cladding,
                                    plug:           ElementPlug,
                                    outer_material: Optional[Material] = None,
-                                   gap_tolerance:  Optional[float] = None,
                                    name:           str = "transient_rod_element_plug") -> CylindricalPinCell:
         """Build a pincell for the element plug region (solid inside cladding).
 
@@ -431,8 +431,6 @@ class TransientRod(GeometryElement):
             Plug material and axial metadata.
         outer_material : Material, optional
             Exterior/coolant material (defaults to ``Water``).
-        gap_tolerance : float, optional
-            Minimum zone thickness to retain (defaults to ``None`` for no filtering).
         name : str, optional
             Name for the pincell.
 
@@ -446,14 +444,12 @@ class TransientRod(GeometryElement):
         radii = [cladding.inner_radius, cladding.outer_radius]
         materials = [plug.material, cladding.material, outer_material]
 
-        return CylindricalPinCell(radii=radii, materials=materials, name=name,
-                                  min_zone_thickness=gap_tolerance)
+        return CylindricalPinCell(radii=radii, materials=materials, name=name)
 
     @staticmethod
     def build_magneform_fitting_pincell(cladding:       Cladding,
                                         fitting:        MagneformFitting,
                                         outer_material: Optional[Material] = None,
-                                        gap_tolerance:  Optional[float] = None,
                                         name:           str = "transient_rod_magneform_fitting") -> CylindricalPinCell:
         """Build a pincell for the Magneform fitting region (solid inside cladding).
 
@@ -465,8 +461,6 @@ class TransientRod(GeometryElement):
             Fitting material and axial metadata.
         outer_material : Material, optional
             Exterior/coolant material (defaults to ``Water``).
-        gap_tolerance : float, optional
-            Minimum zone thickness to retain (defaults to ``None`` for no filtering).
         name : str, optional
             Name for the pincell.
 
@@ -480,14 +474,12 @@ class TransientRod(GeometryElement):
         radii = [cladding.inner_radius, cladding.outer_radius]
         materials = [fitting.material, cladding.material, outer_material]
 
-        return CylindricalPinCell(radii=radii, materials=materials, name=name,
-                                  min_zone_thickness=gap_tolerance)
+        return CylindricalPinCell(radii=radii, materials=materials, name=name)
 
     @staticmethod
     def build_air_follower_pincell(cladding:       Cladding,
                                    fill_gas:       Optional[Material] = None,
                                    outer_material: Optional[Material] = None,
-                                   gap_tolerance:  Optional[float] = None,
                                    name:           str = "transient_rod_air_follower") -> CylindricalPinCell:
         """Build a pincell for the air-follower region using cladding inner radius.
 
@@ -499,8 +491,6 @@ class TransientRod(GeometryElement):
             Air-follower material (defaults to ``Air``).
         outer_material : Material, optional
             Exterior/coolant material (defaults to ``Water``).
-        gap_tolerance : float, optional
-            Minimum zone thickness to retain (defaults to ``None`` for no filtering).
         name : str, optional
             Name for the pincell.
 
@@ -517,5 +507,4 @@ class TransientRod(GeometryElement):
         radii = [cladding.inner_radius, cladding.outer_radius]
         materials = [fill_gas, cladding.material, outer_material]
 
-        return CylindricalPinCell(radii=radii, materials=materials, name=name,
-                                  min_zone_thickness=gap_tolerance)
+        return CylindricalPinCell(radii=radii, materials=materials, name=name)
