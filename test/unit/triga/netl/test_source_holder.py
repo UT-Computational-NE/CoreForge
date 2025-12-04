@@ -10,16 +10,24 @@ CM_PER_INCH = 2.54
 
 @pytest.fixture
 def source_holder():
-    cavity = SourceHolder.Cavity(radius=0.981 * 0.5 * CM_PER_INCH)
+    cavity = SourceHolder.Cavity(radius=0.981 * 0.5 * CM_PER_INCH,
+                                 length=3.0 * CM_PER_INCH)
     cladding = SourceHolder.Cladding(outer_radius=1.435 * 0.5 * CM_PER_INCH)
-    return SourceHolder(cavity=cavity, cladding=cladding, outer_material=Water())
+    return SourceHolder(length=20.0 * CM_PER_INCH,
+                        cavity=cavity,
+                        cladding=cladding,
+                        outer_material=Water())
 
 
 @pytest.fixture
 def unequal_source_holder(source_holder):
-    cavity = SourceHolder.Cavity(radius=source_holder.cavity.radius * 1.05)
+    cavity = SourceHolder.Cavity(radius=source_holder.cavity.radius * 1.05,
+                                 length=source_holder.cavity.length)
     cladding = source_holder.cladding
-    return SourceHolder(cavity=cavity, cladding=cladding, outer_material=source_holder.outer_material)
+    return SourceHolder(length=source_holder.length,
+                        cavity=cavity,
+                        cladding=cladding,
+                        outer_material=source_holder.outer_material)
 
 
 def test_initialization(source_holder):

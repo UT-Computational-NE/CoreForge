@@ -16,6 +16,8 @@ class SourceHolder(GeometryElement):
 
     Parameters
     ----------
+    length : float
+        Axial length of the source holder [cm].
     cavity : SourceHolder.Cavity
         Cavity definition (radius and material).
     cladding : SourceHolder.Cladding
@@ -29,6 +31,8 @@ class SourceHolder(GeometryElement):
 
     Attributes
     ----------
+    length : float
+        Axial length of the source holder [cm].
     cavity : SourceHolder.Cavity
         Cavity specification.
     cladding : SourceHolder.Cladding
@@ -51,24 +55,37 @@ class SourceHolder(GeometryElement):
         ----------
         radius : float
             Radius of the cavity [cm].
+        length : float
+            Axial length of the cavity [cm].
+        axial_offset : float, optional
+            Offset of the cavity centerline from the source holder centerline [cm].
+            Positive values shift upward; negative values shift downward.
         material : Material, optional
             Filling material (defaults to ``Air``).
         """
         radius: float
+        length: float
+        axial_offset: float = 0.0
         material: Material = field(default_factory=Air)
 
         def __post_init__(self) -> None:
             assert self.radius > 0.0, "Source Holder cavity radius must be positive."
+            assert self.length > 0.0, "Source Holder cavity length must be positive."
 
         def __eq__(self, other: object) -> bool:
             if self is other:
                 return True
             return (isinstance(other, SourceHolder.Cavity) and
                     isclose(self.radius, other.radius, rel_tol=TOL) and
+                    isclose(self.length, other.length, rel_tol=TOL) and
+                    isclose(self.axial_offset, other.axial_offset, rel_tol=TOL) and
                     self.material == other.material)
 
         def __hash__(self) -> int:
-            return hash((relative_round(self.radius, TOL), self.material))
+            return hash((relative_round(self.radius, TOL),
+                         relative_round(self.length, TOL),
+                         relative_round(self.axial_offset, TOL),
+                         self.material))
 
     @dataclass(frozen=True)
     class Cladding:
@@ -98,6 +115,10 @@ class SourceHolder(GeometryElement):
             return hash((relative_round(self.outer_radius, TOL), self.material))
 
     @property
+    def length(self) -> float:
+        return self._length
+
+    @property
     def cavity(self) -> Cavity:
         return self._cavity
 
@@ -122,12 +143,15 @@ class SourceHolder(GeometryElement):
         return self._solid_pincell
 
     def __init__(self,
+                 length:         float,
                  cavity:         Cavity,
                  cladding:       Cladding,
                  outer_material: Optional[Material] = None,
                  gap_tolerance:  Optional[float] = None,
                  name:           str = "source_holder"):
         super().__init__(name)
+        assert length > 0.0, "Source holder length must be positive."
+        self._length = length
         self._cavity = cavity
         self._cladding = cladding
         self._outer_material = outer_material or Water()
@@ -152,6 +176,7 @@ class SourceHolder(GeometryElement):
         if not isinstance(other, SourceHolder):
             return False
         return (
+            isclose(self.length, other.length, rel_tol=TOL) and
             self.cavity == other.cavity and
             self.cladding == other.cladding and
             self.outer_material == other.outer_material and
@@ -162,6 +187,7 @@ class SourceHolder(GeometryElement):
 
     def __hash__(self) -> int:
         return hash((
+            relative_round(self.length, TOL),
             self.cavity,
             self.cladding,
             self.outer_material,
