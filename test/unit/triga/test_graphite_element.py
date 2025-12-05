@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from coreforge.geometry_elements.triga import GraphiteElement
 from coreforge.materials import Air, Al6061T6, Graphite, Water
+import coreforge.openmc_builder as openmc_builder
 
 
 @pytest.fixture
@@ -55,3 +56,10 @@ def test_equality_and_hash(graphite_element, unequal_graphite_element):
     assert graphite_element != unequal_graphite_element
     assert hash(graphite_element) == hash(deepcopy(graphite_element))
     assert hash(graphite_element) != hash(unequal_graphite_element)
+
+
+def test_openmc_builder(graphite_element):
+    geom_element = graphite_element
+    universe = openmc_builder.build(geom_element)
+    assert universe.name == "graphite_element"
+    assert len(universe.cells) == 5

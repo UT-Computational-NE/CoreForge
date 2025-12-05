@@ -1,15 +1,18 @@
+from math import isclose
 import pytest
 from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import FuelFollowerControlRod
 from coreforge.materials import Air, B4C, SS304, UZrH, Water, Zr
+import coreforge.openmc_builder as openmc_builder
 
 
 @pytest.fixture
 def control_rod():
     clad = FuelFollowerControlRod.Cladding(thickness=0.02, outer_radius=0.675)
-    absorber = FuelFollowerControlRod.Absorber(radius=0.655)
+    absorber = FuelFollowerControlRod.Absorber(radius=0.655, length=12.0)
     follower = FuelFollowerControlRod.FuelFollower(
+        length=18.0,
         inner_radius=0.125,
         outer_radius=clad.inner_radius,
     )
@@ -40,8 +43,9 @@ def control_rod():
 @pytest.fixture
 def unequal_control_rod(control_rod):
     clad = FuelFollowerControlRod.Cladding(thickness=0.03, outer_radius=0.70)
-    absorber = FuelFollowerControlRod.Absorber(radius=0.50)
+    absorber = FuelFollowerControlRod.Absorber(radius=0.50, length=12.0)
     follower = FuelFollowerControlRod.FuelFollower(
+        length=18.0,
         inner_radius=0.20,
         outer_radius=clad.inner_radius,
     )
@@ -122,9 +126,38 @@ def test_initialization(control_rod):
     assert isinstance(air_pin.zones[1].material, SS304)
     assert isinstance(air_pin.outer_material, Water)
 
+    expected_length = (
+        control_rod.lower_element_plug.thickness
+        + control_rod.lower_air_gap.thickness
+        + control_rod.lower_magneform_fitting.thickness
+        + control_rod.fuel_follower.length
+        + control_rod.above_fuel_follower_air_gap.thickness
+        + control_rod.middle_magneform_fitting.thickness
+        + control_rod.absorber.length
+        + control_rod.above_absorber_air_gap.thickness
+        + control_rod.upper_magneform_fitting.thickness
+        + control_rod.upper_air_gap.thickness
+        + control_rod.upper_element_plug.thickness
+    )
+    assert isclose(control_rod.length, expected_length)
+
 
 def test_equality_and_hash(control_rod, unequal_control_rod):
     assert control_rod == deepcopy(control_rod)
     assert control_rod != unequal_control_rod
     assert hash(control_rod) == hash(deepcopy(control_rod))
     assert hash(control_rod) != hash(unequal_control_rod)
+
+
+def test_as_stack(control_rod):
+    stack = control_rod.as_stack()
+    assert len(stack.segments) == 11
+    assert isclose(stack.length, control_rod.length)
+    assert isclose(stack.bottom_pos, 0.0)
+
+
+def test_openmc_builder(control_rod):
+    geom_element = control_rod
+    universe = openmc_builder.build(geom_element)
+    assert universe.name == "fuel_follower_control_rod"
+    assert len(universe.cells) == 11

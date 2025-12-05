@@ -8,6 +8,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, B4C, Material, SS304, UZrH, Water, Zr
 
 
@@ -53,6 +54,8 @@ class FuelFollowerControlRod(GeometryElement):
 
     Attributes
     ----------
+    length : float
+        Length of the fuel-follower control rod [cm].
     cladding : FuelFollowerControlRod.Cladding
         Cladding specification.
     absorber : FuelFollowerControlRod.Absorber
@@ -151,24 +154,31 @@ class FuelFollowerControlRod(GeometryElement):
         ----------
         radius : float
             Radius of the absorber [cm].
+        length : float
+            Length of the absorber [cm].
         material : Material, optional
             Absorber material. Defaults to ``B4C``.
         """
         radius: float
+        length: float
         material: Material = field(default_factory=B4C)
 
         def __post_init__(self) -> None:
             assert self.radius > 0.0, "Absorber radius must be positive."
+            assert self.length > 0.0, "Absorber length must be positive."
 
         def __eq__(self, other: object) -> bool:
             if self is other:
                 return True
             return (isinstance(other, FuelFollowerControlRod.Absorber) and
                     isclose(self.radius, other.radius, rel_tol=TOL) and
+                    isclose(self.length, other.length, rel_tol=TOL) and
                     self.material == other.material)
 
         def __hash__(self) -> int:
-            return hash((relative_round(self.radius, TOL), self.material))
+            return hash((relative_round(self.radius, TOL),
+                         relative_round(self.length, TOL),
+                         self.material))
 
     @dataclass(frozen=True)
     class FuelFollower:
@@ -176,6 +186,8 @@ class FuelFollowerControlRod(GeometryElement):
 
         Parameters
         ----------
+        length : float
+            Length of the fuel follower [cm].
         inner_radius : float
             Inner radius of the fuel follower [cm].
         outer_radius : float
@@ -183,11 +195,13 @@ class FuelFollowerControlRod(GeometryElement):
         material : Material, optional
             Fuel material. Defaults to ``UZrH``.
         """
+        length: float
         inner_radius: float
         outer_radius: float
         material: Material = field(default_factory=UZrH)
 
         def __post_init__(self) -> None:
+            assert self.length > 0.0, "Fuel follower length must be positive."
             assert self.inner_radius > 0.0, "Fuel follower inner radius must be positive."
             assert self.outer_radius > self.inner_radius, (
                 "Fuel follower outer radius must exceed inner radius."
@@ -197,12 +211,14 @@ class FuelFollowerControlRod(GeometryElement):
             if self is other:
                 return True
             return (isinstance(other, FuelFollowerControlRod.FuelFollower) and
+                    isclose(self.length, other.length, rel_tol=TOL) and
                     isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
                     isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
                     self.material == other.material)
 
         def __hash__(self) -> int:
-            return hash((relative_round(self.inner_radius, TOL),
+            return hash((relative_round(self.length, TOL),
+                         relative_round(self.inner_radius, TOL),
                          relative_round(self.outer_radius, TOL),
                          self.material))
 
@@ -309,6 +325,10 @@ class FuelFollowerControlRod(GeometryElement):
 
         def __hash__(self) -> int:
             return hash(relative_round(self.thickness, TOL))
+
+    @property
+    def length(self) -> float:
+        return self._length
 
     @property
     def cladding(self) -> Cladding:
@@ -442,6 +462,18 @@ class FuelFollowerControlRod(GeometryElement):
         self._outer_material = outer_material or Water()
         self._gap_tolerance = gap_tolerance
 
+        self._length = (self.lower_element_plug.thickness +
+                        self.lower_air_gap.thickness +
+                        self.lower_magneform_fitting.thickness +
+                        self.fuel_follower.length +
+                        self.above_fuel_follower_air_gap.thickness +
+                        self.middle_magneform_fitting.thickness +
+                        self.absorber.length +
+                        self.above_absorber_air_gap.thickness +
+                        self.upper_magneform_fitting.thickness +
+                        self.upper_air_gap.thickness +
+                        self.upper_element_plug.thickness)
+
         self._absorber_pincell = self.build_absorber_pincell(
             cladding=self.cladding,
             absorber=self.absorber,
@@ -541,6 +573,34 @@ class FuelFollowerControlRod(GeometryElement):
             self.outer_material,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
+
+    def as_stack(self, bottom_pos: float = 0.0) -> Stack:
+        """ A method for getting a copy of the Fuel Follower Control Rod as a Stack
+
+        Parameters
+        ----------
+        bottom_pos : float
+            The axial position of the bottom of the stack (cm)
+
+        Returns
+        -------
+        Stack
+            The Fuel Follower Control Rod as a Stack
+        """
+
+        return Stack(segments   = [Stack.Segment(self.lower_element_plug_pincell, self.lower_element_plug.thickness),
+                                   Stack.Segment(self.air_gap_pincell, self.lower_air_gap.thickness),
+                                   Stack.Segment(self.lower_magneform_fitting_pincell, self.lower_magneform_fitting.thickness),
+                                   Stack.Segment(self.fuel_follower_pincell, self.fuel_follower.length),
+                                   Stack.Segment(self.air_gap_pincell, self.above_fuel_follower_air_gap.thickness),
+                                   Stack.Segment(self.middle_magneform_fitting_pincell, self.middle_magneform_fitting.thickness),
+                                   Stack.Segment(self.absorber_pincell, self.absorber.length),
+                                   Stack.Segment(self.air_gap_pincell, self.above_absorber_air_gap.thickness),
+                                   Stack.Segment(self.upper_magneform_fitting_pincell, self.upper_magneform_fitting.thickness),
+                                   Stack.Segment(self.air_gap_pincell, self.upper_air_gap.thickness),
+                                   Stack.Segment(self.upper_element_plug_pincell, self.upper_element_plug.thickness)],
+                      name       = self.name,
+                      bottom_pos = bottom_pos)
 
     @staticmethod
     def build_absorber_pincell(cladding:       Cladding,

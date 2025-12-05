@@ -1,14 +1,16 @@
+from math import isclose
 import pytest
 from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import TransientRod
 from coreforge.materials import Air, Al6061T6, B4C, Water
+import coreforge.openmc_builder as openmc_builder
 
 
 @pytest.fixture
 def transient_rod():
     cladding = TransientRod.Cladding(thickness=0.028, outer_radius=0.625)
-    absorber = TransientRod.Absorber(radius=0.595)
+    absorber = TransientRod.Absorber(radius=0.595, length=10.0)
     air_follower = TransientRod.AirFollower(thickness=1.0)
     element_plug = TransientRod.ElementPlug(thickness=0.50)
     magneform = TransientRod.MagneformFitting(thickness=1.0)
@@ -28,7 +30,7 @@ def transient_rod():
 @pytest.fixture
 def unequal_transient_rod(transient_rod):
     cladding = TransientRod.Cladding(thickness=0.05, outer_radius=1.0)
-    absorber = TransientRod.Absorber(radius=0.5)
+    absorber = TransientRod.Absorber(radius=0.5, length=10.0)
     air_follower = TransientRod.AirFollower(thickness=2.0)
     element_plug = TransientRod.ElementPlug(thickness=0.75)
     magneform = TransientRod.MagneformFitting(thickness=1.25)
@@ -73,7 +75,7 @@ def test_initialization(transient_rod):
         plug_radii = [zone.shape.outer_radius for zone in plug_pin.zones]
         plug_materials = [zone.material for zone in plug_pin.zones]
         assert plug_radii == pytest.approx([transient_rod.cladding.inner_radius,
-                                            transient_rod.cladding.outer_radius])
+                                           transient_rod.cladding.outer_radius])
         assert isinstance(plug_materials[0], Al6061T6)
         assert isinstance(plug_materials[1], Al6061T6)
         assert isinstance(plug_pin.outer_material, Water)
@@ -88,9 +90,33 @@ def test_initialization(transient_rod):
         assert isinstance(mag_materials[1], Al6061T6)
         assert isinstance(mag_pin.outer_material, Water)
 
+    expected_length = (
+        transient_rod.lower_element_plug.thickness
+        + transient_rod.air_follower.thickness
+        + transient_rod.lower_magneform_fitting.thickness
+        + transient_rod.absorber.length
+        + transient_rod.upper_magneform_fitting.thickness
+        + transient_rod.upper_element_plug.thickness
+    )
+    assert isclose(transient_rod.length, expected_length)
+
 
 def test_equality_and_hash(transient_rod, unequal_transient_rod):
     assert transient_rod == deepcopy(transient_rod)
     assert transient_rod != unequal_transient_rod
     assert hash(transient_rod) == hash(deepcopy(transient_rod))
     assert hash(transient_rod) != hash(unequal_transient_rod)
+
+
+def test_as_stack(transient_rod):
+    stack = transient_rod.as_stack()
+    assert len(stack.segments) == 6
+    assert isclose(stack.length, transient_rod.length)
+    assert isclose(stack.bottom_pos, 0.0)
+
+
+def test_openmc_builder(transient_rod):
+    geom_element = transient_rod
+    universe = openmc_builder.build(geom_element)
+    assert universe.name == "transient_rod"
+    assert len(universe.cells) == 6

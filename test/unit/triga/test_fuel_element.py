@@ -3,11 +3,11 @@ from copy import deepcopy
 
 from coreforge.geometry_elements.triga import FuelElement
 from coreforge.materials import Air, Graphite, SS304, UZrH, Water, Zr
+import coreforge.openmc_builder as openmc_builder
 
 
 @pytest.fixture
 def fuel_element():
-    """Fuel element with gaps retained (very small tolerance)."""
     zr = FuelElement.ZrFillRod(radius=0.10)
     fuel = FuelElement.FuelMeat(inner_radius=0.12, outer_radius=0.50, length=10.0)
     clad = FuelElement.Cladding(thickness=0.10, outer_radius=0.70)
@@ -36,7 +36,6 @@ def fuel_element():
 
 @pytest.fixture
 def unequal_fuel_element(fuel_element):
-    """Fuel element with higher tolerance to collapse small gaps."""
     base = fuel_element
     return FuelElement(
         cladding=base.cladding,
@@ -83,3 +82,9 @@ def test_equality_and_hash(fuel_element, unequal_fuel_element):
     assert fuel_element != unequal_fuel_element
     assert hash(fuel_element) == hash(deepcopy(fuel_element))
     assert hash(fuel_element) != hash(unequal_fuel_element)
+
+def test_openmc_builder(fuel_element):
+    geom_element = fuel_element
+    universe = openmc_builder.build(geom_element)
+    assert universe.name == "fuel_element"
+    assert len(universe.cells) == 9

@@ -1,20 +1,31 @@
 import pytest
 from copy import deepcopy
+from math import isclose
 
 from coreforge.geometry_elements.triga.netl import CentralThimble
 from coreforge.materials import Al6061T6, Water
-
+import coreforge.openmc_builder as openmc_builder
 
 @pytest.fixture
 def central_thimble():
     clad = CentralThimble.Cladding(thickness=0.20, outer_radius=1.50)
-    return CentralThimble(cladding=clad, fill_material=Water(), outer_material=Water())
+    return CentralThimble(
+        cladding=clad,
+        length=10.0,
+        fill_material=Water(),
+        outer_material=Water(),
+    )
 
 
 @pytest.fixture
 def unequal_thimble():
     clad = CentralThimble.Cladding(thickness=0.25, outer_radius=1.55)
-    return CentralThimble(cladding=clad, fill_material=Water(), outer_material=Water())
+    return CentralThimble(
+        cladding=clad,
+        length=10.0,
+        fill_material=Water(),
+        outer_material=Water(),
+    )
 
 
 def test_initialization(central_thimble):
@@ -34,3 +45,17 @@ def test_equality_and_hash(central_thimble, unequal_thimble):
     assert central_thimble != unequal_thimble
     assert hash(central_thimble) == hash(deepcopy(central_thimble))
     assert hash(central_thimble) != hash(unequal_thimble)
+
+
+def test_as_stack(central_thimble):
+    stack = central_thimble.as_stack()
+    assert len(stack.segments) == 1
+    assert isclose(stack.length, central_thimble.length)
+    assert isclose(stack.bottom_pos, 0.0)
+
+
+def test_openmc_builder(central_thimble):
+    geom_element = central_thimble
+    universe = openmc_builder.build(geom_element)
+    assert universe.name == "central_thimble"
+    assert len(universe.cells) == 1

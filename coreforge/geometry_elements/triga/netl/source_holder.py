@@ -8,6 +8,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, Material, Water
 
 
@@ -193,6 +194,28 @@ class SourceHolder(GeometryElement):
             self.outer_material,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
+
+    def as_stack(self, bottom_pos: float = 0.0) -> Stack:
+        """ A method for getting a copy of the Source Holder as a Stack
+
+        Parameters
+        ----------
+        bottom_pos : float
+            The axial position of the bottom of the stack (cm)
+
+        Returns
+        -------
+        Stack
+            The Source Holder as a Stack
+        """
+        below_cavity_length = (self.length / 2.0) + self.cavity.axial_offset - (self.cavity.length / 2.0)
+        above_cavity_length = (self.length / 2.0) - self.cavity.axial_offset - (self.cavity.length / 2.0)
+
+        return Stack(segments   = [Stack.Segment(self.solid_pincell, below_cavity_length),
+                                   Stack.Segment(self.cavity_pincell, self.cavity.length),
+                                   Stack.Segment(self.solid_pincell, above_cavity_length)],
+                      name       = self.name,
+                      bottom_pos = bottom_pos)
 
     @staticmethod
     def build_cavity_pincell(cavity:         Cavity,

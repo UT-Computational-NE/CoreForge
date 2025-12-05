@@ -8,6 +8,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Al6061T6, Material, Water
 
 
@@ -18,6 +19,8 @@ class CentralThimble(GeometryElement):
     ----------
     cladding : CentralThimble.Cladding
         Thimble wall definition with thickness, outer radius, and material.
+    length : float
+        The length of the thimble [cm].
     fill_material : Optional[Material]
         Material filling the thimble interior (defaults to ``Water``).
     outer_material : Optional[Material]
@@ -29,6 +32,8 @@ class CentralThimble(GeometryElement):
     ----------
     cladding : CentralThimble.Cladding
         Thimble wall specification.
+    length : float
+        The length of the thimble [cm].
     fill_material : Material
         Material filling the thimble interior.
     outer_material : Material
@@ -84,6 +89,10 @@ class CentralThimble(GeometryElement):
         return self._cladding
 
     @property
+    def length(self) -> float:
+        return self._length
+
+    @property
     def fill_material(self) -> Material:
         return self._fill_material
 
@@ -97,11 +106,13 @@ class CentralThimble(GeometryElement):
 
     def __init__(self,
                  cladding:       Cladding,
+                 length:         float,
                  fill_material:  Optional[Material] = None,
                  outer_material: Optional[Material] = None,
                  name:           str = "central_thimble"):
         super().__init__(name)
         self._cladding = cladding
+        self._length = length
         self._fill_material = fill_material or Water()
         self._outer_material = outer_material or Water()
 
@@ -119,6 +130,7 @@ class CentralThimble(GeometryElement):
             return False
         return (
             self.cladding == other.cladding and
+            self.length == other.length and
             self.fill_material == other.fill_material and
             self.outer_material == other.outer_material
         )
@@ -126,9 +138,28 @@ class CentralThimble(GeometryElement):
     def __hash__(self) -> int:
         return hash((
             self.cladding,
+            relative_round(self.length, TOL),
             self.fill_material,
             self.outer_material,
         ))
+
+    def as_stack(self, bottom_pos: float = 0.0) -> Stack:
+        """ A method for getting a copy of the Central Thimble as a Stack
+
+        Parameters
+        ----------
+        bottom_pos : float
+            The axial position of the bottom of the stack (cm)
+
+        Returns
+        -------
+        Stack
+            The Central Thimble as a Stack
+        """
+
+        return Stack(segments   = [Stack.Segment(self.thimble_pincell, self.length)],
+                      name       = self.name,
+                      bottom_pos = bottom_pos)
 
     @staticmethod
     def build_thimble_pincell(cladding:       Cladding,

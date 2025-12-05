@@ -5,6 +5,7 @@ from .rect_lattice import RectLattice
 from .hex_lattice import HexLattice
 from .block import Block
 from . import msre
+from . import triga
 from .openmc_builder import build
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "HexLattice",
     "Block",
     "msre",
+    "triga",
     "build"
 ]

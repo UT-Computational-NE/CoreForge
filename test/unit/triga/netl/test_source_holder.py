@@ -1,8 +1,10 @@
 import pytest
 from copy import deepcopy
+from math import isclose
 
 from coreforge.geometry_elements.triga.netl import SourceHolder
 from coreforge.materials import Al6061T6, Air, Water
+import coreforge.openmc_builder as openmc_builder
 
 
 CM_PER_INCH = 2.54
@@ -57,3 +59,17 @@ def test_equality_and_hash(source_holder, unequal_source_holder):
     assert source_holder != unequal_source_holder
     assert hash(source_holder) == hash(deepcopy(source_holder))
     assert hash(source_holder) != hash(unequal_source_holder)
+
+
+def test_as_stack(source_holder):
+    stack = source_holder.as_stack()
+    assert len(stack.segments) == 3
+    assert isclose(stack.length, source_holder.length)
+    assert isclose(stack.bottom_pos, 0.0)
+
+
+def test_openmc_builder(source_holder):
+    geom_element = source_holder
+    universe = openmc_builder.build(geom_element)
+    assert universe.name == "source_holder"
+    assert len(universe.cells) == 3

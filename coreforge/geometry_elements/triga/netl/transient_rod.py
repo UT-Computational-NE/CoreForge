@@ -8,6 +8,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, B4C, Material, Water
 
 
@@ -41,6 +42,8 @@ class TransientRod(GeometryElement):
 
     Attributes
     ----------
+    length : float
+        Length of the transient rod [cm].
     cladding : TransientRod.Cladding
         Cladding specification.
     absorber : TransientRod.Absorber
@@ -115,24 +118,31 @@ class TransientRod(GeometryElement):
         ----------
         radius : float
             Radius of the absorber [cm].
+        length : float
+            Length of the absorber [cm].
         material : Material, optional
             Absorber material (defaults to ``B4C``).
         """
         radius: float
+        length: float
         material: Material = field(default_factory=B4C)
 
         def __post_init__(self) -> None:
             assert self.radius > 0.0, "Absorber radius must be positive."
+            assert self.length > 0.0, "Absorber length must be positive."
 
         def __eq__(self, other: object) -> bool:
             if self is other:
                 return True
             return (isinstance(other, TransientRod.Absorber) and
                     isclose(self.radius, other.radius, rel_tol=TOL) and
+                    isclose(self.length, other.length, rel_tol=TOL) and
                     self.material == other.material)
 
         def __hash__(self) -> int:
-            return hash((relative_round(self.radius, TOL), self.material))
+            return hash((relative_round(self.radius, TOL),
+                         relative_round(self.length, TOL),
+                         self.material))
 
     @dataclass(frozen=True)
     class AirFollower:
@@ -210,6 +220,10 @@ class TransientRod(GeometryElement):
 
         def __hash__(self) -> int:
             return hash((relative_round(self.thickness, TOL), self.material))
+
+    @property
+    def length(self) -> float:
+        return self._length
 
     @property
     def cladding(self) -> Cladding:
@@ -299,6 +313,13 @@ class TransientRod(GeometryElement):
         self._outer_material = outer_material or Water()
         self._gap_tolerance = gap_tolerance
 
+        self._length = (self.lower_element_plug.thickness +
+                        self.air_follower.thickness +
+                        self.lower_magneform_fitting.thickness +
+                        self.absorber.length +
+                        self.upper_magneform_fitting.thickness +
+                        self.upper_element_plug.thickness)
+
         self._absorber_pincell = self.build_absorber_pincell(
             cladding=self.cladding,
             absorber=self.absorber,
@@ -372,6 +393,29 @@ class TransientRod(GeometryElement):
             self.outer_material,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
+
+    def as_stack(self, bottom_pos: float = 0.0) -> Stack:
+        """ A method for getting a copy of the Transient Rod as a Stack
+
+        Parameters
+        ----------
+        bottom_pos : float
+            The axial position of the bottom of the stack (cm)
+
+        Returns
+        -------
+        Stack
+            The Transient Rod as a Stack
+        """
+
+        return Stack(segments   = [Stack.Segment(self.lower_element_plug_pincell, self.lower_element_plug.thickness),
+                                   Stack.Segment(self.air_follower_pincell, self.air_follower.thickness),
+                                   Stack.Segment(self.lower_magneform_fitting_pincell, self.lower_magneform_fitting.thickness),
+                                   Stack.Segment(self.absorber_pincell, self.absorber.length),
+                                   Stack.Segment(self.upper_magneform_fitting_pincell, self.upper_magneform_fitting.thickness),
+                                   Stack.Segment(self.upper_element_plug_pincell, self.upper_element_plug.thickness)],
+                      name       = self.name,
+                      bottom_pos = bottom_pos)
 
     @staticmethod
     def build_absorber_pincell(cladding:       Cladding,
