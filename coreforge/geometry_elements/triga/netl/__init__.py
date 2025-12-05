@@ -2,6 +2,8 @@ from .central_thimble import CentralThimble
 from .source_holder import SourceHolder
 from .transient_rod import TransientRod
 from .fuel_follower_control_rod import FuelFollowerControlRod
+from .grid_plate import GridPlate
+from .pool import Pool
 from .core import Core
 
 __all__ = [
@@ -9,5 +11,7 @@ __all__ = [
     "SourceHolder",
     "TransientRod",
     "FuelFollowerControlRod",
+    "GridPlate",
+    "Pool",
     "Core",
 ]
