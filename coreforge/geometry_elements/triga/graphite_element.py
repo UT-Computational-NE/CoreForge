@@ -46,6 +46,8 @@ class GraphiteElement(GeometryElement):
         Lower end fitting specification.
     interior_length : float
         Axial length of the graphite meat.
+    length : float
+        Total axial length including upper and lower end fittings.
     gap_tolerance : float, optional
         Minimum thickness to retain a radial gap (defaults to 1e-8).
     graphite_pincell : CylindricalPinCell
@@ -197,6 +199,10 @@ class GraphiteElement(GeometryElement):
         return self._interior_length
 
     @property
+    def length(self) -> float:
+        return self._length
+
+    @property
     def graphite_pincell(self) -> CylindricalPinCell:
         return self._graphite_region_pincell
 
@@ -219,6 +225,9 @@ class GraphiteElement(GeometryElement):
         self._outer_material    = outer_material or Water()
 
         self._interior_length = self._graphite_meat.length
+        self._length = (self._interior_length
+                        + self._upper_end_fitting.length
+                        + self._lower_end_fitting.length)
 
         self._graphite_region_pincell = self.build_graphite_meat_pincell(
             cladding       = self.cladding,

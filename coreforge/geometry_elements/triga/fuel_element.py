@@ -71,6 +71,8 @@ class FuelElement(GeometryElement):
     interior_length : float
         Axial length from the bottom of the lower graphite reflector to the top
         of the upper air gap.
+    length : float
+        Total axial length including upper and lower end fittings.
     gap_tolerance : float, optional
         Minimum thickness to retain a radial gap (defaults to 1e-8).
     fuel_pincell : CylindricalPinCell
@@ -382,6 +384,10 @@ class FuelElement(GeometryElement):
         return self._interior_length
 
     @property
+    def length(self) -> float:
+        return self._length
+
+    @property
     def fuel_pincell(self) -> CylindricalPinCell:
         return self._fuel_region_pincell
 
@@ -435,6 +441,9 @@ class FuelElement(GeometryElement):
                                  + self._fuel_meat.length
                                  + self._upper_graphite_reflector.thickness
                                  + self._upper_air_gap.thickness)
+        self._length = (self._interior_length
+                        + self._upper_end_fitting.length
+                        + self._lower_end_fitting.length)
 
         self._fuel_region_pincell = self.build_fuel_meat_pincell(
             cladding       = self.cladding,

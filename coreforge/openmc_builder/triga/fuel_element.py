@@ -30,7 +30,7 @@ class FuelElement:
 
         cells = []
 
-        height = 0.0
+        height = element.lower_end_fitting.length
 
         cone = OneSidedCone(r=element.cladding.outer_radius,
                             h=element.lower_end_fitting.length).make_region()
@@ -39,8 +39,6 @@ class FuelElement:
         plane = openmc.ZPlane(height)
         cells.append(openmc.Cell(fill=element.cladding.material.openmc_material, region=-plane & -cone))
         cells.append(openmc.Cell(fill=element.outer_material.openmc_material,   region=-plane & +cone))
-
-        height += element.lower_end_fitting.length
 
         segments = [element.lower_reflector_pincell,
                     element.moly_disc_pincell,
@@ -62,9 +60,10 @@ class FuelElement:
 
         cone = OneSidedCone(r=element.cladding.outer_radius,
                             h=element.upper_end_fitting.length).make_region()
+        cone = cone.translate([0.0, 0.0, height])
         plane = openmc.ZPlane(height)
-        cells.append(openmc.Cell(fill=element.cladding.material.openmc_material, region=-plane & -cone))
-        cells.append(openmc.Cell(fill=element.outer_material.openmc_material,    region=-plane & +cone))
+        cells.append(openmc.Cell(fill=element.cladding.material.openmc_material, region=+plane & -cone))
+        cells.append(openmc.Cell(fill=element.outer_material.openmc_material,    region=+plane & +cone))
 
         universe = openmc.Universe(name=element.name, cells=cells)
 

@@ -30,7 +30,7 @@ class GraphiteElement:
 
         cells = []
 
-        height = 0.0
+        height = element.lower_end_fitting.length
 
         cone = OneSidedCone(r=element.cladding.outer_radius,
                             h=element.lower_end_fitting.length).make_region()
@@ -40,8 +40,6 @@ class GraphiteElement:
         cells.append(openmc.Cell(fill=element.cladding.material.openmc_material, region=-plane & -cone))
         cells.append(openmc.Cell(fill=element.outer_material.openmc_material,    region=-plane & +cone))
 
-        height += element.lower_end_fitting.length
-
         lower_bound = openmc.ZPlane(height)
         upper_bound = openmc.ZPlane(height + element.graphite_meat.length)
         cells.append(openmc.Cell(fill=build(element.graphite_pincell), region=+lower_bound & -upper_bound))
@@ -50,9 +48,10 @@ class GraphiteElement:
 
         cone = OneSidedCone(r=element.cladding.outer_radius,
                             h=element.upper_end_fitting.length).make_region()
+        cone = cone.translate([0.0, 0.0, height])
         plane = openmc.ZPlane(height)
-        cells.append(openmc.Cell(fill=element.cladding.material.openmc_material, region=-plane & -cone))
-        cells.append(openmc.Cell(fill=element.outer_material.openmc_material,    region=-plane & +cone))
+        cells.append(openmc.Cell(fill=element.cladding.material.openmc_material, region=+plane & -cone))
+        cells.append(openmc.Cell(fill=element.outer_material.openmc_material,    region=+plane & +cone))
 
         universe = openmc.Universe(name=element.name, cells=cells)
 

@@ -128,4 +128,7 @@ class OneSidedCone(Shape_3D):
         openmc.Region
             A region representing the one-sided cone with base at z=0 and apex at z=h.
         """
-        return openmc.model.ZConeOneSided(z0=self.h, r2=(self.r / self.h)**2)
+        region = openmc.model.ZConeOneSided(z0=0.0, r2=(self.r / self.h)**2)
+        region = region.rotate((180.0, 0.0, 0.0))
+        region = region.translate([0.0, 0.0, self.h])
+        return region
