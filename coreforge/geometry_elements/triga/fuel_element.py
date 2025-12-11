@@ -409,19 +409,19 @@ class FuelElement(GeometryElement):
 
 
     def __init__(self,
-                     cladding:                 Cladding,
-                     upper_end_fitting:        EndFitting,
-                     upper_air_gap:            AirGap,
-                     upper_graphite_reflector: GraphiteReflector,
-                     zr_fill_rod:              ZrFillRod,
-                     fuel_meat:                FuelMeat,
-                     moly_disc:                MolyDisc,
-                     lower_graphite_reflector: GraphiteReflector,
-                     lower_end_fitting:        EndFitting,
-                     gap_tolerance:            Optional[float] = 1.0e-8,
-                     fill_gas:                 Optional[Material] = None,
-                     outer_material:           Optional[Material] = None,
-                     name:                     str = "fuel_element"):
+                cladding:                 Cladding,
+                upper_end_fitting:        EndFitting,
+                upper_air_gap:            AirGap,
+                upper_graphite_reflector: GraphiteReflector,
+                zr_fill_rod:              ZrFillRod,
+                fuel_meat:                FuelMeat,
+                moly_disc:                MolyDisc,
+                lower_graphite_reflector: GraphiteReflector,
+                lower_end_fitting:        EndFitting,
+                gap_tolerance:            Optional[float] = 1.0e-8,
+                fill_gas:                 Optional[Material] = None,
+                outer_material:           Optional[Material] = None,
+                name:                     str = "fuel_element"):
         super().__init__(name)
         self._cladding                 = cladding
         self._fill_gas                 = fill_gas or Air()
