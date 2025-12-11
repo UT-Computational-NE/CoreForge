@@ -60,9 +60,9 @@ class BeamPort(GeometryElement):
         assert outer_radius > inner_radius, "Beam Port outer radius must exceed the inner radius."
         assert length > 0.0, "Beam Port length must be positive."
 
-        self._inner_radius = inner_radius
-        self._outer_radius = outer_radius
-        self._length = length
+        self._inner_radius  = inner_radius
+        self._outer_radius  = outer_radius
+        self._length        = length
         self._tube_material = tube_material or Al6061T6()
         self._fill_material = fill_material or Air()
 
