@@ -1,3 +1,4 @@
+from .beam_port import BeamPort
 from .central_thimble import CentralThimble
 from .source_holder import SourceHolder
 from .transient_rod import TransientRod
@@ -8,6 +9,7 @@ from .core import Core
 from .reactor import Reactor
 
 __all__ = [
+    "BeamPort",
     "CentralThimble",
     "SourceHolder",
     "TransientRod",
