@@ -6,6 +6,7 @@ from .fuel_follower_control_rod import FuelFollowerControlRod
 from .grid_plate import GridPlate
 from .pool import Pool
 from .rsr_cavity import RSRCavity
+from .shroud import Shroud
 from .core import Core
 from .reactor import Reactor
 
@@ -18,6 +19,7 @@ __all__ = [
     "GridPlate",
     "Pool",
     "RSRCavity",
+    "Shroud",
     "Core",
     "Reactor",
 ]
