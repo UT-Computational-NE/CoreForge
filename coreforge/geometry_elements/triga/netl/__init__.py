@@ -7,6 +7,7 @@ from .grid_plate import GridPlate
 from .pool import Pool
 from .rsr_cavity import RSRCavity
 from .shroud import Shroud
+from .reflector import Reflector
 from .core import Core
 from .reactor import Reactor
 
@@ -20,6 +21,7 @@ __all__ = [
     "Pool",
     "RSRCavity",
     "Shroud",
+    "Reflector",
     "Core",
     "Reactor",
 ]

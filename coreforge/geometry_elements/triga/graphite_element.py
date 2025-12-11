@@ -65,7 +65,7 @@ class GraphiteElement(GeometryElement):
         length : float
             Axial length of the graphite meat [cm].
         material : Material
-            Graphite material. Defaults to ``Graphite`` at 1.6 g/cc (Ref. [1]_ pg. 50).
+            Graphite material. Defaults to ``Graphite`` at 1.6 g/cc.
         """
         outer_radius: float
         length: float
