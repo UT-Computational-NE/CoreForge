@@ -203,7 +203,7 @@ class Reactor(GeometryElement):
 
         ControlRodGeometry: TypeAlias = FuelFollowerControlRodGeometry | TransientRodGeometry
 
-        def __init(self, geometry: ControlRodGeometry, bottom_z: float) -> None:
+        def __init__(self, geometry: ControlRodGeometry, bottom_z: float) -> None:
             self._geometry = geometry
             self._bottom_z = bottom_z
 
@@ -245,7 +245,7 @@ class Reactor(GeometryElement):
 
         def __init__(self, geometry: FuelFollowerControlRodGeometry, bottom_z: float) -> None:
             assert isinstance(geometry, FuelFollowerControlRodGeometry)
-            super().__init(geometry, bottom_z)
+            super().__init__(geometry, bottom_z)
 
     class TransientRod(ControlRod):
         """Transient rod placement.
