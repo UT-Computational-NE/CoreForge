@@ -6,14 +6,22 @@ from coreforge.geometry_elements.triga.netl import TransientRod
 from coreforge.materials import Air, Al6061T6, B4C, Water
 import coreforge.openmc_builder as openmc_builder
 
+CM_PER_INCH = 2.54
+
 
 @pytest.fixture
 def transient_rod():
-    cladding = TransientRod.Cladding(thickness=0.028, outer_radius=0.625)
-    absorber = TransientRod.Absorber(radius=0.595, length=10.0)
-    air_follower = TransientRod.AirFollower(thickness=1.0)
-    element_plug = TransientRod.ElementPlug(thickness=0.50)
-    magneform = TransientRod.MagneformFitting(thickness=1.0)
+    cladding = TransientRod.Cladding(
+        thickness=0.028 * CM_PER_INCH,
+        outer_radius=1.25 * 0.5 * CM_PER_INCH,
+    )
+    absorber = TransientRod.Absorber(
+        radius=1.187 * 0.5 * CM_PER_INCH,
+        length=15.0 * CM_PER_INCH,
+    )
+    air_follower = TransientRod.AirFollower(thickness=19.75 * CM_PER_INCH)
+    element_plug = TransientRod.ElementPlug(thickness=0.50 * CM_PER_INCH)
+    magneform = TransientRod.MagneformFitting(thickness=1.0 * CM_PER_INCH)
     return TransientRod(
         cladding=cladding,
         absorber=absorber,
@@ -28,7 +36,7 @@ def transient_rod():
 
 
 @pytest.fixture
-def unequal_transient_rod(transient_rod):
+def unequal_transient_rod():
     cladding = TransientRod.Cladding(thickness=0.05, outer_radius=1.0)
     absorber = TransientRod.Absorber(radius=0.5, length=10.0)
     air_follower = TransientRod.AirFollower(thickness=2.0)

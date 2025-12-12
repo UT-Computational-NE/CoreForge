@@ -5,18 +5,36 @@ from coreforge.geometry_elements.triga import FuelElement
 from coreforge.materials import Air, Graphite, SS304, UZrH, Water, Zr
 import coreforge.openmc_builder as openmc_builder
 
+CM_PER_INCH = 2.54
+
 
 @pytest.fixture
 def fuel_element():
-    zr = FuelElement.ZrFillRod(radius=0.10)
-    fuel = FuelElement.FuelMeat(inner_radius=0.12, outer_radius=0.50, length=10.0)
-    clad = FuelElement.Cladding(thickness=0.10, outer_radius=0.70)
-    upper_reflector = FuelElement.GraphiteReflector(radius=0.50, thickness=5.0)
-    lower_reflector = FuelElement.GraphiteReflector(radius=0.50, thickness=5.0)
-    moly = FuelElement.MolyDisc(radius=0.40, thickness=0.20)
-    gap = FuelElement.AirGap(thickness=0.50)
-    upper_end = FuelElement.EndFitting(length=3.0, direction="up")
-    lower_end = FuelElement.EndFitting(length=3.0, direction="down")
+    zr = FuelElement.ZrFillRod(radius=0.25 * 0.5 * CM_PER_INCH)
+    fuel = FuelElement.FuelMeat(
+        inner_radius=0.25 * 0.5 * CM_PER_INCH,
+        outer_radius=1.435 * 0.5 * CM_PER_INCH,
+        length=15.0 * CM_PER_INCH,
+    )
+    clad = FuelElement.Cladding(
+        thickness=0.020 * CM_PER_INCH,
+        outer_radius=1.475 * 0.5 * CM_PER_INCH,
+    )
+    upper_reflector = FuelElement.GraphiteReflector(
+        radius=1.430 * 0.5 * CM_PER_INCH,
+        thickness=2.56 * CM_PER_INCH,
+    )
+    lower_reflector = FuelElement.GraphiteReflector(
+        radius=1.430 * 0.5 * CM_PER_INCH,
+        thickness=3.72 * CM_PER_INCH,
+    )
+    moly = FuelElement.MolyDisc(
+        radius=1.431 * 0.5 * CM_PER_INCH,
+        thickness=0.031 * CM_PER_INCH,
+    )
+    gap = FuelElement.AirGap(thickness=0.5 * CM_PER_INCH)
+    upper_end = FuelElement.EndFitting(length=7.3552, direction="up")
+    lower_end = FuelElement.EndFitting(length=7.6209, direction="down")
 
     return FuelElement(
         cladding=clad,
@@ -57,24 +75,37 @@ def test_initialization(fuel_element):
     pin = fuel_element.fuel_pincell
     radii = [zone.shape.outer_radius for zone in pin.zones]
     materials = [zone.material for zone in pin.zones]
-    assert radii == pytest.approx([0.10, 0.12, 0.50, 0.60, 0.70])
+    assert radii == pytest.approx([
+        fuel_element.zr_fill_rod.radius,
+        fuel_element.fuel_meat.outer_radius,
+        fuel_element.cladding.outer_radius,
+    ])
     assert isinstance(materials[0], Zr)
-    assert isinstance(materials[1], Air)
-    assert isinstance(materials[2], UZrH)
-    assert isinstance(materials[3], Air)
-    assert isinstance(materials[4], SS304)
+    assert isinstance(materials[1], UZrH)
+    assert isinstance(materials[2], SS304)
     assert isinstance(pin.outer_material, Water)
 
     moly_pin = fuel_element.moly_disc_pincell
-    assert [z.shape.outer_radius for z in moly_pin.zones] == pytest.approx([0.40, 0.60, 0.70])
+    assert [z.shape.outer_radius for z in moly_pin.zones] == pytest.approx([
+        fuel_element.moly_disc.radius,
+        fuel_element.cladding.inner_radius,
+        fuel_element.cladding.outer_radius,
+    ])
     assert isinstance(moly_pin.zones[0].material, type(fuel_element.moly_disc.material))
 
     refl_pin = fuel_element.upper_reflector_pincell
-    assert [z.shape.outer_radius for z in refl_pin.zones] == pytest.approx([0.50, 0.60, 0.70])
+    assert [z.shape.outer_radius for z in refl_pin.zones] == pytest.approx([
+        fuel_element.upper_graphite_reflector.radius,
+        fuel_element.cladding.inner_radius,
+        fuel_element.cladding.outer_radius,
+    ])
     assert isinstance(refl_pin.zones[0].material, Graphite)
 
     air_pin = fuel_element.air_gap_pincell
-    assert [z.shape.outer_radius for z in air_pin.zones] == pytest.approx([0.60, 0.70])
+    assert [z.shape.outer_radius for z in air_pin.zones] == pytest.approx([
+        fuel_element.cladding.inner_radius,
+        fuel_element.cladding.outer_radius,
+    ])
     assert isinstance(air_pin.zones[0].material, Air)
 
 def test_equality_and_hash(fuel_element, unequal_fuel_element):

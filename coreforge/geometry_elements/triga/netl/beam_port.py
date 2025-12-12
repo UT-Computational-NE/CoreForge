@@ -49,9 +49,9 @@ class BeamPort(GeometryElement):
         return self._length
 
     def __init__(self,
-                 inner_radius: float,
-                 outer_radius: float,
-                 length: float,
+                 inner_radius:  float,
+                 outer_radius:  float,
+                 length:        float,
                  tube_material: Optional[Material] = None,
                  fill_material: Optional[Material] = None,
                  name: str = "beam_port") -> None:

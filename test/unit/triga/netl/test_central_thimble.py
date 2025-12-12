@@ -6,12 +6,17 @@ from coreforge.geometry_elements.triga.netl import CentralThimble
 from coreforge.materials import Al6061T6, Water
 import coreforge.openmc_builder as openmc_builder
 
+CM_PER_INCH = 2.54
+
 @pytest.fixture
 def central_thimble():
-    clad = CentralThimble.Cladding(thickness=0.20, outer_radius=1.50)
+    clad = CentralThimble.Cladding(
+        thickness=(1.5 * 0.5 * CM_PER_INCH) - (1.33 * 0.5 * CM_PER_INCH),
+        outer_radius=1.5 * 0.5 * CM_PER_INCH,
+    )
     return CentralThimble(
         cladding=clad,
-        length=10.0,
+        length=160.0,
         fill_material=Water(),
         outer_material=Water(),
     )
@@ -19,10 +24,13 @@ def central_thimble():
 
 @pytest.fixture
 def unequal_thimble():
-    clad = CentralThimble.Cladding(thickness=0.25, outer_radius=1.55)
+    clad = CentralThimble.Cladding(
+        thickness=0.25 * CM_PER_INCH,
+        outer_radius=1.55 * 0.5 * CM_PER_INCH,
+    )
     return CentralThimble(
         cladding=clad,
-        length=10.0,
+        length=160.0,
         fill_material=Water(),
         outer_material=Water(),
     )
@@ -34,7 +42,10 @@ def test_initialization(central_thimble):
     radii = [zone.shape.outer_radius for zone in pin.zones]
     materials = [zone.material for zone in pin.zones]
 
-    assert radii == pytest.approx([1.30, 1.50])
+    assert radii == pytest.approx([
+        central_thimble.cladding.inner_radius,
+        central_thimble.cladding.outer_radius,
+    ])
     assert isinstance(materials[0], Water)
     assert isinstance(materials[1], Al6061T6)
     assert isinstance(pin.outer_material, Water)

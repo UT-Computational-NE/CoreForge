@@ -12,13 +12,30 @@ CM_PER_INCH = 2.54
 
 @pytest.fixture
 def source_holder():
-    cavity = SourceHolder.Cavity(radius=0.981 * 0.5 * CM_PER_INCH,
-                                 length=3.0 * CM_PER_INCH)
+    upper_grid_plate_distance = 12.75 * CM_PER_INCH
+    lower_grid_plate_distance = 13.06 * CM_PER_INCH
+    distance_from_lower_plate = 1.1934
+    upper_plate_thickness = 0.62 * CM_PER_INCH
+
+    length = (
+        upper_grid_plate_distance
+        + lower_grid_plate_distance
+        - distance_from_lower_plate
+        + upper_plate_thickness
+    )
+    cavity = SourceHolder.Cavity(
+        radius=0.981 * 0.5 * CM_PER_INCH,
+        length=3.0 * CM_PER_INCH,
+        axial_offset=-distance_from_lower_plate,
+    )
     cladding = SourceHolder.Cladding(outer_radius=1.435 * 0.5 * CM_PER_INCH)
-    return SourceHolder(length=20.0 * CM_PER_INCH,
-                        cavity=cavity,
-                        cladding=cladding,
-                        outer_material=Water())
+    return SourceHolder(
+        length=length,
+        cavity=cavity,
+        cladding=cladding,
+        outer_material=Water(),
+        gap_tolerance=None,
+    )
 
 
 @pytest.fixture
@@ -44,6 +61,7 @@ def test_initialization(source_holder):
     assert isinstance(cavity_mats[0], Air)
     assert isinstance(cavity_mats[1], Al6061T6)
     assert isinstance(cavity_pin.outer_material, Water)
+    assert source_holder.cavity.axial_offset == pytest.approx(-1.1934)
 
     solid_pin = source_holder.solid_pincell
     solid_radii = [zone.shape.outer_radius for zone in solid_pin.zones]

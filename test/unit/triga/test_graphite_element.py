@@ -5,13 +5,21 @@ from coreforge.geometry_elements.triga import GraphiteElement
 from coreforge.materials import Air, Al6061T6, Graphite, Water
 import coreforge.openmc_builder as openmc_builder
 
+CM_PER_INCH = 2.54
+
 
 @pytest.fixture
 def graphite_element():
-    meat = GraphiteElement.GraphiteMeat(outer_radius=0.50, length=10.0)
-    clad = GraphiteElement.Cladding(thickness=0.05, outer_radius=0.80)
-    upper_end = GraphiteElement.EndFitting(length=3.0, direction="up")
-    lower_end = GraphiteElement.EndFitting(length=3.0, direction="down")
+    clad = GraphiteElement.Cladding(
+        thickness=0.020 * CM_PER_INCH,
+        outer_radius=1.475 * 0.5 * CM_PER_INCH,
+    )
+    meat = GraphiteElement.GraphiteMeat(
+        outer_radius=1.435 * 0.5 * CM_PER_INCH,
+        length=(3.72 + 0.031 + 15.0 + 2.56 + 0.5) * CM_PER_INCH,  # mirrors fuel interior length
+    )
+    upper_end = GraphiteElement.EndFitting(length=7.3552, direction="up")
+    lower_end = GraphiteElement.EndFitting(length=7.6209, direction="down")
 
     return GraphiteElement(
         cladding=clad,
@@ -27,7 +35,10 @@ def graphite_element():
 @pytest.fixture
 def unequal_graphite_element(graphite_element):
     base = graphite_element
-    altered_meat = GraphiteElement.GraphiteMeat(outer_radius=0.55, length=base.graphite_meat.length)
+    altered_meat = GraphiteElement.GraphiteMeat(
+        outer_radius=base.graphite_meat.outer_radius * 0.95,
+        length=base.graphite_meat.length,
+    )
     return GraphiteElement(
         cladding=base.cladding,
         graphite_meat=altered_meat,
@@ -44,10 +55,12 @@ def test_initialization(graphite_element):
     radii = [zone.shape.outer_radius for zone in pin.zones]
     materials = [zone.material for zone in pin.zones]
 
-    assert radii == pytest.approx([0.50, 0.75, 0.80])
+    assert radii == pytest.approx([
+        graphite_element.graphite_meat.outer_radius,
+        graphite_element.cladding.outer_radius,
+    ])
     assert isinstance(materials[0], Graphite)
-    assert isinstance(materials[1], Air)
-    assert isinstance(materials[2], Al6061T6)
+    assert isinstance(materials[1], Al6061T6)
     assert isinstance(pin.outer_material, Water)
 
 

@@ -6,20 +6,31 @@ from coreforge.geometry_elements.triga.netl import FuelFollowerControlRod
 from coreforge.materials import Air, B4C, SS304, UZrH, Water, Zr
 import coreforge.openmc_builder as openmc_builder
 
+CM_PER_INCH = 2.54
+
 
 @pytest.fixture
 def control_rod():
-    clad = FuelFollowerControlRod.Cladding(thickness=0.02, outer_radius=0.675)
-    absorber = FuelFollowerControlRod.Absorber(radius=0.655, length=12.0)
+    clad = FuelFollowerControlRod.Cladding(
+        thickness=0.02 * CM_PER_INCH,
+        outer_radius=1.35 * 0.5 * CM_PER_INCH,
+    )
+    absorber = FuelFollowerControlRod.Absorber(
+        radius=1.3 * 0.5 * CM_PER_INCH,
+        length=15.0 * CM_PER_INCH,
+    )
     follower = FuelFollowerControlRod.FuelFollower(
-        length=18.0,
-        inner_radius=0.125,
+        length=15.0 * CM_PER_INCH,
+        inner_radius=0.25 * 0.5 * CM_PER_INCH,
         outer_radius=clad.inner_radius,
     )
-    zr_fill = FuelFollowerControlRod.ZrFillRod(radius=0.125)
-    plug = FuelFollowerControlRod.ElementPlug(thickness=1.0)
-    mag = FuelFollowerControlRod.MagneformFitting(thickness=0.5)
-    air_gap = FuelFollowerControlRod.AirGap(thickness=1.0)
+    zr_fill = FuelFollowerControlRod.ZrFillRod(radius=0.25 * 0.5 * CM_PER_INCH)
+    plug = FuelFollowerControlRod.ElementPlug(thickness=1.5 * CM_PER_INCH)
+    mag = FuelFollowerControlRod.MagneformFitting(thickness=0.5 * CM_PER_INCH)
+    air_gap = FuelFollowerControlRod.AirGap(thickness=3.5 * CM_PER_INCH)
+    above_absorber_gap = FuelFollowerControlRod.AirGap(thickness=0.125 * CM_PER_INCH)
+    above_follower_gap = FuelFollowerControlRod.AirGap(thickness=0.25 * CM_PER_INCH)
+    lower_air_gap = FuelFollowerControlRod.AirGap(thickness=5.375 * CM_PER_INCH)
 
     return FuelFollowerControlRod(
         cladding=clad,
@@ -29,19 +40,20 @@ def control_rod():
         upper_element_plug=plug,
         upper_air_gap=air_gap,
         upper_magneform_fitting=mag,
-        above_absorber_air_gap=air_gap,
+        above_absorber_air_gap=above_absorber_gap,
         middle_magneform_fitting=mag,
-        above_fuel_follower_air_gap=air_gap,
-        lower_magneform_fitting=mag,
-        lower_air_gap=air_gap,
+        above_fuel_follower_air_gap=above_follower_gap,
+        lower_magneform_fitting=FuelFollowerControlRod.MagneformFitting(thickness=1.0 * CM_PER_INCH),
+        lower_air_gap=lower_air_gap,
         lower_element_plug=plug,
         fill_gas=Air(),
         outer_material=Water(),
+        gap_tolerance=1e-8,
     )
 
 
 @pytest.fixture
-def unequal_control_rod(control_rod):
+def unequal_control_rod():
     clad = FuelFollowerControlRod.Cladding(thickness=0.03, outer_radius=0.70)
     absorber = FuelFollowerControlRod.Absorber(radius=0.50, length=12.0)
     follower = FuelFollowerControlRod.FuelFollower(
@@ -79,9 +91,12 @@ def test_initialization(control_rod):
     abs_radii = [z.shape.outer_radius for z in abs_pin.zones]
     abs_mats = [z.material for z in abs_pin.zones]
 
-    assert abs_radii == pytest.approx([control_rod.absorber.radius, control_rod.cladding.outer_radius])
+    assert abs_radii == pytest.approx([control_rod.absorber.radius,
+                                       control_rod.cladding.inner_radius,
+                                       control_rod.cladding.outer_radius])
     assert isinstance(abs_mats[0], B4C)
-    assert isinstance(abs_mats[1], SS304)
+    assert isinstance(abs_mats[1], Air)
+    assert isinstance(abs_mats[2], SS304)
     assert isinstance(abs_pin.outer_material, Water)
 
     follower_pin = control_rod.fuel_follower_pincell
