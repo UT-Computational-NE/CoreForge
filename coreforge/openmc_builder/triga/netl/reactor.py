@@ -1,6 +1,9 @@
-from typing import Optional
+from typing import Optional, Tuple
 
+import numpy as np
 import openmc
+
+
 from coreforge.openmc_builder.openmc_builder import register_builder, build
 import coreforge.geometry_elements.triga as geometry_elements_triga
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
@@ -29,16 +32,224 @@ class Reactor:
             A new OpenMC geometry based on this geometry element
         """
 
-        return openmc.Universe()
 
-def build_element_cell_universe(
+        upper_boundary  = openmc.ZPlane(z0 =  element.pool.height / 2.0, boundary_type='vacuum')
+        lower_boundary  = openmc.ZPlane(z0 = -element.pool.height / 2.0, boundary_type='vacuum')
+        radial_boundary = openmc.ZCylinder(r = element.pool.radius,      boundary_type='vacuum')
+        pool_region     = -upper_boundary & +lower_boundary & -radial_boundary
+
+        beamports = [element.beam_port_1_5,
+                     element.beam_port_2,
+                     element.beam_port_3,
+                     element.beam_port_4]
+
+        def build_beam_port_surfaces(beamport: geometry_elements_triga_netl.Reactor.BeamPort
+        ) -> Tuple[openmc.model.RightCircularCylinder, openmc.model.RightCircularCylinder]:
+            """ Helper to build OpenMC surfaces for a beam port."""
+            surfaces = []
+            length = beamport.geometry.length
+            for radius in (beamport.geometry.inner_radius, beamport.geometry.outer_radius):
+                surface = openmc.model.RightCircularCylinder(radius = radius,
+                                                             height = length,
+                                                             center_base = (0.0, -length * 0.5, 0.0),
+                                                             axis   = 'y')
+                surface = surface.rotate(beamport.rotation).translate(beamport.translation)
+                surfaces.append(surface)
+            return surfaces[0], surfaces[1]
+
+        cells = []
+        for beamport in beamports:
+            inner_surface, outer_surface = build_beam_port_surfaces(beamport)
+            cells.append(openmc.Cell(fill   = beamport.geometry.fill_material.openmc_material,
+                                     region = -inner_surface,
+                                     name=beamport.geometry.name + "_fill"))
+            cells.append(openmc.Cell(fill   = beamport.geometry.tube_material.openmc_material,
+                                     region = +inner_surface & -outer_surface,
+                                     name=beamport.geometry.name + "_tube"))
+            pool_region &= +outer_surface
+
+        cells.append(openmc.Cell(fill   = build_pool(element),
+                                 region = pool_region,
+                                 name   = "reactor_pool"))
+
+        return openmc.Universe(cells=cells)
+
+
+def build_pool(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Universe:
+    """ Helper to build an OpenMC universe for reactor pool.
+
+    Parameters
+    ----------
+    reactor: geometry_elements_triga_netl.Reactor
+        The geometry element whose pool is to be built
+
+    Returns
+    -------
+    openmc.Universe
+        Universe containing the pool.
+    """
+
+    reflector_radius        = openmc.ZCylinder(r = reactor.reflector.geometry.radius)
+    top_of_reflector        = openmc.ZPlane(z0 = reactor.reflector.core_centerline_offset +
+                                                 reactor.reflector.geometry.height / 2.0)
+    bottom_of_reflector     = openmc.ZPlane(z0 = reactor.reflector.core_centerline_offset -
+                                                 reactor.reflector.geometry.height / 2.0)
+    bottom_of_rsr_cavity    = openmc.ZPlane(z0 = reactor.rotary_specimen_rack_cavity.height -
+                                                 top_of_reflector.z0)
+    rsr_cavity_outer_radius = openmc.ZCylinder(
+                                  r = reactor.rotary_specimen_rack_cavity.outer_radius)
+    shroud_outer_hex        = openmc.model.HexagonalPrism(
+                                  edge_length = reactor.shroud.outer_hex.outer_radius,
+                                  orientation = reactor.shroud.outer_hex.orientation)
+
+    cells = []
+    cells.append(openmc.Cell(fill   = build_shroud(reactor),
+                             region = -shroud_outer_hex,
+                             name   = "shroud"))
+    cells.append(openmc.Cell(fill   = build_rsr_cavity(reactor),
+                             region = -top_of_reflector & +bottom_of_rsr_cavity &
+                                      -rsr_cavity_outer_radius & +shroud_outer_hex,
+                             name   = "rsr_cavity"))
+    cells.append(openmc.Cell(fill   = reactor.reflector.geometry.material.openmc_material,
+                             region = -top_of_reflector & +bottom_of_reflector &
+                                      ~(-rsr_cavity_outer_radius & +bottom_of_rsr_cavity),
+                             name   = "reflector"))
+    cells.append(openmc.Cell(fill   = reactor.pool.material.openmc_material,
+                             region = +reflector_radius |
+                                      (-reflector_radius & +shroud_outer_hex &
+                                      (-bottom_of_reflector | +top_of_reflector)),
+                             name   = "pool"))
+
+    return openmc.Universe(cells=cells)
+
+def build_rsr_cavity(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Universe:
+    """ Helper to build an OpenMC universe for reactor RSR cavity.
+
+    Parameters
+    ----------
+    reactor: geometry_elements_triga_netl.Reactor
+        The geometry element whose RSR cavity is to be built
+
+    Returns
+    -------
+    openmc.Universe
+        Universe containing the RSR cavity.
+    """
+
+    r                = reactor.rotary_specimen_rack_cavity.tube_to_center_distance
+    number_of_tubes  = reactor.rotary_specimen_rack_cavity.number_of_tubes
+    d_theta          = 360.0 / number_of_tubes
+    outer_radius     = reactor.rotary_specimen_rack_cavity.tube_specs.outer_radius
+    inner_radius     = outer_radius - reactor.rotary_specimen_rack_cavity.tube_specs.thickness
+
+    cavity_fill_material = reactor.rotary_specimen_rack_cavity.material.openmc_material
+    tube_clad_material   = reactor.rotary_specimen_rack_cavity.tube_specs.material.openmc_material
+
+    cells          = []
+    outside_region = None
+    for i in range(1, number_of_tubes + 1):
+        angle = 90.0 + (i-1) * -d_theta
+        x     = r * np.cos(np.radians(angle))
+        y     = r * np.sin(np.radians(angle))
+        tube  = f"rsr_tube_{i:02d}"
+        inner_surface = openmc.ZCylinder(r=inner_radius, x0=x, y0=y, name=tube+"_id")
+        outer_surface = openmc.ZCylinder(r=outer_radius, x0=x, y0=y, name=tube+"_od")
+        cells.append(openmc.Cell(fill   = cavity_fill_material,
+                                 region = -inner_surface,
+                                 name   = tube+"_fill"))
+        cells.append(openmc.Cell(fill   = tube_clad_material,
+                                 region = -outer_surface & +inner_surface,
+                                 name   = tube+"_clad"))
+        outside_region = +outer_surface if outside_region is None else outside_region & +outer_surface
+
+    cells.append(openmc.Cell(fill= cavity_fill_material, region=outside_region, name="rsr_cavity_fill"))
+
+    return openmc.Universe(cells=cells)
+
+def build_shroud(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Universe:
+    """ Helper to build an OpenMC universe for reactor shroud.
+
+    Parameters
+    ----------
+    reactor: geometry_elements_triga_netl.Reactor
+        The geometry element whose shroud is to be built
+
+    Returns
+    -------
+    openmc.Universe
+        Universe containing the shroud.
+    """
+
+    inner_hex    = openmc.model.HexagonalPrism(edge_length = reactor.shroud.inner_hex.outer_radius,
+                                               orientation = reactor.shroud.inner_hex.orientation)
+    core_cell    = openmc.Cell(fill=build_core_lattice(reactor), region=-inner_hex)
+    shroud_cell  = openmc.Cell(fill=reactor.shroud.material.openmc_material, region=+inner_hex)
+
+    return openmc.Universe(cells=[core_cell,shroud_cell])
+
+
+def build_core_lattice(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Lattice:
+    """Helper to build an OpenMC lattice for reactor the core.
+
+    Parameters:
+    -----------
+    reactor: geometry_elements_triga_netl.Reactor
+        The geometry element whose core lattice is to be built
+
+    Returns
+    -------
+    openmc.Lattice
+        Lattice containing the full core.
+    """
+
+    outer_material = reactor.core.fill_material.openmc_material
+
+    universes = []
+    for ring in reactor.core.lattice.elements:
+        ring_universes = []
+        for element in ring:
+            element_bottom_axial_position = None # For None elements
+            if isinstance(element, (geometry_elements_triga_netl.CentralThimble,
+                                    geometry_elements_triga.FuelElement,
+                                    geometry_elements_triga.GraphiteElement)):
+                element_bottom_axial_position = -0.5 * element.length
+            elif element is reactor.core.transient_rod:
+                element_bottom_axial_position = reactor.transient_rod_position
+            elif element is reactor.core.regulating_rod:
+                element_bottom_axial_position = reactor.regulating_rod_position
+            elif element is reactor.core.shim_1_rod:
+                element_bottom_axial_position = reactor.shim_1_rod_position
+            elif element is reactor.core.shim_2_rod:
+                element_bottom_axial_position = reactor.shim_2_rod_position
+            elif isinstance(element, geometry_elements_triga_netl.SourceHolder):
+                element_bottom_axial_position = (
+                    reactor.upper_grid_plate.distance_from_core_centerline +
+                    reactor.upper_grid_plate.geometry.thickness -
+                    element.length)
+
+            universe = build_core_element(element,
+                                          element_bottom_axial_position,
+                                          outer_material,
+                                          reactor.upper_grid_plate,
+                                          reactor.lower_grid_plate)
+            ring_universes.append(universe)
+        universes.append(ring_universes)
+
+    lattice = openmc.HexLattice()
+    lattice.orientation = reactor.core.lattice.orientation
+    lattice.pitch = [reactor.core.pitch]
+    lattice.universes = universes
+    lattice.center = (0.0, 0.0)
+    lattice.outer = openmc.Universe(cells=[openmc.Cell(fill=outer_material)])
+    return lattice
+
+
+def build_core_element(
     element: Optional[geometry_elements_triga_netl.Core.Element] = None,
     element_bottom_axial_position: Optional[float] = None,
     outer_material: Optional[openmc.Material] = None,
-    upper_grid: Optional[geometry_elements_triga_netl.GridPlate] = None,
-    upper_grid_distance_from_axial_centerline: Optional[float] = None,
-    lower_grid: Optional[geometry_elements_triga_netl.GridPlate] = None,
-    lower_grid_distance_from_axial_centerline: Optional[float] = None,
+    upper_grid_plate: Optional[geometry_elements_triga_netl.Reactor.GridPlate] = None,
+    lower_grid_plate: Optional[geometry_elements_triga_netl.Reactor.GridPlate] = None,
 ) -> openmc.Universe:
     """Helper to build an OpenMC universe for a single core element with optional grid plates.
 
@@ -55,16 +266,10 @@ def build_element_cell_universe(
         Material filling the region outside the element and grid plates. If omitted
         and ``element`` is provided, the element's ``outer_material`` is used. If
         ``element`` is ``None``, this must be provided.
-    upper_grid : geometry_elements_triga_netl.GridPlate, optional
-        Upper grid plate definition.
-    upper_grid_distance_from_axial_centerline : float, optional
-        Non-negative distance (cm) from the core axial centerline to the nearest face
-        of the upper grid plate.
-    lower_grid : geometry_elements_triga_netl.GridPlate, optional
-        Lower grid plate definition.
-    lower_grid_distance_from_axial_centerline : float, optional
-        Non-negative distance (cm) from the core axial centerline to the nearest face
-        of the lower grid plate.
+    upper_grid_plate : geometry_elements_triga_netl.Reactor.GridPlate, optional
+        Upper grid plate geometry and placement.
+    lower_grid_plate : geometry_elements_triga_netl.Reactor.GridPlate, optional
+        Lower grid plate geometry and placement.
 
     Returns
     -------
@@ -73,53 +278,48 @@ def build_element_cell_universe(
         provided grid plates.
     """
 
-    def _validate_grid_args(grid, distance, name: str) -> None:
-        if grid is None:
-            return
-        if distance is None:
-            raise ValueError(f"{name} provided without distance from axial centerline.")
-        if distance < 0.0:
-            raise ValueError(f"{name} distance_from_axial_centerline must be non-negative.")
+    assert element is not None or outer_material is not None, (
+        "If no element is provided, outer_material must be specified."
+    )
 
-    _validate_grid_args(upper_grid, upper_grid_distance_from_axial_centerline, "upper_grid")
-    _validate_grid_args(lower_grid, lower_grid_distance_from_axial_centerline, "lower_grid")
-
-    # Determine hole radii and element bottom position
-    bottom_z = element_bottom_axial_position or 0.0
-    upper_hole_radius = lower_hole_radius = None
-    if element:
-        if isinstance(element, (geometry_elements_triga.FuelElement, geometry_elements_triga.GraphiteElement,
-                                geometry_elements_triga_netl.SourceHolder)):
-            upper_hole_radius = upper_grid.fuel_penetration_radius if upper_grid else None
-            lower_hole_radius = lower_grid.fuel_penetration_radius if lower_grid else None
-        elif isinstance(element, geometry_elements_triga_netl.CentralThimble):
-            upper_hole_radius = element.cladding.outer_radius
-            lower_hole_radius = element.cladding.outer_radius
-        else:
-            upper_hole_radius = upper_grid.control_rod_penetration_radius if upper_grid else None
-            lower_hole_radius = lower_grid.control_rod_penetration_radius if lower_grid else None
-
-    cells = []
+    bottom_z     = element_bottom_axial_position or 0.0
+    cells        = []
     outer_region = None
     grid_regions = None
 
-    if upper_grid:
-        bottom = openmc.ZPlane(upper_grid_distance_from_axial_centerline)
-        top    = openmc.ZPlane(upper_grid_distance_from_axial_centerline + upper_grid.thickness)
-        hole   = openmc.ZCylinder(r = upper_hole_radius)
-        cell   = openmc.Cell(fill = upper_grid.material.openmc_material, region = +bottom & -top & +hole)
-        grid_regions = cell.region
-        outer_region = ~cell.region
-        cells.append(cell)
+    def hole_radius(elment:     geometry_elements_triga_netl.Core.Element,
+                    grid_plate: geometry_elements_triga_netl.GridPlate):
+        radius = grid_plate.fuel_penetration_radius
+        if isinstance(elment, geometry_elements_triga_netl.Core.Fixture):
+            radius = grid_plate.control_rod_penetration_radius
+            if isinstance(elment, geometry_elements_triga_netl.CentralThimble):
+                radius = elment.cladding.outer_radius
+        return radius
 
-    if lower_grid:
-        top    = openmc.ZPlane(-lower_grid_distance_from_axial_centerline)
-        bottom = openmc.ZPlane(-(lower_grid_distance_from_axial_centerline + lower_grid.thickness))
-        hole   = openmc.ZCylinder(r = lower_hole_radius)
-        cell   = openmc.Cell(fill = lower_grid.material.openmc_material, region = +bottom & -top & +hole)
-        grid_regions = cell.region if grid_regions is None else grid_regions | cell.region
-        outer_region = ~cell.region if outer_region is None else outer_region & ~cell.region
-        cells.append(cell)
+    if upper_grid_plate:
+        region = -openmc.ZPlane(upper_grid_plate.distance_from_core_centerline +
+                                upper_grid_plate.geometry.thickness)
+        region &= +openmc.ZPlane(upper_grid_plate.distance_from_core_centerline)
+        if element is not None:
+            region &= +openmc.ZCylinder(r = hole_radius(element, upper_grid_plate.geometry))
+
+        cells.append(openmc.Cell(fill   = upper_grid_plate.geometry.material.openmc_material,
+                                 region = region))
+        grid_regions = cells[-1].region
+        outer_region = ~cells[-1].region
+
+    if lower_grid_plate:
+        region = +openmc.ZPlane(-(lower_grid_plate.distance_from_core_centerline +
+                                 lower_grid_plate.geometry.thickness))
+        region &= -openmc.ZPlane(-lower_grid_plate.distance_from_core_centerline)
+        if element is not None:
+            region &= +openmc.ZCylinder(r = hole_radius(element, lower_grid_plate.geometry))
+
+        cells.append(openmc.Cell(fill   = lower_grid_plate.geometry.material.openmc_material,
+                                 region = region))
+
+        grid_regions = cells[-1].region if grid_regions is None else grid_regions | cells[-1].region
+        outer_region = ~cells[-1].region if outer_region is None else outer_region & ~cells[-1].region
 
     if element is not None:
         top_z          = bottom_z + element.length

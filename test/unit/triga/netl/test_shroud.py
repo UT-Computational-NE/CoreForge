@@ -12,8 +12,8 @@ def shroud():
     return Shroud(
         thickness=0.1875 * CM_PER_INCH,
         height=23.13 * CM_PER_INCH,
-        large_hex_inradius=10.75 * CM_PER_INCH,
-        small_hex_inradius=10.21875 * CM_PER_INCH,
+        outer_hex_inner_radius=10.75 * CM_PER_INCH,
+        inner_hex_inner_radius=10.21875 * CM_PER_INCH,
     )
 
 
@@ -22,8 +22,8 @@ def unequal_shroud(shroud):
     return Shroud(
         thickness=shroud.thickness * 1.1,
         height=shroud.height,
-        large_hex_inradius=shroud.large_hex_inradius,
-        small_hex_inradius=shroud.small_hex_inradius,
+        outer_hex_inner_radius=shroud.outer_hex_inner_radius,
+        inner_hex_inner_radius=shroud.inner_hex_inner_radius,
         material=shroud.material,
     )
 
@@ -31,8 +31,8 @@ def unequal_shroud(shroud):
 def test_initialization(shroud):
     assert shroud.thickness == pytest.approx(0.1875 * CM_PER_INCH)
     assert shroud.height == pytest.approx(23.13 * CM_PER_INCH)
-    assert shroud.large_hex_inradius == pytest.approx(10.75 * CM_PER_INCH)
-    assert shroud.small_hex_inradius == pytest.approx(10.21875 * CM_PER_INCH)
+    assert shroud.outer_hex_inner_radius == pytest.approx(10.75 * CM_PER_INCH)
+    assert shroud.inner_hex_inner_radius == pytest.approx(10.21875 * CM_PER_INCH)
     assert isinstance(shroud.material, Al6061T6)
 
 

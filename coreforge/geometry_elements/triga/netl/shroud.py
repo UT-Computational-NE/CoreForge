@@ -7,6 +7,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Al6061T6, Material
+from coreforge.shapes.hexagon import Hexagon
 
 
 class Shroud(GeometryElement):
@@ -18,10 +19,14 @@ class Shroud(GeometryElement):
         Shroud wall thickness [cm].
     height : float
         Axial height of the shroud [cm].
-    large_hex_inradius : float
-        Inradius of the outer (large) hexagon [cm].
-    small_hex_inradius : float
-        Inradius of the inner (small) hexagon [cm].
+    outer_hex_inner_radius : float
+        Outer (large) hexagon inradius [cm].
+    inner_hex_inner_radius : float
+        Inner (small) hexagon inradius [cm].
+    inner_hex : Hexagon
+        Hexagon shape for the inner opening (derived).
+    outer_hex : Hexagon
+        Hexagon shape for the outer boundary (derived).
     material : Material, optional
         Shroud material (defaults to ``Al6061T6``).
     name : str, optional
@@ -37,12 +42,20 @@ class Shroud(GeometryElement):
         return self._height
 
     @property
-    def large_hex_inradius(self) -> float:
-        return self._large_hex_inradius
+    def outer_hex_inner_radius(self) -> float:
+        return self._outer_hex_inner_radius
 
     @property
-    def small_hex_inradius(self) -> float:
-        return self._small_hex_inradius
+    def inner_hex_inner_radius(self) -> float:
+        return self._inner_hex_inner_radius
+
+    @property
+    def inner_hex(self) -> Hexagon:
+        return self._inner_hex
+
+    @property
+    def outer_hex(self) -> Hexagon:
+        return self._outer_hex
 
     @property
     def material(self) -> Material:
@@ -51,23 +64,25 @@ class Shroud(GeometryElement):
     def __init__(self,
                  thickness: float,
                  height: float,
-                 large_hex_inradius: float,
-                 small_hex_inradius: float,
+                 outer_hex_inner_radius: float,
+                 inner_hex_inner_radius: float,
                  material: Optional[Material] = None,
                  name: str = "shroud") -> None:
         super().__init__(name)
         assert thickness > 0.0, "Shroud thickness must be positive."
         assert height > 0.0, "Shroud height must be positive."
-        assert large_hex_inradius > 0.0, "Shroud large hex inradius must be positive."
-        assert small_hex_inradius > 0.0, "Shroud small hex inradius must be positive."
-        assert large_hex_inradius > small_hex_inradius, \
-            "Shroud large hex inradius must exceed small hex inradius."
+        assert outer_hex_inner_radius > 0.0, "Shroud outer hex inradius must be positive."
+        assert inner_hex_inner_radius > 0.0, "Shroud inner hex inradius must be positive."
+        assert outer_hex_inner_radius > inner_hex_inner_radius, \
+            "Shroud outer hex inradius must exceed inner hex inradius."
 
         self._thickness = thickness
         self._height = height
-        self._large_hex_inradius = large_hex_inradius
-        self._small_hex_inradius = small_hex_inradius
+        self._outer_hex_inner_radius = outer_hex_inner_radius
+        self._inner_hex_inner_radius = inner_hex_inner_radius
         self._material = material or Al6061T6()
+        self._inner_hex = Hexagon(inner_radius=inner_hex_inner_radius)
+        self._outer_hex = Hexagon(inner_radius=outer_hex_inner_radius)
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -76,8 +91,8 @@ class Shroud(GeometryElement):
             isinstance(other, Shroud)
             and isclose(self.thickness, other.thickness, rel_tol=TOL)
             and isclose(self.height, other.height, rel_tol=TOL)
-            and isclose(self.large_hex_inradius, other.large_hex_inradius, rel_tol=TOL)
-            and isclose(self.small_hex_inradius, other.small_hex_inradius, rel_tol=TOL)
+            and isclose(self.outer_hex_inner_radius, other.outer_hex_inner_radius, rel_tol=TOL)
+            and isclose(self.inner_hex_inner_radius, other.inner_hex_inner_radius, rel_tol=TOL)
             and self.material == other.material
         )
 
@@ -85,7 +100,7 @@ class Shroud(GeometryElement):
         return hash((
             relative_round(self.thickness, TOL),
             relative_round(self.height, TOL),
-            relative_round(self.large_hex_inradius, TOL),
-            relative_round(self.small_hex_inradius, TOL),
+            relative_round(self.outer_hex_inner_radius, TOL),
+            relative_round(self.inner_hex_inner_radius, TOL),
             self.material,
         ))

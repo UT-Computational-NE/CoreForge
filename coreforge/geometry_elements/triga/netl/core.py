@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import ClassVar, Dict, List, TypeAlias
 
-from coreforge.geometry_elements.geometry_element import GeometryElement
+from coreforge.geometry_elements import GeometryElement, HexLattice
+from coreforge.materials.material import Material
 from coreforge.geometry_elements.triga import FuelElement, GraphiteElement
 from coreforge.geometry_elements.triga.netl import (
     CentralThimble,
@@ -21,11 +22,6 @@ class Core(GeometryElement):
         Hexagonal lattice pitch [cm].
     central_thimble : CentralThimble
         Central thimble inserted at location A-01.
-    core_loading : Dict[str, Loadable | None]
-        Map of mutable locations to their contents; keys must be in ``RING_MAP``
-        and not in the reserved locations (A-01, C-01, C-07, D-06, D-14,
-        G-01, G-07, G-13, G-19, G-25, G-31). Any unspecified, non-reserved
-        locations are set to ``None``.
     transient_rod : TransientRod
         Transient control rod placed at C-01.
     regulating_rod : FuelFollowerControlRod
@@ -34,8 +30,38 @@ class Core(GeometryElement):
         Shim 1 rod placed at D-06.
     shim_2_rod : FuelFollowerControlRod
         Shim 2 rod placed at D-14.
+    fill_material : Material
+        Material to fill unoccupied core locations.
+    loading : Dict[str, Loadable | None]
+        Map of mutable locations to their contents; keys must be in ``RING_MAP``
+        and not in the reserved locations (A-01, C-01, C-07, D-06, D-14,
+        G-01, G-07, G-13, G-19, G-25, G-31). Any unspecified, non-reserved
+        locations are set to ``None``.
     name : str, optional
         Name for this core element.
+
+    Attributes
+    ----------
+    pitch : float
+        Hexagonal lattice pitch [cm].
+    central_thimble : CentralThimble
+        Central thimble inserted at location A-01.
+    transient_rod : TransientRod
+        Transient control rod placed at C-01.
+    regulating_rod : FuelFollowerControlRod
+        Regulating rod placed at C-07.
+    shim_1_rod : FuelFollowerControlRod
+        Shim 1 rod placed at D-06.
+    shim_2_rod : FuelFollowerControlRod
+        Shim 2 rod placed at D-14.
+    fill_material : Material
+        Material to fill unoccupied core locations.
+    loading : Dict[str, Loadable | None]
+        Map of mutable locations to their contents
+    full_map : Dict[str, Element | None]
+        Full map of core locations to their contents.
+    lattice : HexLattice
+        CoreForge Hexagonal lattice representing the full core.
 
     Notes
     -----
@@ -91,10 +117,6 @@ class Core(GeometryElement):
         return self._central_thimble
 
     @property
-    def core_loading(self) -> Dict[str, Loadable | None]:
-        return self._core_loading
-
-    @property
     def transient_rod(self) -> TransientRod:
         return self._transient_rod
 
@@ -111,31 +133,45 @@ class Core(GeometryElement):
         return self._shim_2_rod
 
     @property
-    def core_map(self) -> Dict[str, Element | None]:
-        return self._core_map
+    def fill_material(self) -> Material:
+        return self._fill_material
+
+    @property
+    def loading(self) -> Dict[str, Loadable | None]:
+        return self._loading
+
+    @property
+    def full_map(self) -> Dict[str, Element | None]:
+        return self._full_map
+
+    @property
+    def lattice(self) -> HexLattice:
+        return self._lattice
 
     def __init__(self,
                  pitch:           float,
                  central_thimble: CentralThimble,
-                 core_loading:    Dict[str, Loadable | None],
                  transient_rod:   TransientRod,
                  regulating_rod:  FuelFollowerControlRod,
                  shim_1_rod:      FuelFollowerControlRod,
                  shim_2_rod:      FuelFollowerControlRod,
+                 fill_material:   Material,
+                 loading:         Dict[str, Loadable | None],
                  name:            str = "core") -> None:
         super().__init__(name)
         assert pitch > 0.0, "Core pitch must be positive."
         self._pitch           = pitch
         self._central_thimble = central_thimble
-        self._core_loading    = dict(core_loading)
         self._transient_rod   = transient_rod
         self._regulating_rod  = regulating_rod
         self._shim_1_rod      = shim_1_rod
         self._shim_2_rod      = shim_2_rod
+        self._fill_material   = fill_material
+        self._loading    = dict(loading)
 
-        for location in self._core_loading:
+        for location in self._loading:
             assert any(location in ring for ring in Core.RING_MAP), \
-                f"Invalid core location '{location}' in core_loading."
+                f"Invalid core location '{location}' in core loading."
             assert location not in Core.RESERVED_LOCATIONS, \
                 f"Core location '{location}' is reserved for control rods or central thimble."
 
@@ -153,14 +189,21 @@ class Core(GeometryElement):
             "G-31": None,
         }
 
-        core_map: Dict[str, Core.Element | None] = {}
+        full_map: Dict[str, Core.Element | None] = {}
         for ring in Core.RING_MAP:
             for loc in ring:
                 if loc in reserved:
-                    core_map[loc] = reserved[loc]
+                    full_map[loc] = reserved[loc]
                 else:
-                    core_map[loc] = self._core_loading.get(loc, None)
-        self._core_map = core_map
+                    full_map[loc] = self._loading.get(loc, None)
+        self._full_map = full_map
+
+        self._lattice = HexLattice(pitch          = self.pitch,
+                                   outer_material = self.fill_material,
+                                   orientation    = "y",
+                                   elements       = [[full_map[loc] for loc in ring]
+                                                     for ring in Core.RING_MAP],
+                                   map_type="ring")
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -173,7 +216,8 @@ class Core(GeometryElement):
             and self.regulating_rod == other.regulating_rod
             and self.shim_1_rod == other.shim_1_rod
             and self.shim_2_rod == other.shim_2_rod
-            and self.core_loading == other.core_loading
+            and self.loading == other.loading
+            and self.fill_material == other.fill_material
         )
 
     def __hash__(self) -> int:
@@ -184,5 +228,6 @@ class Core(GeometryElement):
             self.regulating_rod,
             self.shim_1_rod,
             self.shim_2_rod,
-            tuple(sorted(self.core_loading.items())),
+            tuple(sorted(self.loading.items())),
+            self.fill_material,
         ))
