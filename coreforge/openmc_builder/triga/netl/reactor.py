@@ -5,6 +5,7 @@ import openmc
 
 
 from coreforge.openmc_builder.openmc_builder import register_builder, build
+from coreforge.shapes import Hexagon
 import coreforge.geometry_elements.triga as geometry_elements_triga
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 
@@ -33,15 +34,12 @@ class Reactor:
         """
 
 
-        upper_boundary  = openmc.ZPlane(z0 =  element.pool.height / 2.0, boundary_type='vacuum')
-        lower_boundary  = openmc.ZPlane(z0 = -element.pool.height / 2.0, boundary_type='vacuum')
-        radial_boundary = openmc.ZCylinder(r = element.pool.radius,      boundary_type='vacuum')
-        pool_region     = -upper_boundary & +lower_boundary & -radial_boundary
-
-        beamports = [element.beam_port_1_5,
-                     element.beam_port_2,
-                     element.beam_port_3,
-                     element.beam_port_4]
+        pool_height = element.pool.height
+        pool_region = -openmc.model.RightCircularCylinder(radius = element.pool.radius,
+                                                          height = pool_height,
+                                                          center_base = (0.0, 0.0, -pool_height*0.5),
+                                                          boundary_type='vacuum',
+                                                          axis   = 'z')
 
         def build_beam_port_surfaces(beamport: geometry_elements_triga_netl.Reactor.BeamPort
         ) -> Tuple[openmc.model.RightCircularCylinder, openmc.model.RightCircularCylinder]:
@@ -58,13 +56,14 @@ class Reactor:
             return surfaces[0], surfaces[1]
 
         cells = []
-        for beamport in beamports:
+        for beamport in [element.beam_port_1_5, element.beam_port_2,
+                         element.beam_port_3,   element.beam_port_4]:
             inner_surface, outer_surface = build_beam_port_surfaces(beamport)
             cells.append(openmc.Cell(fill   = beamport.geometry.fill_material.openmc_material,
-                                     region = -inner_surface,
+                                     region = -inner_surface & pool_region,
                                      name=beamport.geometry.name + "_fill"))
             cells.append(openmc.Cell(fill   = beamport.geometry.tube_material.openmc_material,
-                                     region = +inner_surface & -outer_surface,
+                                     region = +inner_surface & -outer_surface & pool_region,
                                      name=beamport.geometry.name + "_tube"))
             pool_region &= +outer_surface
 
@@ -98,17 +97,24 @@ def build_pool(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Universe
                                                  top_of_reflector.z0)
     rsr_cavity_outer_radius = openmc.ZCylinder(
                                   r = reactor.rotary_specimen_rack_cavity.outer_radius)
-    shroud_outer_hex        = openmc.model.HexagonalPrism(
-                                  edge_length = reactor.shroud.outer_hex.outer_radius,
-                                  orientation = reactor.shroud.outer_hex.orientation)
+    primary_hex_shape       = Hexagon(inner_radius= reactor.shroud.primary_hex_inner_radius +
+                                      reactor.shroud.thickness)
+    rotated_hex_shape       = Hexagon(inner_radius= reactor.shroud.rotated_hex_inner_radius +
+                                      reactor.shroud.thickness)
+
+    primary_hex    = openmc.model.HexagonalPrism(edge_length = primary_hex_shape.outer_radius,
+                                                  orientation = 'y')
+    rotated_hex    = openmc.model.HexagonalPrism(edge_length = rotated_hex_shape.outer_radius,
+                                                 orientation = 'y').rotate((0, 0, 30))
+    shroud_region  = -primary_hex & -rotated_hex
 
     cells = []
     cells.append(openmc.Cell(fill   = build_shroud(reactor),
-                             region = -shroud_outer_hex,
+                             region = shroud_region,
                              name   = "shroud"))
     cells.append(openmc.Cell(fill   = build_rsr_cavity(reactor),
                              region = -top_of_reflector & +bottom_of_rsr_cavity &
-                                      -rsr_cavity_outer_radius & +shroud_outer_hex,
+                                      -rsr_cavity_outer_radius & ~shroud_region,
                              name   = "rsr_cavity"))
     cells.append(openmc.Cell(fill   = reactor.reflector.geometry.material.openmc_material,
                              region = -top_of_reflector & +bottom_of_reflector &
@@ -116,7 +122,7 @@ def build_pool(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Universe
                              name   = "reflector"))
     cells.append(openmc.Cell(fill   = reactor.pool.material.openmc_material,
                              region = +reflector_radius |
-                                      (-reflector_radius & +shroud_outer_hex &
+                                      (-reflector_radius & ~shroud_region &
                                       (-bottom_of_reflector | +top_of_reflector)),
                              name   = "pool"))
 
@@ -180,10 +186,17 @@ def build_shroud(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Univer
         Universe containing the shroud.
     """
 
-    inner_hex    = openmc.model.HexagonalPrism(edge_length = reactor.shroud.inner_hex.outer_radius,
-                                               orientation = reactor.shroud.inner_hex.orientation)
-    core_cell    = openmc.Cell(fill=build_core_lattice(reactor), region=-inner_hex)
-    shroud_cell  = openmc.Cell(fill=reactor.shroud.material.openmc_material, region=+inner_hex)
+    primary_hex_shape = Hexagon(inner_radius= reactor.shroud.primary_hex_inner_radius)
+    rotated_hex_shape = Hexagon(inner_radius= reactor.shroud.rotated_hex_inner_radius)
+
+    primary_hex    = openmc.model.HexagonalPrism(edge_length = primary_hex_shape.outer_radius,
+                                                 orientation = 'y')
+    rotated_hex   = openmc.model.HexagonalPrism(edge_length = rotated_hex_shape.outer_radius,
+                                                 orientation = 'y').rotate((0, 0, 30))
+
+    core_region  = -primary_hex & -rotated_hex
+    core_cell    = openmc.Cell(fill=build_core_lattice(reactor), region=core_region)
+    shroud_cell  = openmc.Cell(fill=reactor.shroud.material.openmc_material, region=~core_region)
 
     return openmc.Universe(cells=[core_cell,shroud_cell])
 
