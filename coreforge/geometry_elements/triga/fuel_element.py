@@ -303,17 +303,21 @@ class FuelElement(GeometryElement):
         ----------
         length : float
             Cone length (base to apex) [cm].
+        r2 : float
+            Square of the slope (dr/dz)^2 for the conical section.
         direction : {'up', 'down'}
             Orientation of the fitting.
         material : Material
             Fitting material (defaults to ``SS304``).
         """
         length: float
+        r2: float
         direction: Literal["up", "down"]
         material: Material = field(default_factory=SS304)
 
         def __post_init__(self) -> None:
             assert self.length > 0.0, "End Fitting length must be positive."
+            assert self.r2 > 0.0, "End Fitting r2 must be positive."
             assert self.direction in ("up", "down"), (
                 "End Fitting direction must be either 'up' or 'down'."
             )
@@ -323,11 +327,13 @@ class FuelElement(GeometryElement):
                 return True
             return (isinstance(other, FuelElement.EndFitting) and
                     isclose(self.length, other.length, rel_tol=TOL) and
+                    isclose(self.r2, other.r2, rel_tol=TOL) and
                     self.direction == other.direction and
                     self.material == other.material)
 
         def __hash__(self) -> int:
             return hash((relative_round(self.length, TOL),
+                         relative_round(self.r2, TOL),
                          self.direction,
                          self.material))
 

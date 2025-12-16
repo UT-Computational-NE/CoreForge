@@ -18,8 +18,8 @@ def graphite_element():
         outer_radius=1.435 * 0.5 * CM_PER_INCH,
         length=(3.72 + 0.031 + 15.0 + 2.56 + 0.5) * CM_PER_INCH,  # mirrors fuel interior length
     )
-    upper_end = GraphiteElement.EndFitting(length=7.3552, direction="up")
-    lower_end = GraphiteElement.EndFitting(length=7.6209, direction="down")
+    upper_end = GraphiteElement.EndFitting(length=7.3552, r2=0.25, direction="up")
+    lower_end = GraphiteElement.EndFitting(length=7.6209, r2=0.25, direction="down")
 
     return GraphiteElement(
         cladding=clad,

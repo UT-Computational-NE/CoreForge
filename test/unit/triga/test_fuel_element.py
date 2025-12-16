@@ -33,8 +33,8 @@ def fuel_element():
         thickness=0.031 * CM_PER_INCH,
     )
     gap = FuelElement.AirGap(thickness=0.5 * CM_PER_INCH)
-    upper_end = FuelElement.EndFitting(length=7.3552, direction="up")
-    lower_end = FuelElement.EndFitting(length=7.6209, direction="down")
+    upper_end = FuelElement.EndFitting(length=7.3552, r2=0.25, direction="up")
+    lower_end = FuelElement.EndFitting(length=7.6209, r2=0.25, direction="down")
 
     return FuelElement(
         cladding=clad,

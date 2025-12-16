@@ -126,21 +126,21 @@ class Reactor(GeometryElement):
         ----------
         geometry : GridPlateGeometry
             Grid plate geometry definition.
-        distance_from_core_centerline : float
-            Axial distance (cm) from the core centerline to the plate's core-facing surface.
+        top_to_core_centerline_distance : float
+            Axial distance (cm) from the core centerline to the plate's top surface.
         """
-        def __init__(self, geometry: GridPlateGeometry, distance_from_core_centerline: float) -> None:
-            assert distance_from_core_centerline >= 0.0, "distance_from_core_centerline must be non-negative."
+        def __init__(self, geometry: GridPlateGeometry, top_to_core_centerline_distance: float) -> None:
+            assert top_to_core_centerline_distance >= 0.0, "top_to_core_centerline_distance must be non-negative."
             self._geometry = geometry
-            self._distance_from_core_centerline = distance_from_core_centerline
+            self._top_to_core_centerline_distance = top_to_core_centerline_distance
 
         @property
         def geometry(self) -> GridPlateGeometry:
             return self._geometry
 
         @property
-        def distance_from_core_centerline(self) -> float:
-            return self._distance_from_core_centerline
+        def top_to_core_centerline_distance(self) -> float:
+            return self._top_to_core_centerline_distance
 
         def __eq__(self, other: object) -> bool:
             if self is other:
@@ -148,11 +148,11 @@ class Reactor(GeometryElement):
             return (
                 isinstance(other, Reactor.GridPlate) and
                 self.geometry == other.geometry and
-                isclose(self.distance_from_core_centerline, other.distance_from_core_centerline, rel_tol=TOL)
+                isclose(self.top_to_core_centerline_distance, other.top_to_core_centerline_distance, rel_tol=TOL)
             )
 
         def __hash__(self) -> int:
-            return hash((self.geometry, relative_round(self.distance_from_core_centerline, TOL)))
+            return hash((self.geometry, relative_round(self.top_to_core_centerline_distance, TOL)))
 
     class Reflector:
         """Reflector canister geometry plus its offset from the core centerline.

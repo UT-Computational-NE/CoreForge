@@ -193,10 +193,15 @@ def build_shroud(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Univer
                                                  orientation = 'y')
     rotated_hex   = openmc.model.HexagonalPrism(edge_length = rotated_hex_shape.outer_radius,
                                                  orientation = 'y').rotate((0, 0, 30))
+    shroud_top    = openmc.ZPlane(z0 = reactor.upper_grid_plate.top_to_core_centerline_distance)
+    shroud_bottom = openmc.ZPlane(z0 = reactor.reflector.geometry.height * -0.5 +
+                                       reactor.reflector.core_centerline_offset)
 
-    core_region  = -primary_hex & -rotated_hex
-    core_cell    = openmc.Cell(fill=build_core_lattice(reactor), region=core_region)
-    shroud_cell  = openmc.Cell(fill=reactor.shroud.material.openmc_material, region=~core_region)
+    shroud_region = ~(-primary_hex & -rotated_hex) & (-shroud_top & +shroud_bottom)
+
+    core_cell    = openmc.Cell(fill=build_core_lattice(reactor), region=~shroud_region)
+    shroud_cell  = openmc.Cell(fill=reactor.shroud.material.openmc_material, region=shroud_region)
+
 
     return openmc.Universe(cells=[core_cell,shroud_cell])
 
@@ -222,10 +227,15 @@ def build_core_lattice(reactor: geometry_elements_triga_netl.Reactor) -> openmc.
         ring_universes = []
         for element in ring:
             element_bottom_axial_position = None # For None elements
-            if isinstance(element, (geometry_elements_triga_netl.CentralThimble,
-                                    geometry_elements_triga.FuelElement,
-                                    geometry_elements_triga.GraphiteElement)):
+            if isinstance(element, geometry_elements_triga_netl.CentralThimble):
                 element_bottom_axial_position = -0.5 * element.length
+            elif isinstance(element, geometry_elements_triga.FuelElement):
+                element_bottom_axial_position = (-0.5 * element.fuel_meat.length -
+                    element.moly_disc.thickness - element.lower_end_fitting.length -
+                    element.lower_graphite_reflector.thickness)
+            elif isinstance(element, geometry_elements_triga.GraphiteElement):
+                element_bottom_axial_position = (-0.5 * element.graphite_meat.length -
+                    element.lower_end_fitting.length)
             elif element is reactor.core.transient_rod:
                 element_bottom_axial_position = reactor.transient_rod_position
             elif element is reactor.core.regulating_rod:
@@ -236,9 +246,7 @@ def build_core_lattice(reactor: geometry_elements_triga_netl.Reactor) -> openmc.
                 element_bottom_axial_position = reactor.shim_2_rod_position
             elif isinstance(element, geometry_elements_triga_netl.SourceHolder):
                 element_bottom_axial_position = (
-                    reactor.upper_grid_plate.distance_from_core_centerline +
-                    reactor.upper_grid_plate.geometry.thickness -
-                    element.length)
+                    reactor.upper_grid_plate.top_to_core_centerline_distance + element.length)
 
             universe = build_core_element(element,
                                           element_bottom_axial_position,
@@ -310,9 +318,9 @@ def build_core_element(
         return radius
 
     if upper_grid_plate:
-        region = -openmc.ZPlane(upper_grid_plate.distance_from_core_centerline +
+        region = -openmc.ZPlane(upper_grid_plate.top_to_core_centerline_distance)
+        region &= +openmc.ZPlane(upper_grid_plate.top_to_core_centerline_distance -
                                 upper_grid_plate.geometry.thickness)
-        region &= +openmc.ZPlane(upper_grid_plate.distance_from_core_centerline)
         if element is not None:
             region &= +openmc.ZCylinder(r = hole_radius(element, upper_grid_plate.geometry))
 
@@ -322,9 +330,9 @@ def build_core_element(
         outer_region = ~cells[-1].region
 
     if lower_grid_plate:
-        region = +openmc.ZPlane(-(lower_grid_plate.distance_from_core_centerline +
-                                 lower_grid_plate.geometry.thickness))
-        region &= -openmc.ZPlane(-lower_grid_plate.distance_from_core_centerline)
+        region = +openmc.ZPlane(-(lower_grid_plate.top_to_core_centerline_distance +
+                                  lower_grid_plate.geometry.thickness))
+        region &= -openmc.ZPlane(-lower_grid_plate.top_to_core_centerline_distance)
         if element is not None:
             region &= +openmc.ZCylinder(r = hole_radius(element, lower_grid_plate.geometry))
 

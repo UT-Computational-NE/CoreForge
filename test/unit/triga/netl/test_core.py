@@ -59,40 +59,42 @@ def core(central_thimble, transient_rod, control_rod, source_holder, fuel_elemen
     return Core(
         pitch=1.714 * CM_PER_INCH,
         central_thimble=central_thimble,
-        core_loading=core_loading,
+        loading=core_loading,
         transient_rod=transient_rod,
         regulating_rod=control_rod,
         shim_1_rod=deepcopy(control_rod),
         shim_2_rod=deepcopy(control_rod),
+        fill_material=fuel().outer_material,
     )
 
 
 @pytest.fixture
 def unequal_core(core):
-    alt_loading = deepcopy(core.core_loading)
+    alt_loading = deepcopy(core.loading)
     alt_loading["B-02"] = None
     return Core(
         pitch=core.pitch * 1.05,
         central_thimble=core.central_thimble,
-        core_loading=alt_loading,
+        loading=alt_loading,
         transient_rod=core.transient_rod,
         regulating_rod=core.regulating_rod,
         shim_1_rod=deepcopy(core.shim_1_rod),
         shim_2_rod=deepcopy(core.shim_2_rod),
+        fill_material=core.fill_material,
     )
 
 
 def test_initialization(core, fuel_element, graphite_element, source_holder, central_thimble, transient_rod, control_rod):
     assert core.pitch == pytest.approx(1.714 * CM_PER_INCH)
-    assert core.core_map["B-01"] == fuel_element
-    assert core.core_map["D-03"] == graphite_element
-    assert core.core_map["A-01"] == central_thimble
-    assert core.core_map["C-01"] == transient_rod
-    assert core.core_map["C-07"] == control_rod
-    assert core.core_map["D-06"] == control_rod
-    assert core.core_map["D-14"] == control_rod
-    assert core.core_map["G-01"] is None
-    assert core.core_map["G-32"] == source_holder
+    assert core.full_map["B-01"] == fuel_element
+    assert core.full_map["D-03"] == graphite_element
+    assert core.full_map["A-01"] == central_thimble
+    assert core.full_map["C-01"] == transient_rod
+    assert core.full_map["C-07"] == control_rod
+    assert core.full_map["D-06"] == control_rod
+    assert core.full_map["D-14"] == control_rod
+    assert core.full_map["G-01"] is None
+    assert core.full_map["G-32"] == source_holder
 
 def test_equality_and_hash(core, unequal_core):
     assert core == deepcopy(core)
