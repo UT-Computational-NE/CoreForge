@@ -68,24 +68,17 @@ class Reactor(GeometryElement):
         ----------
         geometry : BeamPortGeometry
             Beam port tube geometry definition.
-        translation : tuple of float
+        translation : Tuple[float, float, float]
             XYZ translation (cm) of the beam port centerline after rotation.
             Default: (0.0, 0.0, 0.0) - centered at the reactor core centerline.
-        rotation : tuple of tuple of float
-            3x3 rotation matrix applied before translation.
-            Default alignment is along the y-axis ((0.0, 90.0, 90.0),
-                                                   (90.0, 0.0, 90.0),
-                                                   (90.0, 90.0, 0.0)).
+        rotation : float
+            Rotation angle (degrees) about the +z axis applied before translation.
+            Default is 0.0 (aligned along the +x axis).
         """
         def __init__(self,
                      geometry: BeamPortGeometry,
                      translation: Tuple[float, float, float] = (0.0, 0.0, 0.0),
-                     rotation: Tuple[Tuple[float, float, float],
-                                     Tuple[float, float, float],
-                                     Tuple[float, float, float]] =
-                                     ((0.0, 90.0, 90.0),
-                                      (90.0, 0.0, 90.0),
-                                      (90.0, 90.0, 0.0))) -> None:
+                     rotation: float = 0.0) -> None:
             self._geometry = geometry
             self._rotation = rotation
             self._translation = translation
@@ -95,9 +88,7 @@ class Reactor(GeometryElement):
             return self._geometry
 
         @property
-        def rotation(self) -> Tuple[Tuple[float, float, float],
-                                    Tuple[float, float, float],
-                                    Tuple[float, float, float]]:
+        def rotation(self) -> float:
             return self._rotation
 
         @property
@@ -110,14 +101,13 @@ class Reactor(GeometryElement):
             return (
                 isinstance(other, Reactor.BeamPort) and
                 self.geometry == other.geometry and
-                all(isclose(a, b, rel_tol=TOL) for row_a, row_b in zip(self.rotation, other.rotation) for a, b in zip(row_a, row_b)) and
+                isclose(self.rotation, other.rotation, rel_tol=TOL) and
                 all(isclose(a, b, rel_tol=TOL) for a, b in zip(self.translation, other.translation))
             )
 
         def __hash__(self) -> int:
-            rounded_rot = tuple(tuple(relative_round(x, TOL) for x in row) for row in self.rotation)
             rounded_trans = tuple(relative_round(x, TOL) for x in self.translation)
-            return hash((self.geometry, rounded_rot, rounded_trans))
+            return hash((self.geometry, relative_round(self.rotation, TOL), rounded_trans))
 
     class GridPlate:
         """Grid plate geometry plus axial offset from the core centerline.

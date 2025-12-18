@@ -49,9 +49,9 @@ class Reactor:
             for radius in (beamport.geometry.inner_radius, beamport.geometry.outer_radius):
                 surface = openmc.model.RightCircularCylinder(radius = radius,
                                                              height = length,
-                                                             center_base = (0.0, -length * 0.5, 0.0),
-                                                             axis   = 'y')
-                surface = surface.rotate(beamport.rotation).translate(beamport.translation)
+                                                             center_base = (-length * 0.5, 0.0, 0.0),
+                                                             axis   = 'x')
+                surface = surface.rotate((0.0, 0.0, beamport.rotation)).translate(beamport.translation)
                 surfaces.append(surface)
             return surfaces[0], surfaces[1]
 
@@ -93,8 +93,8 @@ def build_pool(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Universe
                                                  reactor.reflector.geometry.height / 2.0)
     bottom_of_reflector     = openmc.ZPlane(z0 = reactor.reflector.core_centerline_offset -
                                                  reactor.reflector.geometry.height / 2.0)
-    bottom_of_rsr_cavity    = openmc.ZPlane(z0 = reactor.rotary_specimen_rack_cavity.height -
-                                                 top_of_reflector.z0)
+    bottom_of_rsr_cavity    = openmc.ZPlane(z0 = top_of_reflector.z0 -
+                                                 reactor.rotary_specimen_rack_cavity.height)
     rsr_cavity_outer_radius = openmc.ZCylinder(
                                   r = reactor.rotary_specimen_rack_cavity.outer_radius)
     primary_hex_shape       = Hexagon(inner_radius= reactor.shroud.primary_hex_inner_radius +
@@ -117,7 +117,7 @@ def build_pool(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Universe
                                       -rsr_cavity_outer_radius & ~shroud_region,
                              name   = "rsr_cavity"))
     cells.append(openmc.Cell(fill   = reactor.reflector.geometry.material.openmc_material,
-                             region = -top_of_reflector & +bottom_of_reflector &
+                             region = -top_of_reflector & +bottom_of_reflector & -reflector_radius &
                                       ~(-rsr_cavity_outer_radius & +bottom_of_rsr_cavity),
                              name   = "reflector"))
     cells.append(openmc.Cell(fill   = reactor.pool.material.openmc_material,
