@@ -223,9 +223,10 @@ def build_core_lattice(reactor: geometry_elements_triga_netl.Reactor) -> openmc.
     outer_material = reactor.core.fill_material.openmc_material
 
     universes = []
-    for ring in reactor.core.lattice.elements:
+    for ring_index, ring in enumerate(reactor.core.lattice.elements):
         ring_universes = []
-        for element in ring:
+        for element_index, element in enumerate(ring):
+            core_location = geometry_elements_triga_netl.Core.RING_MAP[ring_index][element_index]
             element_bottom_axial_position = None # For None elements
             if isinstance(element, geometry_elements_triga_netl.CentralThimble):
                 element_bottom_axial_position = -0.5 * element.length
@@ -246,9 +247,11 @@ def build_core_lattice(reactor: geometry_elements_triga_netl.Reactor) -> openmc.
                 element_bottom_axial_position = reactor.shim_2_rod_position
             elif isinstance(element, geometry_elements_triga_netl.SourceHolder):
                 element_bottom_axial_position = (
-                    reactor.upper_grid_plate.top_to_core_centerline_distance + element.length)
+                    reactor.upper_grid_plate.top_to_core_centerline_distance -
+                    element.length)
 
             universe = build_core_element(element,
+                                          core_location,
                                           element_bottom_axial_position,
                                           outer_material,
                                           reactor.upper_grid_plate,
@@ -267,6 +270,7 @@ def build_core_lattice(reactor: geometry_elements_triga_netl.Reactor) -> openmc.
 
 def build_core_element(
     element: Optional[geometry_elements_triga_netl.Core.Element] = None,
+    core_location: Optional[str] = None,
     element_bottom_axial_position: Optional[float] = None,
     outer_material: Optional[openmc.Material] = None,
     upper_grid_plate: Optional[geometry_elements_triga_netl.Reactor.GridPlate] = None,
@@ -279,6 +283,9 @@ def build_core_element(
     element : geometry_elements_triga_netl.Core.Element, optional
         Core element to place in the cell. When omitted, only the grids and outer
         material will be present in the returned universe.
+    core_location : str, optional
+        Core location identifier (e.g., ``"C-07"``) used to look up grid plate
+        penetration radii. If omitted, penetrations fall back to element-based defaults.
     element_bottom_axial_position : float, optional
         Axial z-position (cm) of the element bottom relative to the core centerline.
         If not provided, a sensible default is derived from the element type (mirrors
@@ -308,21 +315,13 @@ def build_core_element(
     outer_region = None
     grid_regions = None
 
-    def hole_radius(elment:     geometry_elements_triga_netl.Core.Element,
-                    grid_plate: geometry_elements_triga_netl.GridPlate):
-        radius = grid_plate.fuel_penetration_radius
-        if isinstance(elment, geometry_elements_triga_netl.Core.Fixture):
-            radius = grid_plate.control_rod_penetration_radius
-            if isinstance(elment, geometry_elements_triga_netl.CentralThimble):
-                radius = elment.cladding.outer_radius
-        return radius
-
     if upper_grid_plate:
         region = -openmc.ZPlane(upper_grid_plate.top_to_core_centerline_distance)
         region &= +openmc.ZPlane(upper_grid_plate.top_to_core_centerline_distance -
                                 upper_grid_plate.geometry.thickness)
-        if element is not None:
-            region &= +openmc.ZCylinder(r = hole_radius(element, upper_grid_plate.geometry))
+        radius = upper_grid_plate.geometry.penetration_map.get(core_location)
+        if radius is not None:
+            region &= +openmc.ZCylinder(r = radius)
 
         cells.append(openmc.Cell(fill   = upper_grid_plate.geometry.material.openmc_material,
                                  region = region))
@@ -333,8 +332,9 @@ def build_core_element(
         region = +openmc.ZPlane(-(lower_grid_plate.top_to_core_centerline_distance +
                                   lower_grid_plate.geometry.thickness))
         region &= -openmc.ZPlane(-lower_grid_plate.top_to_core_centerline_distance)
-        if element is not None:
-            region &= +openmc.ZCylinder(r = hole_radius(element, lower_grid_plate.geometry))
+        radius = lower_grid_plate.geometry.penetration_map.get(core_location)
+        if radius is not None:
+            region &= +openmc.ZCylinder(r = radius)
 
         cells.append(openmc.Cell(fill   = lower_grid_plate.geometry.material.openmc_material,
                                  region = region))

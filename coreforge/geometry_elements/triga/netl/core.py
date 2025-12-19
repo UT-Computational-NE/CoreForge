@@ -5,12 +5,10 @@ from typing import ClassVar, Dict, List, TypeAlias
 from coreforge.geometry_elements import GeometryElement, HexLattice
 from coreforge.materials.material import Material
 from coreforge.geometry_elements.triga import FuelElement, GraphiteElement
-from coreforge.geometry_elements.triga.netl import (
-    CentralThimble,
-    FuelFollowerControlRod,
-    SourceHolder,
-    TransientRod,
-)
+from coreforge.geometry_elements.triga.netl.central_thimble import CentralThimble
+from coreforge.geometry_elements.triga.netl.fuel_follower_control_rod import FuelFollowerControlRod
+from coreforge.geometry_elements.triga.netl.source_holder import SourceHolder
+from coreforge.geometry_elements.triga.netl.transient_rod import TransientRod
 
 
 class Core(GeometryElement):
@@ -101,9 +99,10 @@ class Core(GeometryElement):
         ["A-01"]
     ]
 
-    Loadable: TypeAlias = FuelElement | GraphiteElement | SourceHolder
-    Fixture: TypeAlias  = CentralThimble | TransientRod | FuelFollowerControlRod
-    Element: TypeAlias  = FuelElement | GraphiteElement | SourceHolder | CentralThimble | TransientRod | FuelFollowerControlRod
+    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder
+    ControlRod: TypeAlias = TransientRod | FuelFollowerControlRod
+    Fixture:    TypeAlias = CentralThimble | TransientRod | FuelFollowerControlRod
+    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | CentralThimble | TransientRod | FuelFollowerControlRod
 
     RESERVED_LOCATIONS: ClassVar[List[str]] = ["A-01", "C-01", "C-07", "D-06", "D-14",
                                                "G-01", "G-07", "G-13", "G-19", "G-25", "G-31"]
