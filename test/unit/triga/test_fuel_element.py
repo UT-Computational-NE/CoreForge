@@ -137,12 +137,13 @@ def test_mpact_builder(fuel_element):
                          fuel_element.upper_air_gap.thickness,
                          fuel_element.upper_end_fitting.length,])
     expected_nz = len(expected_z)
+    expected_height = sum(expected_z)
 
     assert isclose(core.mod_dim['X'], expected_xy)
     assert isclose(core.mod_dim['Y'], expected_xy)
     assert_allclose(core.mod_dim['Z'], expected_z)
     assert core.nz == expected_nz
-    assert isclose(core.height, sum(expected_z))
+    assert isclose(core.height, expected_height)
 
     assert len(core.pins)       == expected_nz
     assert len(core.modules)    == expected_nz

@@ -5,6 +5,7 @@ from copy import deepcopy
 from coreforge.geometry_elements.triga.netl import FuelFollowerControlRod
 from coreforge.materials import Air, B4C, SS304, UZrH, Water, Zr
 import coreforge.openmc_builder as openmc_builder
+import coreforge.mpact_builder as mpact_builder
 
 CM_PER_INCH = 2.54
 
@@ -176,3 +177,36 @@ def test_openmc_builder(control_rod):
     universe = openmc_builder.build(geom_element)
     assert universe.name == "fuel_follower_control_rod"
     assert len(universe.cells) == 11
+
+
+def test_mpact_builder(control_rod):
+    geom_element = control_rod
+    core = mpact_builder.build(geom_element)
+
+    expected_xy = control_rod.cladding.outer_radius * 2.0
+    expected_z = sorted([control_rod.lower_element_plug.thickness,
+                         control_rod.lower_air_gap.thickness,
+                         control_rod.lower_magneform_fitting.thickness,
+                         control_rod.fuel_follower.length,
+                         control_rod.above_fuel_follower_air_gap.thickness,
+                         control_rod.middle_magneform_fitting.thickness,
+                         control_rod.absorber.length,
+                         control_rod.above_absorber_air_gap.thickness,
+                         control_rod.upper_magneform_fitting.thickness,
+                         control_rod.upper_air_gap.thickness,
+                         control_rod.upper_element_plug.thickness])
+    expected_nz = len(expected_z)
+    expected_mod_dim_z = sorted(list(set(expected_z)))
+    expected_height = sum(expected_z)
+
+    assert isclose(core.mod_dim['X'], expected_xy)
+    assert isclose(core.mod_dim['Y'], expected_xy)
+    assert core.mod_dim['Z'] == expected_mod_dim_z
+    assert core.nz == expected_nz
+    assert isclose(core.height, expected_height)
+
+    expected_num_unique_pins = len(expected_mod_dim_z) + 1  # absorber and fuel follower are same length but different pins
+    assert len(core.pins)       == expected_num_unique_pins
+    assert len(core.modules)    == expected_num_unique_pins
+    assert len(core.lattices)   == expected_num_unique_pins
+    assert len(core.assemblies) == 1

@@ -5,6 +5,7 @@ from math import isclose
 from coreforge.geometry_elements.triga.netl import SourceHolder
 from coreforge.materials import Al6061T6, Air, Water
 import coreforge.openmc_builder as openmc_builder
+import coreforge.mpact_builder as mpact_builder
 
 
 CM_PER_INCH = 2.54
@@ -91,3 +92,23 @@ def test_openmc_builder(source_holder):
     universe = openmc_builder.build(geom_element)
     assert universe.name == "source_holder"
     assert len(universe.cells) == 3
+
+
+def test_mpact_builder(source_holder):
+    geom_element = source_holder
+    core = mpact_builder.build(geom_element)
+
+    below_cavity_length = (source_holder.length / 2.0) + source_holder.cavity.axial_offset - (source_holder.cavity.length / 2.0)
+    above_cavity_length = (source_holder.length / 2.0) - source_holder.cavity.axial_offset - (source_holder.cavity.length / 2.0)
+
+    expected_xy = source_holder.cladding.outer_radius * 2.0
+    assert isclose(core.mod_dim['X'], expected_xy)
+    assert isclose(core.mod_dim['Y'], expected_xy)
+    assert core.mod_dim['Z'] == [source_holder.cavity.length, below_cavity_length, above_cavity_length]
+    assert core.nz == 3
+    assert isclose(core.height, source_holder.length)
+
+    assert len(core.pins)       == 3
+    assert len(core.modules)    == 3
+    assert len(core.lattices)   == 3
+    assert len(core.assemblies) == 1

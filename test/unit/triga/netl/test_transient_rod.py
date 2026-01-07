@@ -5,6 +5,7 @@ from copy import deepcopy
 from coreforge.geometry_elements.triga.netl import TransientRod
 from coreforge.materials import Air, Al6061T6, B4C, Water
 import coreforge.openmc_builder as openmc_builder
+import coreforge.mpact_builder as mpact_builder
 
 CM_PER_INCH = 2.54
 
@@ -128,3 +129,30 @@ def test_openmc_builder(transient_rod):
     universe = openmc_builder.build(geom_element)
     assert universe.name == "transient_rod"
     assert len(universe.cells) == 6
+
+
+def test_mpact_builder(transient_rod):
+    geom_element = transient_rod
+    core = mpact_builder.build(geom_element)
+
+    expected_xy = transient_rod.cladding.outer_radius * 2.0
+    expected_z = sorted([transient_rod.lower_element_plug.thickness,
+                         transient_rod.air_follower.thickness,
+                         transient_rod.lower_magneform_fitting.thickness,
+                         transient_rod.absorber.length,
+                         transient_rod.upper_magneform_fitting.thickness,
+                         transient_rod.upper_element_plug.thickness])
+    expected_nz        = len(expected_z)
+    expected_mod_dim_z = sorted(list(set(expected_z)))
+    expected_height    = sum(expected_z)
+
+    assert isclose(core.mod_dim['X'], expected_xy)
+    assert isclose(core.mod_dim['Y'], expected_xy)
+    assert core.mod_dim['Z'] == expected_mod_dim_z
+    assert core.nz == expected_nz
+    assert isclose(core.height, expected_height)
+
+    assert len(core.pins)       == len(expected_mod_dim_z)
+    assert len(core.modules)    == len(expected_mod_dim_z)
+    assert len(core.lattices)   == len(expected_mod_dim_z)
+    assert len(core.assemblies) == 1

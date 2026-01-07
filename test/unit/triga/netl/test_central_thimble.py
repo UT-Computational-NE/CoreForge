@@ -5,6 +5,7 @@ from math import isclose
 from coreforge.geometry_elements.triga.netl import CentralThimble
 from coreforge.materials import Al6061T6, Water
 import coreforge.openmc_builder as openmc_builder
+import coreforge.mpact_builder as mpact_builder
 
 CM_PER_INCH = 2.54
 
@@ -70,3 +71,20 @@ def test_openmc_builder(central_thimble):
     universe = openmc_builder.build(geom_element)
     assert universe.name == "central_thimble"
     assert len(universe.cells) == 1
+
+
+def test_mpact_builder(central_thimble):
+    geom_element = central_thimble
+    core = mpact_builder.build(geom_element)
+
+    expected_xy = central_thimble.cladding.outer_radius * 2.0
+    assert isclose(core.mod_dim['X'], expected_xy)
+    assert isclose(core.mod_dim['Y'], expected_xy)
+    assert core.mod_dim['Z'] == [central_thimble.length]
+    assert core.nz == 1
+    assert isclose(core.height, central_thimble.length)
+
+    assert len(core.pins)       == 1
+    assert len(core.modules)    == 1
+    assert len(core.lattices)   == 1
+    assert len(core.assemblies) == 1

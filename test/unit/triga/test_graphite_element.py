@@ -1,9 +1,13 @@
 import pytest
 from copy import deepcopy
+from math import isclose
+
+from numpy.testing import assert_allclose
 
 from coreforge.geometry_elements.triga import GraphiteElement
 from coreforge.materials import Air, Al6061T6, Graphite, Water
 import coreforge.openmc_builder as openmc_builder
+import coreforge.mpact_builder as mpact_builder
 
 CM_PER_INCH = 2.54
 
@@ -76,3 +80,26 @@ def test_openmc_builder(graphite_element):
     universe = openmc_builder.build(geom_element)
     assert universe.name == "graphite_element"
     assert len(universe.cells) == 5
+
+
+def test_mpact_builder(graphite_element):
+    geom_element = graphite_element
+    core = mpact_builder.build(geom_element)
+
+    expected_xy = graphite_element.cladding.outer_radius * 2.0
+    expected_z = sorted([graphite_element.lower_end_fitting.length,
+                         graphite_element.graphite_meat.length,
+                         graphite_element.upper_end_fitting.length])
+    expected_nz = len(expected_z)
+    expected_height = sum(expected_z)
+
+    assert isclose(core.mod_dim['X'], expected_xy)
+    assert isclose(core.mod_dim['Y'], expected_xy)
+    assert_allclose(core.mod_dim['Z'], expected_z)
+    assert core.nz == expected_nz
+    assert isclose(core.height, expected_height)
+
+    assert len(core.pins)       == expected_nz
+    assert len(core.modules)    == expected_nz
+    assert len(core.lattices)   == expected_nz
+    assert len(core.assemblies) == 1
