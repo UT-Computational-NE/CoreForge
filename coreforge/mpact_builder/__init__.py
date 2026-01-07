@@ -5,6 +5,7 @@ from .stack import Stack
 from .rect_lattice import RectLattice
 from .hex_lattice import HexLattice
 from . import msre
+from . import triga
 from .mpact_builder import build, build_material, Bounds
 from .material_specs import MaterialSpecs, DEFAULT_MPACT_SPECS
 
@@ -17,6 +18,7 @@ __all__ = [
     "RectLattice",
     "HexLattice",
     "msre",
+    "triga",
     "build",
     "build_material",
     "Bounds",

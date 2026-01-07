@@ -1,9 +1,13 @@
 import pytest
 from copy import deepcopy
+from math import isclose
+
+from numpy.testing import assert_allclose
 
 from coreforge.geometry_elements.triga import FuelElement
 from coreforge.materials import Air, Graphite, SS304, UZrH, Water, Zr
 import coreforge.openmc_builder as openmc_builder
+import coreforge.mpact_builder as mpact_builder
 
 CM_PER_INCH = 2.54
 
@@ -119,3 +123,28 @@ def test_openmc_builder(fuel_element):
     universe = openmc_builder.build(geom_element)
     assert universe.name == "fuel_element"
     assert len(universe.cells) == 9
+
+def test_mpact_builder(fuel_element):
+    geom_element = fuel_element
+    core = mpact_builder.build(geom_element)
+
+    expected_xy = fuel_element.cladding.outer_radius * 2.0
+    expected_z = sorted([fuel_element.lower_end_fitting.length,
+                         fuel_element.lower_graphite_reflector.thickness,
+                         fuel_element.moly_disc.thickness,
+                         fuel_element.fuel_meat.length,
+                         fuel_element.upper_graphite_reflector.thickness,
+                         fuel_element.upper_air_gap.thickness,
+                         fuel_element.upper_end_fitting.length,])
+    expected_nz = len(expected_z)
+
+    assert isclose(core.mod_dim['X'], expected_xy)
+    assert isclose(core.mod_dim['Y'], expected_xy)
+    assert_allclose(core.mod_dim['Z'], expected_z)
+    assert core.nz == expected_nz
+    assert isclose(core.height, sum(expected_z))
+
+    assert len(core.pins)       == expected_nz
+    assert len(core.modules)    == expected_nz
+    assert len(core.lattices)   == expected_nz
+    assert len(core.assemblies) == 1
