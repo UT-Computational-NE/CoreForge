@@ -205,8 +205,10 @@ def test_mpact_builder(control_rod):
     assert core.nz == expected_nz
     assert isclose(core.height, expected_height)
 
-    expected_num_unique_pins = len(expected_mod_dim_z) + 1  # absorber and fuel follower are same length but different pins
-    assert len(core.pins)       == expected_num_unique_pins
-    assert len(core.modules)    == expected_num_unique_pins
-    assert len(core.lattices)   == expected_num_unique_pins
+    stack = geom_element.as_stack().unionize_radial_mesh()
+    expected_unique_segments = len({segment for segment in stack.segments})
+
+    assert len(core.pins)       == expected_unique_segments
+    assert len(core.modules)    == expected_unique_segments
+    assert len(core.lattices)   == expected_unique_segments
     assert len(core.assemblies) == 1

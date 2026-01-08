@@ -9,7 +9,6 @@ from coreforge.mpact_builder.mpact_builder import register_builder, build, Bound
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
-import coreforge.geometry_elements as geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 
 
@@ -140,16 +139,13 @@ class TransientRod:
             bounds = Bounds(X={"min": -outer_radius, "max": outer_radius},
                             Y={"min": -outer_radius, "max": outer_radius})
 
-        stack = element.as_stack()
+        stack = element.as_stack().unionize_radial_mesh()
         segments = [(stack.segments[0], self.specs.lower_element_plug),
                     (stack.segments[1], self.specs.air_follower),
                     (stack.segments[2], self.specs.lower_magneform_fitting),
                     (stack.segments[3], self.specs.absorber),
                     (stack.segments[4], self.specs.upper_magneform_fitting),
                     (stack.segments[5], self.specs.upper_element_plug)]
-
-        stack = geometry_elements.Stack(segments=[segment for segment, _ in segments],
-                                        name=element.name)
 
         stack_specs = Stack.Specs({
             segment: Stack.Segment.Specs(region_specs.target_axial_thickness,

@@ -152,7 +152,10 @@ def test_mpact_builder(transient_rod):
     assert core.nz == expected_nz
     assert isclose(core.height, expected_height)
 
-    assert len(core.pins)       == len(expected_mod_dim_z)
-    assert len(core.modules)    == len(expected_mod_dim_z)
-    assert len(core.lattices)   == len(expected_mod_dim_z)
+    stack = geom_element.as_stack().unionize_radial_mesh()
+    expected_unique_segments = len({segment for segment in stack.segments})
+
+    assert len(core.pins)       == expected_unique_segments
+    assert len(core.modules)    == expected_unique_segments
+    assert len(core.lattices)   == expected_unique_segments
     assert len(core.assemblies) == 1

@@ -123,35 +123,37 @@ class GraphiteElement:
             bounds = Bounds(X={"min": -outer_radius, "max": outer_radius},
                             Y={"min": -outer_radius, "max": outer_radius})
 
-        lower_end_segments = build_end_fitting_segments(
+        lower_end_stack = build_end_fitting_segments(
             length                 = element.lower_end_fitting.length,
             r2                     = element.lower_end_fitting.r2,
             direction              = element.lower_end_fitting.direction,
             material               = element.lower_end_fitting.material,
             outer_material         = element.outer_material,
-            target_axial_thickness = self.specs.lower_end_fitting.target_axial_thickness,
-            name                   = element.name + "_lower_end_fitting",
-        )
+            target_axial_thickness = self.specs.lower_end_fitting.target_axial_thickness)
 
-        upper_end_segments = build_end_fitting_segments(
+        upper_end_stack = build_end_fitting_segments(
             length                 = element.upper_end_fitting.length,
             r2                     = element.upper_end_fitting.r2,
             direction              = element.upper_end_fitting.direction,
             material               = element.upper_end_fitting.material,
             outer_material         = element.outer_material,
-            target_axial_thickness = self.specs.upper_end_fitting.target_axial_thickness,
-            name                   = element.name + "_upper_end_fitting",
+            target_axial_thickness = self.specs.upper_end_fitting.target_axial_thickness)
+
+        mid_stack = geometry_elements.Stack(
+            segments=[geometry_elements.Stack.Segment(element.graphite_pincell,
+                                                      element.graphite_meat.length)],
+            name=element.name,
         )
 
-        segments = []
-        segments.extend((segment, self.specs.lower_end_fitting) for segment in lower_end_segments)
-        segments.append((geometry_elements.Stack.Segment(element.graphite_pincell,
-                                                         element.graphite_meat.length),
-                         self.specs.graphite))
-        segments.extend((segment, self.specs.upper_end_fitting) for segment in upper_end_segments)
+        stack = lower_end_stack + mid_stack + upper_end_stack
+        stack.name = element.name
 
-        stack = geometry_elements.Stack(segments=[segment for segment, _ in segments],
-                                        name=element.name)
+        segments = []
+        segments.extend((segment, self.specs.lower_end_fitting)
+                        for segment in lower_end_stack.segments)
+        segments.append((mid_stack.segments[0], self.specs.graphite))
+        segments.extend((segment, self.specs.upper_end_fitting)
+                        for segment in upper_end_stack.segments)
 
         stack_specs = Stack.Specs({
             segment: Stack.Segment.Specs(region_specs.target_axial_thickness,

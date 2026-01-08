@@ -4,7 +4,7 @@ from math import isclose
 
 from numpy.testing import assert_allclose
 
-from coreforge.geometry_elements import Stack
+from coreforge.geometry_elements import Stack, CylindricalPinCell
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
@@ -87,3 +87,31 @@ def test_mpact_builder(stack, stack_mpact_specs):
     expected_assertion = "Unsupported Geometry! Stack: bad_stack Segment 0: stack is not a 2D radial geometry"
     with pytest.raises(AssertionError, match=expected_assertion):
         core = mpact_builder.build(geom_element)
+
+
+def test_unionize_radial_mesh(salt, graphite):
+    pin_a = CylindricalPinCell(
+        radii=[1.0, 2.0],
+        materials=[salt, graphite, salt],
+        name="pin_a",
+    )
+    pin_b = CylindricalPinCell(
+        radii=[1.5, 2.5],
+        materials=[graphite, salt, graphite],
+        name="pin_b",
+    )
+    stack = Stack([Stack.Segment(element=pin_a, length=3.0),
+                   Stack.Segment(element=pin_b, length=4.0)])
+
+    unionized = stack.unionize_radial_mesh()
+    union_radii = [zone.shape.outer_radius for zone in unionized.segments[0].element.zones]
+
+    assert union_radii == pytest.approx([1.0, 1.5, 2.0, 2.5])
+
+    pin_a_mats = [zone.material for zone in unionized.segments[0].element.zones]
+    assert pin_a_mats == [salt, graphite, graphite, salt]
+    assert unionized.segments[0].element.outer_material == salt
+
+    pin_b_mats = [zone.material for zone in unionized.segments[1].element.zones]
+    assert pin_b_mats == [graphite, graphite, salt, salt]
+    assert unionized.segments[1].element.outer_material == graphite

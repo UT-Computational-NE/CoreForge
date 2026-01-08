@@ -13,14 +13,11 @@ def build_end_fitting_segments(length: float,
                                outer_material: geometry_elements.Material,
                                target_axial_thickness: float,
                                name: str = "end_fitting"
-                               ) -> List[geometry_elements.Stack.Segment]:
+                               ) -> geometry_elements.Stack:
     """Build stack segments that approximate a conical end fitting.
 
     The cone is represented by equal-height cylinders whose radii preserve volume
-    in each axial slice. Cylindrical pincells use a unionized set of radii shared
-    across all segments, and each segment fills only the radii up to its effective
-    radius with the end fitting material, filling the remaining rings with the
-    outer material. The returned list is ordered from bottom to top based on the
+    in each axial slice. The returned stack is ordered from bottom to top based on the
     specified direction.
 
     Parameters
@@ -42,8 +39,8 @@ def build_end_fitting_segments(length: float,
 
     Returns
     -------
-    List[Stack.Segment]
-        Stack segments representing the end fitting.
+    Stack
+        Stack representing the end fitting.
     """
     if not target_axial_thickness:
         target_axial_thickness = inf
@@ -66,12 +63,9 @@ def build_end_fitting_segments(length: float,
 
     segments = []
     for i, r_eq in enumerate(radii):
-        materials = [material if radius <= r_eq else outer_material
-                     for radius in radii]
-        materials.append(outer_material)
         pincell = geometry_elements.CylindricalPinCell(
-            radii=radii,
-            materials=materials,
+            radii=[r_eq],
+            materials=[material, outer_material],
             name=f"{name}_{i:02d}_pincell",
         )
         segments.append(geometry_elements.Stack.Segment(pincell, subd_length))
@@ -79,4 +73,4 @@ def build_end_fitting_segments(length: float,
     if direction == "down":
         segments = list(reversed(segments))
 
-    return segments
+    return geometry_elements.Stack(segments=segments, name=name)
