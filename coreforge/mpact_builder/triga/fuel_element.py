@@ -137,15 +137,15 @@ class FuelElement:
             bounds = Bounds(X={"min": -outer_radius, "max": outer_radius},
                             Y={"min": -outer_radius, "max": outer_radius})
 
-        lower_end_stack = element.lower_end_fitting_cone.as_stack(
-            target_axial_length = self.specs.lower_end_fitting.target_axial_thickness,
-            direction           = element.lower_end_fitting.direction
-        ).unionize_radial_mesh()
+        cone = element.lower_end_fitting.cone(outer_material = element.outer_material,
+                                              name           = element.name + "_lower_end_fitting_cone")
+        lower_end_stack = cone.as_stack(target_axial_length = self.specs.lower_end_fitting.target_axial_thickness,
+                                        direction           = element.lower_end_fitting.direction).unionize_radial_mesh()
 
-        upper_end_stack = element.upper_end_fitting_cone.as_stack(
-            target_axial_length = self.specs.upper_end_fitting.target_axial_thickness,
-            direction           = element.upper_end_fitting.direction
-        ).unionize_radial_mesh()
+        cone = element.upper_end_fitting.cone(outer_material = element.outer_material,
+                                              name           = element.name + "_upper_end_fitting_cone")
+        upper_end_stack = cone.as_stack(target_axial_length = self.specs.upper_end_fitting.target_axial_thickness,
+                                        direction           = element.upper_end_fitting.direction).unionize_radial_mesh()
 
         mid_stack = geometry_elements.Stack(segments=[
             geometry_elements.Stack.Segment(element.lower_reflector_pincell,
@@ -165,20 +165,17 @@ class FuelElement:
         segments = []
         segments.extend((segment, self.specs.lower_end_fitting)
                         for segment in lower_end_stack.segments)
-        segments.extend([
-            (mid_stack.segments[0], self.specs.lower_reflector),
-            (mid_stack.segments[1], self.specs.moly_disc),
-            (mid_stack.segments[2], self.specs.fuel),
-            (mid_stack.segments[3], self.specs.upper_reflector),
-            (mid_stack.segments[4], self.specs.air_gap),
-        ])
+        segments.extend([(mid_stack.segments[0], self.specs.lower_reflector),
+                         (mid_stack.segments[1], self.specs.moly_disc),
+                         (mid_stack.segments[2], self.specs.fuel),
+                         (mid_stack.segments[3], self.specs.upper_reflector),
+                         (mid_stack.segments[4], self.specs.air_gap)])
         segments.extend((segment, self.specs.upper_end_fitting)
                         for segment in upper_end_stack.segments)
 
         stack_specs = Stack.Specs({
             segment: Stack.Segment.Specs(region_specs.target_axial_thickness,
                                          region_specs.pincell_specs)
-            for segment, region_specs in segments
-        })
+            for segment, region_specs in segments})
 
         return build(stack, stack_specs, bounds)

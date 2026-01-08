@@ -53,10 +53,6 @@ class GraphiteElement(GeometryElement):
         Minimum thickness to retain a radial gap (defaults to 1e-8).
     graphite_pincell : CylindricalPinCell
         Pincell representing the graphite meat radial region.
-    lower_end_fitting_cone : OneSidedCone
-        Geometry element representing the lower end fitting cone.
-    upper_end_fitting_cone : OneSidedCone
-        Geometry element representing the upper end fitting cone.
     """
 
     @dataclass(frozen=True)
@@ -162,6 +158,27 @@ class GraphiteElement(GeometryElement):
                 "End Fitting direction must be either 'up' or 'down'."
             )
 
+        def cone(self, outer_material: Material, name: str = "end_fitting_cone") -> OneSidedCone:
+            """Create a cone geometry element for this end fitting.
+
+            Parameters
+            ----------
+            outer_material : Material
+                Material surrounding the cone.
+            name : str, optional
+                Name for the returned geometry element.
+
+            Returns
+            -------
+            OneSidedCone
+                Geometry element representing this end fitting.
+            """
+            return OneSidedCone(fill_material  = self.material,
+                                outer_material = outer_material,
+                                r              = sqrt(self.r2) * self.length,
+                                h              = self.length,
+                                name           = name)
+
         def __eq__(self, other: object) -> bool:
             if self is other:
                 return True
@@ -217,14 +234,6 @@ class GraphiteElement(GeometryElement):
     def graphite_pincell(self) -> CylindricalPinCell:
         return self._graphite_pincell
 
-    @property
-    def lower_end_fitting_cone(self) -> OneSidedCone:
-        return self._lower_end_fitting_cone
-
-    @property
-    def upper_end_fitting_cone(self) -> OneSidedCone:
-        return self._upper_end_fitting_cone
-
     def __init__(self,
                  cladding:          Cladding,
                  graphite_meat:     GraphiteMeat,
@@ -256,16 +265,6 @@ class GraphiteElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_graphite_meat_pincell",
         )
-        self._lower_end_fitting_cone = self.build_end_fitting_cone(
-            end_fitting    = self.lower_end_fitting,
-            outer_material = self.outer_material,
-            name           = self.name + "_lower_end_fitting_cone",
-        )
-        self._upper_end_fitting_cone = self.build_end_fitting_cone(
-            end_fitting    = self.upper_end_fitting,
-            outer_material = self.outer_material,
-            name           = self.name + "_upper_end_fitting_cone",
-        )
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -294,36 +293,6 @@ class GraphiteElement(GeometryElement):
             self.outer_material,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
-
-
-    @staticmethod
-    def build_end_fitting_cone(end_fitting: EndFitting,
-                               outer_material: Material,
-                               name: str = "end_fitting_cone") -> OneSidedCone:
-        """Build a one-sided cone geometry element for an end fitting.
-
-        Parameters
-        ----------
-        end_fitting : GraphiteElement.EndFitting
-            End fitting specification (length, r2, direction, material).
-        outer_material : Material
-            Material surrounding the end fitting.
-        name : str, optional
-            Name for the returned cone geometry element.
-
-        Returns
-        -------
-        OneSidedCone
-            Geometry element representing the end fitting cone.
-        """
-
-        outer_material = outer_material or Water()
-
-        return OneSidedCone(fill_material  = end_fitting.material,
-                            outer_material = outer_material,
-                            r              = sqrt(end_fitting.r2) * end_fitting.length,
-                            h              = end_fitting.length,
-                            name           = name)
 
     @staticmethod
     def build_graphite_meat_pincell(cladding:       Cladding,

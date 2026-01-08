@@ -86,11 +86,6 @@ class FuelElement(GeometryElement):
         Pincell representing the lower graphite reflector region.
     air_gap_pincell : CylindricalPinCell
         Pincell representing the upper air gap region.
-    lower_end_fitting_cone : OneSidedCone
-        Geometry element representing the lower end fitting cone.
-    upper_end_fitting_cone : OneSidedCone
-        Geometry element representing the upper end fitting cone.
-
     References
     ----------
     .. [1] D. R. Redhouse, et al., "Radiation Characterization Summary: NETL Beam Port
@@ -327,6 +322,27 @@ class FuelElement(GeometryElement):
                 "End Fitting direction must be either 'up' or 'down'."
             )
 
+        def cone(self, outer_material: Material, name: str = "end_fitting_cone") -> OneSidedCone:
+            """Create a cone geometry element for this end fitting.
+
+            Parameters
+            ----------
+            outer_material : Material
+                Material surrounding the cone.
+            name : str, optional
+                Name for the returned geometry element.
+
+            Returns
+            -------
+            OneSidedCone
+                Geometry element representing this end fitting.
+            """
+            return OneSidedCone(fill_material  = self.material,
+                                outer_material = outer_material,
+                                r              = sqrt(self.r2) * self.length,
+                                h              = self.length,
+                                name           = name)
+
         def __eq__(self, other: object) -> bool:
             if self is other:
                 return True
@@ -418,14 +434,6 @@ class FuelElement(GeometryElement):
     def air_gap_pincell(self) -> CylindricalPinCell:
         return self._air_gap_pincell
 
-    @property
-    def lower_end_fitting_cone(self) -> OneSidedCone:
-        return self._lower_end_fitting_cone
-
-    @property
-    def upper_end_fitting_cone(self) -> OneSidedCone:
-        return self._upper_end_fitting_cone
-
 
     def __init__(self,
                 cladding:                 Cladding,
@@ -504,16 +512,6 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_air_gap_pincell",
         )
-        self._lower_end_fitting_cone = self.build_end_fitting_cone(
-            end_fitting    = self.lower_end_fitting,
-            outer_material = self.outer_material,
-            name           = self.name + "_lower_end_fitting_cone",
-        )
-        self._upper_end_fitting_cone = self.build_end_fitting_cone(
-            end_fitting    = self.upper_end_fitting,
-            outer_material = self.outer_material,
-            name           = self.name + "_upper_end_fitting_cone",
-        )
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -552,36 +550,6 @@ class FuelElement(GeometryElement):
             self.lower_end_fitting,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
-
-
-    @staticmethod
-    def build_end_fitting_cone(end_fitting:    EndFitting,
-                               outer_material: Optional[Material],
-                               name:           str = "end_fitting_cone") -> OneSidedCone:
-        """Build a one-sided cone geometry element for an end fitting.
-
-        Parameters
-        ----------
-        end_fitting : EndFitting
-            End fitting specification (length, r2, direction, material).
-        outer_material : Material
-            Material surrounding the end fitting.
-        name : str, optional
-            Name for the returned cone geometry element.
-
-        Returns
-        -------
-        OneSidedCone
-            Geometry element representing the end fitting cone.
-        """
-
-        return OneSidedCone(fill_material  = end_fitting.material,
-                            outer_material = outer_material,
-                            r              = sqrt(end_fitting.r2) * end_fitting.length,
-                            h              = end_fitting.length,
-                            name           = name)
-
-
     @staticmethod
     def build_fuel_meat_pincell(cladding:       Cladding,
                                 fuel_meat:      FuelMeat,

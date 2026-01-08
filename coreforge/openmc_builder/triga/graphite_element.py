@@ -31,7 +31,9 @@ class GraphiteElement:
 
         height = element.lower_end_fitting.length
 
-        cone     = element.lower_end_fitting_cone.shape.make_region()
+        cone     = element.lower_end_fitting.cone(outer_material = element.outer_material,
+                                                  name           = element.name + "_lower_end_fitting_cone")
+        cone     = cone.shape.make_region()
         cone     = cone.rotate((180.0, 0.0, 0.0))
         cone     = cone.translate([0.0, 0.0, height])
         plane    = openmc.ZPlane(height)
@@ -46,7 +48,9 @@ class GraphiteElement:
 
         height += element.graphite_meat.length
 
-        cone     = element.upper_end_fitting_cone.shape.make_region()
+        cone     = element.upper_end_fitting.cone(outer_material = element.outer_material,
+                                                  name           = element.name + "_upper_end_fitting_cone")
+        cone     = cone.shape.make_region()
         cone     = cone.translate([0.0, 0.0, height])
         plane    = openmc.ZPlane(height)
         fixture  =  -cone & -cylinder
