@@ -140,12 +140,12 @@ class FuelElement:
         cone = element.lower_end_fitting.cone(outer_material = element.outer_material,
                                               name           = element.name + "_lower_end_fitting_cone")
         lower_end_stack = cone.as_stack(target_axial_length = self.specs.lower_end_fitting.target_axial_thickness,
-                                        direction           = element.lower_end_fitting.direction).unionize_radial_mesh()
+                                        direction           = element.lower_end_fitting.direction)
 
         cone = element.upper_end_fitting.cone(outer_material = element.outer_material,
                                               name           = element.name + "_upper_end_fitting_cone")
         upper_end_stack = cone.as_stack(target_axial_length = self.specs.upper_end_fitting.target_axial_thickness,
-                                        direction           = element.upper_end_fitting.direction).unionize_radial_mesh()
+                                        direction           = element.upper_end_fitting.direction)
 
         mid_stack = geometry_elements.Stack(segments=[
             geometry_elements.Stack.Segment(element.lower_reflector_pincell,
