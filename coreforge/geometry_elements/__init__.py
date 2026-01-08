@@ -4,6 +4,7 @@ from .pincell import PinCell
 from .cylindrical_pincell import CylindricalPinCell
 from .block import Block
 from .stack import Stack
+from .cone import OneSidedCone
 from .rect_lattice import RectLattice
 from .hex_lattice import HexLattice
 
@@ -14,6 +15,7 @@ __all__ = [
     "CylindricalPinCell",
     "Block",
     "Stack",
+    "OneSidedCone",
     "RectLattice",
     "HexLattice"
 ]

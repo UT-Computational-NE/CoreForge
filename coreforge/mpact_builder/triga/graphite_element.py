@@ -9,7 +9,6 @@ from coreforge.mpact_builder.mpact_builder import register_builder, build, Bound
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
-from coreforge.mpact_builder.triga.utils import build_end_fitting_segments
 import coreforge.geometry_elements as geometry_elements
 import coreforge.geometry_elements.triga as geometry_elements_triga
 
@@ -123,21 +122,15 @@ class GraphiteElement:
             bounds = Bounds(X={"min": -outer_radius, "max": outer_radius},
                             Y={"min": -outer_radius, "max": outer_radius})
 
-        lower_end_stack = build_end_fitting_segments(
-            length                 = element.lower_end_fitting.length,
-            r2                     = element.lower_end_fitting.r2,
-            direction              = element.lower_end_fitting.direction,
-            material               = element.lower_end_fitting.material,
-            outer_material         = element.outer_material,
-            target_axial_thickness = self.specs.lower_end_fitting.target_axial_thickness)
+        lower_end_stack = element.lower_end_fitting_cone.as_stack(
+            target_axial_length = self.specs.lower_end_fitting.target_axial_thickness,
+            direction           = element.lower_end_fitting.direction,
+        ).unionize_radial_mesh()
 
-        upper_end_stack = build_end_fitting_segments(
-            length                 = element.upper_end_fitting.length,
-            r2                     = element.upper_end_fitting.r2,
-            direction              = element.upper_end_fitting.direction,
-            material               = element.upper_end_fitting.material,
-            outer_material         = element.outer_material,
-            target_axial_thickness = self.specs.upper_end_fitting.target_axial_thickness)
+        upper_end_stack = element.upper_end_fitting_cone.as_stack(
+            target_axial_length = self.specs.upper_end_fitting.target_axial_thickness,
+            direction           = element.upper_end_fitting.direction,
+        ).unionize_radial_mesh()
 
         mid_stack = geometry_elements.Stack(
             segments=[geometry_elements.Stack.Segment(element.graphite_pincell,

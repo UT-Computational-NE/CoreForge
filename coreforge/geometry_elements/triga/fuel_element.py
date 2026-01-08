@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Literal
-from math import isclose
+from math import isclose, sqrt
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.materials import Air, Graphite, Material, Mo, SS304, UZrH, Water, Zr
 
 
@@ -85,6 +86,10 @@ class FuelElement(GeometryElement):
         Pincell representing the lower graphite reflector region.
     air_gap_pincell : CylindricalPinCell
         Pincell representing the upper air gap region.
+    lower_end_fitting_cone : OneSidedCone
+        Geometry element representing the lower end fitting cone.
+    upper_end_fitting_cone : OneSidedCone
+        Geometry element representing the upper end fitting cone.
 
     References
     ----------
@@ -395,23 +400,31 @@ class FuelElement(GeometryElement):
 
     @property
     def fuel_pincell(self) -> CylindricalPinCell:
-        return self._fuel_region_pincell
+        return self._fuel_pincell
 
     @property
     def moly_disc_pincell(self) -> CylindricalPinCell:
-        return self._moly_disc_region_pincell
+        return self._moly_disc_pincell
 
     @property
     def upper_reflector_pincell(self) -> CylindricalPinCell:
-        return self._upper_reflector_region_pincell
+        return self._upper_reflector_pincell
 
     @property
     def lower_reflector_pincell(self) -> CylindricalPinCell:
-        return self._lower_reflector_region_pincell
+        return self._lower_reflector_pincell
 
     @property
     def air_gap_pincell(self) -> CylindricalPinCell:
-        return self._air_gap_region_pincell
+        return self._air_gap_pincell
+
+    @property
+    def lower_end_fitting_cone(self) -> OneSidedCone:
+        return self._lower_end_fitting_cone
+
+    @property
+    def upper_end_fitting_cone(self) -> OneSidedCone:
+        return self._upper_end_fitting_cone
 
 
     def __init__(self,
@@ -451,7 +464,7 @@ class FuelElement(GeometryElement):
                         + self._upper_end_fitting.length
                         + self._lower_end_fitting.length)
 
-        self._fuel_region_pincell = self.build_fuel_meat_pincell(
+        self._fuel_pincell = self.build_fuel_meat_pincell(
             cladding       = self.cladding,
             fuel_meat      = self.fuel_meat,
             zr_fill_rod    = self.zr_fill_rod,
@@ -460,7 +473,7 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_fuel_meat_pincell",
         )
-        self._moly_disc_region_pincell = self.build_moly_disc_pincell(
+        self._moly_disc_pincell = self.build_moly_disc_pincell(
             cladding       = self.cladding,
             moly_disc      = self.moly_disc,
             fill_gas       = self.fill_gas,
@@ -468,7 +481,7 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_moly_disc_pincell",
         )
-        self._upper_reflector_region_pincell = self.build_graphite_reflector_pincell(
+        self._upper_reflector_pincell = self.build_graphite_reflector_pincell(
             cladding       = self.cladding,
             reflector      = self.upper_graphite_reflector,
             fill_gas       = self.fill_gas,
@@ -476,7 +489,7 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_upper_graphite_reflector_pincell",
         )
-        self._lower_reflector_region_pincell = self.build_graphite_reflector_pincell(
+        self._lower_reflector_pincell = self.build_graphite_reflector_pincell(
             cladding       = self.cladding,
             reflector      = self.lower_graphite_reflector,
             fill_gas       = self.fill_gas,
@@ -484,12 +497,22 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_lower_graphite_reflector_pincell",
         )
-        self._air_gap_region_pincell = self.build_air_gap_pincell(
+        self._air_gap_pincell = self.build_air_gap_pincell(
             cladding       = self.cladding,
             fill_gas       = self.fill_gas,
             outer_material = self.outer_material,
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_air_gap_pincell",
+        )
+        self._lower_end_fitting_cone = self.build_end_fitting_cone(
+            end_fitting    = self.lower_end_fitting,
+            outer_material = self.outer_material,
+            name           = self.name + "_lower_end_fitting_cone",
+        )
+        self._upper_end_fitting_cone = self.build_end_fitting_cone(
+            end_fitting    = self.upper_end_fitting,
+            outer_material = self.outer_material,
+            name           = self.name + "_upper_end_fitting_cone",
         )
 
     def __eq__(self, other: object) -> bool:
@@ -529,6 +552,34 @@ class FuelElement(GeometryElement):
             self.lower_end_fitting,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
+
+
+    @staticmethod
+    def build_end_fitting_cone(end_fitting:    EndFitting,
+                               outer_material: Optional[Material],
+                               name:           str = "end_fitting_cone") -> OneSidedCone:
+        """Build a one-sided cone geometry element for an end fitting.
+
+        Parameters
+        ----------
+        end_fitting : EndFitting
+            End fitting specification (length, r2, direction, material).
+        outer_material : Material
+            Material surrounding the end fitting.
+        name : str, optional
+            Name for the returned cone geometry element.
+
+        Returns
+        -------
+        OneSidedCone
+            Geometry element representing the end fitting cone.
+        """
+
+        return OneSidedCone(fill_material  = end_fitting.material,
+                            outer_material = outer_material,
+                            r              = sqrt(end_fitting.r2) * end_fitting.length,
+                            h              = end_fitting.length,
+                            name           = name)
 
 
     @staticmethod
