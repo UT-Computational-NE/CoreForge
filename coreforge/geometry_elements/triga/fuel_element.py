@@ -550,6 +550,7 @@ class FuelElement(GeometryElement):
             self.lower_end_fitting,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
+
     @staticmethod
     def build_fuel_meat_pincell(cladding:       Cladding,
                                 fuel_meat:      FuelMeat,

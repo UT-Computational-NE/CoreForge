@@ -4,14 +4,15 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build, Bounds
+from coreforge.mpact_builder.mpact_builder import register_builder, build
+from coreforge.mpact_builder.builder import Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.msre.block import Block
 import coreforge.geometry_elements.msre as geometry_elements_msre
 
 @register_builder(geometry_elements_msre.Stringer)
-class Stringer:
+class Stringer(Builder[geometry_elements_msre.Stringer]):
     """ An MPACT geometry builder class for an MSRE Stringer
 
     Parameters
@@ -53,17 +54,19 @@ class Stringer:
                 self.block_specs = Block.Specs()
 
 
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
+
     @property
     def specs(self) -> Specs:
         return self._specs
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs if specs else Stringer.Specs()
-
-
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
+        self._specs = specs if specs is not None else self.Specs()
 
 
     def build(self, element: geometry_elements_msre.Stringer, bounds: Optional[Bounds] = None) -> mpactpy.Core:
@@ -87,4 +90,4 @@ class Stringer:
                                             self.specs.block_specs)
         stack_specs = Stack.Specs({stack.segments[0]: segment_specs})
 
-        return build(element.as_stack(), stack_specs, bounds)
+        return build(stack, stack_specs, bounds)

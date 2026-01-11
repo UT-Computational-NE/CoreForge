@@ -5,14 +5,15 @@ from multiprocessing import cpu_count
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build, Bounds
+from coreforge.mpact_builder.mpact_builder import register_builder, build
+from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.utils import build_elements
 from coreforge import geometry_elements
 
 
 @register_builder(geometry_elements.RectLattice)
-class RectLattice:
+class RectLattice(Builder[geometry_elements.RectLattice]):
     """ An MPACT geometry builder class for RectLattice
 
     Parameters
@@ -55,17 +56,19 @@ class RectLattice:
             self.num_procs = min(self.num_procs, cpu_count())
 
 
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
+
     @property
     def specs(self) -> Specs:
         return self._specs
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs if specs else RectLattice.Specs()
-
-
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
+        self._specs = specs if specs is not None else self.Specs()
 
 
     def build(self, element: geometry_elements.RectLattice, bounds: Optional[Bounds] = None) -> mpactpy.Core:
@@ -106,9 +109,9 @@ class RectLattice:
                                         _rect_lattice_chunk_worker,
                                         self.specs.num_procs,
                                         self.specs.element_specs,
-                                        Bounds(X = {'min': -half_pitch_x, 'max': half_pitch_x},
-                                               Y = {'min': -half_pitch_y, 'max': half_pitch_y},
-                                               Z = bounds.Z if bounds else None))
+                                        Bounds(X=AxisBounds(min=-half_pitch_x, max=half_pitch_x),
+                                               Y=AxisBounds(min=-half_pitch_y, max=half_pitch_y),
+                                               Z=bounds.Z if bounds else None))
 
         # Validation & pitch checks, build assembly mapping
         mpact_geometry = {}

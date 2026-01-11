@@ -35,11 +35,9 @@ def mpact_voxel_specs(salt, graphite):
         graphite: mpact_builder.DEFAULT_MPACT_SPECS[type(graphite)],
     })
 
-    return mpact_builder.VoxelBuildSpecs(
-        xvals          = [2.5, 5.0],
-        yvals          = [2.5, 5.0],
-        zvals          = [1.0],
-        material_specs = mat_specs
+    return mpact_builder.VoxelBuilder.Specs(
+        target_thicknesses = {"X": 2.5, "Y": 2.5, "Z": 1.0},
+        material_specs     = mat_specs
     )
 
 def test_block_initialization(block, salt, graphite):
@@ -83,7 +81,10 @@ def test_openmc_builder(block):
 def test_block_mpact_builder(block, mpact_voxel_specs, salt, graphite):
     geom_element = block
     specs = mpact_voxel_specs
-    core = mpact_builder.build(geom_element, specs)
+    bounds = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=0.0, max=5.0),
+                                  Y=mpact_builder.AxisBounds(min=0.0, max=5.0),
+                                  Z=mpact_builder.AxisBounds(min=0.0, max=1.0))
+    core = mpact_builder.build(geom_element, specs, bounds)
     salt = mpact_builder.build_material(salt)
     graphite = mpact_builder.build_material(graphite)
 

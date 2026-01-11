@@ -1,11 +1,12 @@
 import openmc
 
+from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder
 from coreforge import geometry_elements
 
 
 @register_builder(geometry_elements.OneSidedCone)
-class OneSidedCone:
+class OneSidedCone(Builder[geometry_elements.OneSidedCone]):
 	""" An OpenMC geometry builder class for OneSidedCone
 	"""
 
@@ -13,19 +14,6 @@ class OneSidedCone:
 		pass
 
 	def build(self, element: geometry_elements.OneSidedCone) -> openmc.Universe:
-		""" Method for building an OpenMC geometry of a OneSidedCone
-
-		Parameters
-		----------
-		element: OneSidedCone
-			The geometry element to be built
-
-		Returns
-		-------
-		openmc.Universe
-			A new OpenMC geometry based on this geometry element
-		"""
-
 		cone_region = element.shape.make_region()
 		cone_cell = openmc.Cell(name   = f"{element.name}_cone",
 			                    fill   = element.fill_material.openmc_material,

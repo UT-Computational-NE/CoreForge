@@ -8,14 +8,15 @@ import mpactpy
 from mpactpy.pin import build_rec_pin, build_gcyl_pin
 
 from coreforge.shapes import Rectangle, Stadium, Circle
-from coreforge.mpact_builder.mpact_builder import register_builder, build_material, Bounds
+from coreforge.mpact_builder.mpact_builder import register_builder
+from coreforge.mpact_builder.builder import Bounds, Builder, build_material
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.material_specs import MaterialSpecs
 import coreforge.geometry_elements.msre as geometry_elements_msre
 from coreforge.utils import remove_none_2D
 
 @register_builder(geometry_elements_msre.Block)
-class Block:
+class Block(Builder[geometry_elements_msre.Block]):
     """ An MPACT geometry builder class for Block
 
     Parameters
@@ -372,17 +373,19 @@ class Block:
             return pin
 
 
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
+
     @property
     def specs(self) -> Specs:
         return self._specs
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs
-
-
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
+        self._specs = specs if specs is not None else self.Specs()
 
 
     def build(self, element: geometry_elements_msre.Block, bounds: Optional[Bounds] = None) -> mpactpy.Core:
@@ -413,7 +416,7 @@ class Block:
 
         specs = self.specs if self.specs else Block.Specs()
 
-        height = bounds.Z['max'] - bounds.Z['min'] if bounds and bounds.Z else 1.0
+        height = bounds.Z.max - bounds.Z.min if bounds and bounds.Z else 1.0
 
         flat_length     = 0.
         cap_cell_length = element.pitch*0.25

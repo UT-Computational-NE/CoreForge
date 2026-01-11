@@ -4,13 +4,14 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build_material, Bounds
+from coreforge.mpact_builder.mpact_builder import register_builder
+from coreforge.mpact_builder.builder import Bounds, Builder, build_material
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.material_specs import MaterialSpecs
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.InfiniteMedium)
-class InfiniteMedium:
+class InfiniteMedium(Builder[geometry_elements.InfiniteMedium]):
     """ An MPACT geometry builder class for InfiniteMedium
 
     Parameters
@@ -66,17 +67,19 @@ class InfiniteMedium:
                 f"target_cell_thicknesses = {self.target_cell_thicknesses}"
 
 
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
+
     @property
     def specs(self) -> Specs:
         return self._specs
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs if specs else InfiniteMedium.Specs()
-
-
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
+        self._specs = specs if specs is not None else self.Specs()
 
 
     def build(self, element: geometry_elements.InfiniteMedium, bounds: Optional[Bounds] = None) -> mpactpy.Core:
@@ -101,9 +104,9 @@ class InfiniteMedium:
 
         thicknesses = {"X": 1.0, "Y": 1.0, "Z": 1.0}
         if bounds:
-            thicknesses["X"] = bounds.X['max'] - bounds.X['min'] if bounds.X else thicknesses["X"]
-            thicknesses["Y"] = bounds.Y['max'] - bounds.Y['min'] if bounds.Y else thicknesses["Y"]
-            thicknesses["Z"] = bounds.Z['max'] - bounds.Z['min'] if bounds.Z else thicknesses["Z"]
+            thicknesses["X"] = bounds.X.max - bounds.X.min if bounds.X else thicknesses["X"]
+            thicknesses["Y"] = bounds.Y.max - bounds.Y.min if bounds.Y else thicknesses["Y"]
+            thicknesses["Z"] = bounds.Z.max - bounds.Z.min if bounds.Z else thicknesses["Z"]
 
         def build_module(module_thicknesses: Dict[str, float]) -> mpactpy.Module:
             pin = mpactpy.build_rec_pin(thicknesses             = {"X": [module_thicknesses["X"]],

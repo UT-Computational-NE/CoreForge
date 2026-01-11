@@ -1,10 +1,11 @@
 import openmc
 
+from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder, build
 import coreforge.geometry_elements.triga as geometry_elements_triga
 
 @register_builder(geometry_elements_triga.FuelElement)
-class FuelElement:
+class FuelElement(Builder[geometry_elements_triga.FuelElement]):
     """ An OpenMC geometry builder class for a TRIGA Fuel Element
     """
 
@@ -12,21 +13,7 @@ class FuelElement:
         pass
 
     def build(self, element: geometry_elements_triga.FuelElement) -> openmc.Universe:
-        """ Method for building an OpenMC geometry of a TRIGA Fuel Element
-
-        Origin of contructed universe is at the bottom center of the fuel element.
-
-        Parameters
-        ----------
-        element: geometry_elements_triga.FuelElement
-            The geometry element to be built
-
-        Returns
-        -------
-        openmc.Universe
-            A new OpenMC geometry based on this geometry element
-        """
-
+        """ Origin of contructed universe is at the bottom center of the fuel element."""
         cells = []
 
         height = element.lower_end_fitting.length

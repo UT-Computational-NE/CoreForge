@@ -1,19 +1,21 @@
 from __future__ import annotations
-from typing import Optional
+from typing import Optional, Tuple
 from dataclasses import dataclass, field
 from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build, Bounds
+from coreforge.mpact_builder.mpact_builder import register_builder, build
+from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
+import coreforge.geometry_elements as geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 
 
 @register_builder(geometry_elements_triga_netl.TransientRod)
-class TransientRod:
+class TransientRod(Builder[geometry_elements_triga_netl.TransientRod]):
     """ An MPACT geometry builder class for a TRIGA NETL Transient Rod
 
     Parameters
@@ -101,17 +103,19 @@ class TransientRod:
             self.upper_element_plug      = self.upper_element_plug      or TransientRod.RegionSpecs()
 
 
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
+
     @property
-    def specs(self) -> Optional[Specs]:
+    def specs(self) -> Specs:
         return self._specs
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs if specs else TransientRod.Specs()
-
-
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
+        self._specs = specs if specs is not None else self.Specs()
 
 
     def build(self,
@@ -136,9 +140,18 @@ class TransientRod:
 
         if bounds is None:
             outer_radius = element.cladding.outer_radius
-            bounds = Bounds(X={"min": -outer_radius, "max": outer_radius},
-                            Y={"min": -outer_radius, "max": outer_radius})
+            bounds = Bounds(X=AxisBounds(min=-outer_radius, max=outer_radius),
+                            Y=AxisBounds(min=-outer_radius, max=outer_radius))
 
+        stack, stack_specs = self.build_stack_and_specs(element)
+
+        return build(stack, stack_specs, bounds)
+
+
+    def build_stack_and_specs(self,
+                              element: geometry_elements_triga_netl.TransientRod,
+    ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
+        """Build the element stack and corresponding stack specs."""
         stack = element.as_stack().unionize_radial_mesh()
         segments = [(stack.segments[0], self.specs.lower_element_plug),
                     (stack.segments[1], self.specs.air_follower),
@@ -153,4 +166,4 @@ class TransientRod:
             for segment, region_specs in segments
         })
 
-        return build(stack, stack_specs, bounds)
+        return stack, stack_specs

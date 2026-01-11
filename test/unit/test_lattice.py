@@ -71,11 +71,9 @@ def mpact_voxel_specs(salt, graphite):
         graphite: mpact_builder.DEFAULT_MPACT_SPECS[type(graphite)],
     })
 
-    return mpact_builder.VoxelBuildSpecs(
-        xvals          = [1.0, 2.0, 3.0],
-        yvals          = [1.0, 2.0, 3.0],
-        zvals          = [1.0],
-        material_specs = mat_specs
+    return mpact_builder.VoxelBuilder.Specs(
+        target_thicknesses = {"X": 1.0, "Y": 1.0, "Z": 1.0},
+        material_specs     = mat_specs
     )
 
 def test_rect_lattice_initialization(rect_lattice, stack, unequal_stack):

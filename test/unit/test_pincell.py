@@ -43,11 +43,9 @@ def mpact_voxel_specs(salt, graphite):
         graphite: mpact_builder.DEFAULT_MPACT_SPECS[type(graphite)],
     })
 
-    return mpact_builder.VoxelBuildSpecs(
-        xvals          = [16.0, 32.0],
-        yvals          = [16.0, 32.0],
-        zvals          = [1.0],
-        material_specs = mat_specs
+    return mpact_builder.VoxelBuilder.Specs(
+        target_thicknesses = {"X": 16.0, "Y": 16.0, "Z": 1.0},
+        material_specs     = mat_specs
     )
 
 
@@ -91,7 +89,10 @@ def test_openmc_builder(pincell):
 def test_pincell_mpact_builder(pincell, mpact_voxel_specs, salt, graphite):
     geom_element = pincell
     specs = mpact_voxel_specs
-    core = mpact_builder.build(geom_element, specs)
+    bounds = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=0.0, max=32.0),
+                                  Y=mpact_builder.AxisBounds(min=0.0, max=32.0),
+                                  Z=mpact_builder.AxisBounds(min=0.0, max=1.0))
+    core = mpact_builder.build(geom_element, specs, bounds)
     salt = mpact_builder.build_material(salt)
     graphite = mpact_builder.build_material(graphite)
 
@@ -136,8 +137,8 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
 
     geom_element = cylindrical_pincell
     specs        = cylindrical_pincell_mpact_specs
-    bounds       = mpact_builder.Bounds(X={'min': -4.0, 'max': 4.0},
-                                        Y={'min': -4.0, 'max': 4.0})
+    bounds       = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=-4.0, max=4.0),
+                                        Y=mpact_builder.AxisBounds(min=-4.0, max=4.0))
     core         = mpact_builder.build(geom_element, specs, bounds)
     salt         = mpact_builder.build_material(salt)
     graphite     = mpact_builder.build_material(graphite)

@@ -7,14 +7,15 @@ import os
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build, Bounds
+from coreforge.mpact_builder.mpact_builder import register_builder, build
+from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.utils import build_elements
 from coreforge import geometry_elements
 
 
 @register_builder(geometry_elements.HexLattice)
-class HexLattice:
+class HexLattice(Builder[geometry_elements.HexLattice]):
     """ An MPACT geometry builder class for HexLattice
 
     Parameters
@@ -57,17 +58,19 @@ class HexLattice:
             self.num_procs = min(self.num_procs, cpu_count())
 
 
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
+
     @property
     def specs(self) -> Specs:
         return self._specs
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs if specs else HexLattice.Specs()
-
-
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
+        self._specs = specs if specs is not None else self.Specs()
 
 
     def build(self, element: geometry_elements.HexLattice, bounds: Optional[Bounds] = None) -> mpactpy.Core:
@@ -237,17 +240,17 @@ class HexLattice:
         half_height = hex_height * 0.5
         half_width  = hex_width * 0.5
 
-        quadrant_bounds = {'NE': Bounds(X={'min': 0.0, 'max': half_width},
-                                        Y={'min': 0.0, 'max': half_height},
+        quadrant_bounds = {'NE': Bounds(X=AxisBounds(min=0.0,        max=half_width),
+                                        Y=AxisBounds(min=0.0,        max=half_height),
                                         Z=bounds.Z if bounds else None),
-                           'NW': Bounds(X={'min': -half_width, 'max': 0.0},
-                                        Y={'min': 0.0,         'max': half_height},
+                           'NW': Bounds(X=AxisBounds(min=-half_width, max=0.0),
+                                        Y=AxisBounds(min=0.0,         max=half_height),
                                         Z=bounds.Z if bounds else None),
-                           'SE': Bounds(X={'min': 0.0,          'max': half_width},
-                                        Y={'min': -half_height, 'max': 0.0},
+                           'SE': Bounds(X=AxisBounds(min=0.0,          max=half_width),
+                                        Y=AxisBounds(min=-half_height, max=0.0),
                                         Z=bounds.Z if bounds else None),
-                           'SW': Bounds(X={'min': -half_width,  'max': 0.0},
-                                        Y={'min': -half_height, 'max': 0.0},
+                           'SW': Bounds(X=AxisBounds(min=-half_width,  max=0.0),
+                                        Y=AxisBounds(min=-half_height, max=0.0),
                                         Z=bounds.Z if bounds else None)}
 
         # Build quadrants for each unique entry

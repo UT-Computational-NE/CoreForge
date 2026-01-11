@@ -1,10 +1,11 @@
 import openmc
 
+from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder, build
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.RectLattice)
-class RectLattice:
+class RectLattice(Builder[geometry_elements.RectLattice]):
     """ An OpenMC geometry builder class for RectLattice
     """
 
@@ -12,19 +13,6 @@ class RectLattice:
         pass
 
     def build(self, element: geometry_elements.RectLattice) -> openmc.Universe:
-        """ Method for building an OpenMC geometry of a RectLattice
-
-        Parameters
-        ----------
-        element: RectLattice
-            The geometry element to be built
-
-        Returns
-        -------
-        openmc.Universe
-            A new OpenMC geometry based on this geometry element
-        """
-
         outer_universe = openmc.Universe(cells=[openmc.Cell(fill=element.outer_material.openmc_material)])
 
         universes = []

@@ -4,13 +4,14 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build_material, Bounds
+from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder, build_material
+from coreforge.mpact_builder.mpact_builder import register_builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.material_specs import MaterialSpecs
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.CylindricalPinCell)
-class CylindricalPinCell:
+class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
     """ An MPACT geometry builder class for CylindricalPinCell
 
     Parameters
@@ -66,17 +67,19 @@ class CylindricalPinCell:
                 f"target_cell_thicknesses = {self.target_cell_thicknesses}"
 
 
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
+
     @property
     def specs(self) -> Specs:
         return self._specs
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs if specs else CylindricalPinCell.Specs()
-
-
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
+        self._specs = specs if specs is not None else self.Specs()
 
 
     def build(self, element: geometry_elements.CylindricalPinCell, bounds: Optional[Bounds] = None) -> mpactpy.Core:
@@ -110,12 +113,13 @@ class CylindricalPinCell:
         radial_thicknesses = [curr - prev for prev, curr in zip([0.0] + radii[:-1], radii)]
 
 
-        bounds = bounds or Bounds(X = {"min": -outer_radius, "max": outer_radius},
-                                  Y = {"min": -outer_radius, "max": outer_radius},
-                                  Z = {"min": 0.0, "max": 1.0})
+        bounds = bounds or Bounds()
+        bounds.X = bounds.X or AxisBounds(min=-outer_radius, max=outer_radius)
+        bounds.Y = bounds.Y or AxisBounds(min=-outer_radius, max=outer_radius)
+        bounds.Z = bounds.Z or AxisBounds(min=0.0,           max=1.0)
 
         def build_module(module_bounds: Tuple[float, float, float, float]) -> mpactpy.Module:
-            z_thickness = bounds.Z['max'] - bounds.Z['min'] if bounds.Z else 1.0
+            z_thickness = bounds.Z.max - bounds.Z.min if bounds.Z else 1.0
             pin = mpactpy.build_gcyl_pin(bounds                  = module_bounds,
                                          materials               = materials,
                                          target_cell_thicknesses = target_cell_thicknesses,
@@ -123,7 +127,7 @@ class CylindricalPinCell:
                                                                     "Z": [z_thickness]})
             return mpactpy.Module(1, [[pin]])
 
-        (xmin, xmax, ymin, ymax) = (bounds.X['min'], bounds.X['max'], bounds.Y['min'], bounds.Y['max'])
+        (xmin, xmax, ymin, ymax) = (bounds.X.min, bounds.X.max, bounds.Y.min, bounds.Y.max)
         hp   = {"X": (xmax-xmin)*0.5, "Y": (ymax-ymin)*0.5} # half pitch
 
         module_map = [[build_module((xmin, xmax, ymin, ymax))]] if not specs.divide_into_quadrants else \

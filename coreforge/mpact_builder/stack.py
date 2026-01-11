@@ -6,13 +6,14 @@ from multiprocessing import cpu_count
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build, Bounds
+from coreforge.mpact_builder.mpact_builder import register_builder, build
+from coreforge.mpact_builder.builder import Bounds, Builder, AxisBounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.utils import build_elements
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.Stack)
-class Stack:
+class Stack(Builder[geometry_elements.Stack]):
     """ An MPACT geometry builder class for Stack
 
     Parameters
@@ -134,17 +135,19 @@ class Stack:
             self.num_procs = min(self.num_procs, cpu_count())
 
 
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
+
     @property
-    def specs(self) -> Optional[Specs]:
+    def specs(self) -> Specs:
         return self._specs
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs if specs else Stack.Specs()
-
-
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
+        self._specs = specs if specs is not None else self.Specs()
 
 
     def build(self, element: geometry_elements.Stack, bounds: Optional[Bounds] = None) -> mpactpy.Core:
@@ -217,7 +220,7 @@ class Stack:
         core     =  mpactpy.Core([[assembly]], "360")
 
         if bounds and bounds.Z:
-            core = core.get_axial_slice(bounds.Z['min'], bounds.Z['max'])
+            core = core.get_axial_slice(bounds.Z.min, bounds.Z.max)
 
         return core
 
@@ -239,7 +242,9 @@ def _stack_chunk_worker(chunk:         List[geometry_elements.Stack.Segment],
     """
     results = []
     for segment in chunk:
-        build_specs = segment_specs.get(segment).builder_specs if segment_specs and segment_specs.get(segment) else None
-        mpact_geometry = build(segment.element, build_specs, bounds)
+        build_specs    = segment_specs.get(segment).builder_specs if segment_specs and segment_specs.get(segment) else None
+        bounds_z       = bounds.Z if bounds else AxisBounds(min=0.0, max=segment.length)
+        segment_bounds = Bounds(X=bounds.X, Y=bounds.Y, Z=bounds_z) if bounds else Bounds(Z=bounds_z)
+        mpact_geometry = build(segment.element, build_specs, segment_bounds)
         results.append((segment, mpact_geometry))
     return results

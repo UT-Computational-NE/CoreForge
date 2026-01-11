@@ -1,10 +1,11 @@
 import openmc
 
+from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder, build
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.Stack)
-class Stack:
+class Stack(Builder[geometry_elements.Stack]):
     """ An OpenMC geometry builder class for Stack
     """
 
@@ -12,19 +13,6 @@ class Stack:
         pass
 
     def build(self, element: geometry_elements.Stack) -> openmc.Universe:
-        """ Method for building an OpenMC geometry of a Stack
-
-        Parameters
-        ----------
-        element: Stack
-            The geometry element to be built
-
-        Returns
-        -------
-        openmc.Universe
-            A new OpenMC geometry based on this geometry element
-        """
-
         cells = []
         height = element.bottom_pos
         for segment in element.segments:
