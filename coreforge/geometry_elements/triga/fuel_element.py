@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import List, Optional, Literal
-from math import isclose, sqrt
+from math import inf, isclose, isinf, sqrt
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cone import OneSidedCone
+from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Graphite, Material, Mo, SS304, UZrH, Water, Zr
 
 
@@ -358,6 +359,49 @@ class FuelElement(GeometryElement):
                          self.direction,
                          self.material))
 
+    @dataclass(frozen=True)
+    class EndFittingStackOptions:
+        """Stack options for end fitting cone segmentation.
+
+        Attributes
+        ----------
+        n : Optional[int]
+            Number of equal-height segments.
+        target_axial_length : Optional[float]
+            Maximum segment length. Defaults to ``inf``.
+        segment_lengths : Optional[List[float]]
+            Explicit segment lengths that must sum to the cone height.
+        """
+
+        n: Optional[int] = None
+        target_axial_length: Optional[float] = inf
+        segment_lengths: Optional[List[float]] = None
+
+        def __post_init__(self) -> None:
+            if self.n is not None:
+                assert self.n >= 1, f"n = {self.n}"
+
+            if self.segment_lengths is not None:
+                assert len(self.segment_lengths) > 0, "segment_lengths must be non-empty"
+                assert all(length > 0.0 for length in self.segment_lengths), \
+                    "All segment lengths must be > 0"
+
+            if self.target_axial_length is not None:
+                assert self.target_axial_length > 0.0, \
+                    f"target_axial_length = {self.target_axial_length}"
+
+            if (self.target_axial_length is not None and isinf(self.target_axial_length)
+                    and (self.n is not None or self.segment_lengths is not None)):
+                object.__setattr__(self, "target_axial_length", None)
+
+            specified = [
+                self.n is not None,
+                self.target_axial_length is not None,
+                self.segment_lengths is not None,
+            ]
+            assert sum(1 for option in specified if option) <= 1, \
+                "Specify at most one of n, target_axial_length, segment_lengths"
+
     @property
     def cladding(self) -> Cladding:
         return self._cladding
@@ -550,6 +594,68 @@ class FuelElement(GeometryElement):
             self.lower_end_fitting,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
+
+    def as_stack(
+        self,
+        bottom_pos: float = 0.0,
+        lower_end_options: Optional[FuelElement.EndFittingStackOptions] = None,
+        upper_end_options: Optional[FuelElement.EndFittingStackOptions] = None,
+    ) -> Stack:
+        """ A method for getting a copy of the Fuel Element as a Stack
+
+        Parameters
+        ----------
+        bottom_pos : float
+            The axial position of the bottom of the stack (cm)
+        lower_end_options : Optional[FuelElement.EndFittingStackOptions]
+            Stack options for the lower end fitting cone.
+        upper_end_options : Optional[FuelElement.EndFittingStackOptions]
+            Stack options for the upper end fitting cone.
+
+        Returns
+        -------
+        Stack
+            The Fuel Element as a Stack
+        """
+
+        lower_end_options = lower_end_options or FuelElement.EndFittingStackOptions()
+        upper_end_options = upper_end_options or FuelElement.EndFittingStackOptions()
+
+        lower_cone = self.lower_end_fitting.cone(
+            outer_material = self.outer_material,
+            name           = self.name + "_lower_end_fitting_cone",
+        )
+        lower_end_stack = lower_cone.as_stack(
+            bottom_pos          = bottom_pos,
+            n                   = lower_end_options.n,
+            target_axial_length = lower_end_options.target_axial_length,
+            segment_lengths     = lower_end_options.segment_lengths,
+            direction           = self.lower_end_fitting.direction,
+        )
+
+        upper_cone = self.upper_end_fitting.cone(
+            outer_material = self.outer_material,
+            name           = self.name + "_upper_end_fitting_cone",
+        )
+        upper_end_stack = upper_cone.as_stack(
+            n                   = upper_end_options.n,
+            target_axial_length = upper_end_options.target_axial_length,
+            segment_lengths     = upper_end_options.segment_lengths,
+            direction           = self.upper_end_fitting.direction,
+        )
+
+        mid_stack = Stack(segments=[
+            Stack.Segment(self.lower_reflector_pincell, self.lower_graphite_reflector.thickness),
+            Stack.Segment(self.moly_disc_pincell, self.moly_disc.thickness),
+            Stack.Segment(self.fuel_pincell, self.fuel_meat.length),
+            Stack.Segment(self.upper_reflector_pincell, self.upper_graphite_reflector.thickness),
+            Stack.Segment(self.air_gap_pincell, self.upper_air_gap.thickness),
+        ])
+
+        stack = lower_end_stack + mid_stack + upper_end_stack
+        stack.name = self.name
+
+        return stack
 
     @staticmethod
     def build_fuel_meat_pincell(cladding:       Cladding,

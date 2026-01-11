@@ -149,46 +149,44 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
     def build_stack_and_specs(self,
                               element: geometry_elements_triga.FuelElement,
     ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
-        """Build the element stack and corresponding stack specs."""
-        cone = element.lower_end_fitting.cone(outer_material = element.outer_material,
-                                              name           = element.name + "_lower_end_fitting_cone")
-        lower_end_stack = cone.as_stack(target_axial_length = self.specs.lower_end_fitting.target_axial_thickness,
-                                        direction           = element.lower_end_fitting.direction)
+        lower_end_options = geometry_elements_triga.FuelElement.EndFittingStackOptions(
+            target_axial_length=self.specs.lower_end_fitting.target_axial_thickness
+        )
+        upper_end_options = geometry_elements_triga.FuelElement.EndFittingStackOptions(
+            target_axial_length=self.specs.upper_end_fitting.target_axial_thickness
+        )
+        stack = element.as_stack(lower_end_options=lower_end_options,
+                                 upper_end_options=upper_end_options)
 
-        cone = element.upper_end_fitting.cone(outer_material = element.outer_material,
-                                              name           = element.name + "_upper_end_fitting_cone")
-        upper_end_stack = cone.as_stack(target_axial_length = self.specs.upper_end_fitting.target_axial_thickness,
-                                        direction           = element.upper_end_fitting.direction)
+        segment_specs = {}
+        lower_end_count = None
+        for idx, segment in enumerate(stack.segments):
+            if segment.element is element.lower_reflector_pincell:
+                lower_end_count = idx
+                break
 
-        mid_stack = geometry_elements.Stack(segments=[
-            geometry_elements.Stack.Segment(element.lower_reflector_pincell,
-                                            element.lower_graphite_reflector.thickness),
-            geometry_elements.Stack.Segment(element.moly_disc_pincell,
-                                            element.moly_disc.thickness),
-            geometry_elements.Stack.Segment(element.fuel_pincell,
-                                            element.fuel_meat.length),
-            geometry_elements.Stack.Segment(element.upper_reflector_pincell,
-                                            element.upper_graphite_reflector.thickness),
-            geometry_elements.Stack.Segment(element.air_gap_pincell,
-                                            element.upper_air_gap.thickness)])
+        mid_specs = [self.specs.lower_reflector,
+                     self.specs.moly_disc,
+                     self.specs.fuel,
+                     self.specs.upper_reflector,
+                     self.specs.air_gap]
 
-        stack = lower_end_stack + mid_stack + upper_end_stack
-        stack.name = element.name
+        mid_count = len(mid_specs)
+        mid_start = lower_end_count
+        mid_end   = mid_start + mid_count
 
-        segments = []
-        segments.extend((segment, self.specs.lower_end_fitting)
-                        for segment in lower_end_stack.segments)
-        segments.extend([(mid_stack.segments[0], self.specs.lower_reflector),
-                         (mid_stack.segments[1], self.specs.moly_disc),
-                         (mid_stack.segments[2], self.specs.fuel),
-                         (mid_stack.segments[3], self.specs.upper_reflector),
-                         (mid_stack.segments[4], self.specs.air_gap)])
-        segments.extend((segment, self.specs.upper_end_fitting)
-                        for segment in upper_end_stack.segments)
+        for segment in stack.segments[:lower_end_count]:
+            segment_specs[segment] = self.specs.lower_end_fitting
+
+        for segment, region_specs in zip(stack.segments[mid_start:mid_end], mid_specs):
+            segment_specs[segment] = region_specs
+
+        for segment in stack.segments[mid_end:]:
+            segment_specs[segment] = self.specs.upper_end_fitting
 
         stack_specs = Stack.Specs({
             segment: Stack.Segment.Specs(region_specs.target_axial_thickness,
                                          region_specs.pincell_specs)
-            for segment, region_specs in segments})
+            for segment, region_specs in segment_specs.items()})
 
         return stack, stack_specs

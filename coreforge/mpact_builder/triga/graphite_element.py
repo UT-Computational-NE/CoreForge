@@ -135,34 +135,37 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
                               element: geometry_elements_triga.GraphiteElement,
     ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
         """Build the element stack and corresponding stack specs."""
-        cone = element.lower_end_fitting.cone(outer_material = element.outer_material,
-                                              name           = element.name + "_lower_end_fitting_cone")
-        lower_end_stack = cone.as_stack(target_axial_length = self.specs.lower_end_fitting.target_axial_thickness,
-                                        direction           = element.lower_end_fitting.direction)
+        lower_end_options = geometry_elements_triga.GraphiteElement.EndFittingStackOptions(
+            target_axial_length=self.specs.lower_end_fitting.target_axial_thickness
+        )
+        upper_end_options = geometry_elements_triga.GraphiteElement.EndFittingStackOptions(
+            target_axial_length=self.specs.upper_end_fitting.target_axial_thickness
+        )
+        stack = element.as_stack(lower_end_options=lower_end_options,
+                                 upper_end_options=upper_end_options)
 
-        cone = element.upper_end_fitting.cone(outer_material = element.outer_material,
-                                              name           = element.name + "_upper_end_fitting_cone")
-        upper_end_stack = cone.as_stack(target_axial_length = self.specs.upper_end_fitting.target_axial_thickness,
-                                        direction           = element.upper_end_fitting.direction)
+        segment_specs = {}
+        lower_end_count = None
+        for idx, segment in enumerate(stack.segments):
+            if segment.element is element.graphite_pincell:
+                lower_end_count = idx
+                break
 
-        mid_stack = geometry_elements.Stack(
-            segments=[geometry_elements.Stack.Segment(element.graphite_pincell,
-                                                      element.graphite_meat.length)],
-            name=element.name)
 
-        stack = lower_end_stack + mid_stack + upper_end_stack
-        stack.name = element.name
+        mid_start = lower_end_count
+        mid_end = mid_start + 1
 
-        segments = []
-        segments.extend((segment, self.specs.lower_end_fitting)
-                        for segment in lower_end_stack.segments)
-        segments.append((mid_stack.segments[0], self.specs.graphite))
-        segments.extend((segment, self.specs.upper_end_fitting)
-                        for segment in upper_end_stack.segments)
+        for segment in stack.segments[:lower_end_count]:
+            segment_specs[segment] = self.specs.lower_end_fitting
+
+        segment_specs[stack.segments[mid_start]] = self.specs.graphite
+
+        for segment in stack.segments[mid_end:]:
+            segment_specs[segment] = self.specs.upper_end_fitting
 
         stack_specs = Stack.Specs({
             segment: Stack.Segment.Specs(region_specs.target_axial_thickness,
                                          region_specs.pincell_specs)
-            for segment, region_specs in segments})
+            for segment, region_specs in segment_specs.items()})
 
         return stack, stack_specs
