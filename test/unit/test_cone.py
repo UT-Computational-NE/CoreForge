@@ -53,7 +53,7 @@ def test_equality_and_hash(cone, unequal_cone):
 
 def test_as_stack(cone):
     # n => equal-height segments
-    stack = cone.as_stack(n=4, direction="up")
+    stack = cone.as_stack(stack_options=OneSidedCone.StackOptions(n=4), direction="up")
     assert stack.name == "cone"
     assert isclose(stack.length, cone_h)
     assert len(stack.segments) == 4
@@ -63,26 +63,26 @@ def test_as_stack(cone):
     assert radii[0] > radii[1] > radii[2] > radii[3]
 
     # target_axial_length => choose smallest n such that dz <= target
-    stack = cone.as_stack(target_axial_length=3.0)
+    stack = cone.as_stack(stack_options=OneSidedCone.StackOptions(target_axial_length=3.0))
     # ceil(10/3)=4 => dz=2.5
     assert len(stack.segments) == 4
     assert all(seg.length <= 3.0 + 1e-12 for seg in stack.segments)
     assert isclose(sum(seg.length for seg in stack.segments), cone_h)
 
     # segment_lengths => explicit thicknesses
-    stack = cone.as_stack(segment_lengths=[2.0, 3.0, 5.0])
+    stack = cone.as_stack(stack_options=OneSidedCone.StackOptions(segment_lengths=[2.0, 3.0, 5.0]))
     assert [seg.length for seg in stack.segments] == [2.0, 3.0, 5.0]
     assert isclose(sum(seg.length for seg in stack.segments), cone_h)
 
     # direction ordering
-    up = cone.as_stack(n=4, direction="up")
-    down = cone.as_stack(n=4, direction="down")
+    up = cone.as_stack(stack_options=OneSidedCone.StackOptions(n=4), direction="up")
+    down = cone.as_stack(stack_options=OneSidedCone.StackOptions(n=4), direction="down")
     assert [_segment_radius(seg) for seg in down.segments] == list(
         reversed([_segment_radius(seg) for seg in up.segments])
     )
 
     # volume-preserving check (first slice)
-    stack = cone.as_stack(n=3)
+    stack = cone.as_stack(stack_options=OneSidedCone.StackOptions(n=3))
     radii = [_segment_radius(seg) for seg in stack.segments]
     dz = cone_h / 3.0
     z0, z1 = 0.0, dz

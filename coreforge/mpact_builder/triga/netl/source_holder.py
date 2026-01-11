@@ -128,7 +128,7 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
     def build_stack_and_specs(self,
                               element: geometry_elements_triga_netl.SourceHolder,
     ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
-        """Build the element stack and corresponding stack specs."""
+
         stack = element.as_stack()
 
         segments = [(stack.segments[0], self.specs.solid),

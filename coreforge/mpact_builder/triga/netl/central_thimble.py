@@ -104,7 +104,7 @@ class CentralThimble(CoreElement[geometry_elements_triga_netl.CentralThimble]):
     def build_stack_and_specs(self,
                               element: geometry_elements_triga_netl.CentralThimble,
     ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
-        """Build the element stack and corresponding stack specs."""
+
         stack = element.as_stack()
         segment_specs = Stack.Segment.Specs(self.specs.target_axial_thickness,
                                             self.specs.pincell_specs)

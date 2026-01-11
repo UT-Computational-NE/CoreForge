@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from math import ceil, isclose, sqrt
+from dataclasses import dataclass
+from math import ceil, inf, isclose, isinf, sqrt
 from typing import Any, List, Optional
 
 from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE as TOL
@@ -47,6 +48,49 @@ class OneSidedCone(GeometryElement):
 	outer_material : Material
 		Material filling the region outside the cone.
 	"""
+
+	@dataclass(frozen=True)
+	class StackOptions:
+		"""Stack options for cone segmentation.
+
+		Attributes
+		----------
+		n : Optional[int]
+			Number of equal-height segments.
+		target_axial_length : Optional[float]
+			Maximum segment length. Defaults to ``inf``.
+		segment_lengths : Optional[List[float]]
+			Explicit segment lengths that must sum to the cone height.
+		"""
+
+		n: Optional[int] = None
+		target_axial_length: Optional[float] = inf
+		segment_lengths: Optional[List[float]] = None
+
+		def __post_init__(self) -> None:
+			if self.n is not None:
+				assert self.n >= 1, f"n = {self.n}"
+
+			if self.segment_lengths is not None:
+				assert len(self.segment_lengths) > 0, "segment_lengths must be non-empty"
+				assert all(length > 0.0 for length in self.segment_lengths), \
+					"All segment lengths must be > 0"
+
+			if self.target_axial_length is not None:
+				assert self.target_axial_length > 0.0, \
+					f"target_axial_length = {self.target_axial_length}"
+
+			if (self.target_axial_length is not None and isinf(self.target_axial_length)
+					and (self.n is not None or self.segment_lengths is not None)):
+				object.__setattr__(self, "target_axial_length", None)
+
+			specified = [
+				self.n is not None,
+				self.target_axial_length is not None,
+				self.segment_lengths is not None,
+			]
+			assert sum(1 for option in specified if option) <= 1, \
+				"Specify at most one of n, target_axial_length, segment_lengths"
 
 	@property
 	def shape(self) -> OneSidedConeShape:
@@ -105,11 +149,9 @@ class OneSidedCone(GeometryElement):
 			         self.outer_material))
 
 	def as_stack(self,
-		         bottom_pos:          float = 0.0,
-		         n:                   Optional[int] = None,
-		         target_axial_length: Optional[float] = None,
-		         segment_lengths:     Optional[List[float]] = None,
-		         direction:           str = "up",
+		         bottom_pos:    float = 0.0,
+		         stack_options: Optional[StackOptions] = None,
+		         direction:     str = "up",
 	) -> Stack:
 		"""Convert the cone into a volume-preserving stack of cylinders.
 
@@ -117,20 +159,14 @@ class OneSidedCone(GeometryElement):
 		The cylinder radius for each slice is chosen to preserve the cone volume
 		within that slice.
 
-		Exactly one of n, target_axial_length, or segment_lengths may be provided.
-		If none are provided, a single segment is used.
+		If ``stack_options`` is omitted, a single segment is used.
 
 		Parameters
 		----------
 		bottom_pos : float
 			The axial position of the bottom of the stack (cm)
-		n : Optional[int]
-			Number of equal-height segments.
-		target_axial_length : Optional[float]
-			Maximum segment length; the smallest n is chosen such that each segment
-			length is <= target_axial_length.
-		segment_lengths : Optional[List[float]]
-			Explicit segment lengths; must sum to cone height h.
+		stack_options : Optional[OneSidedCone.StackOptions]
+			Stack segmentation options.
 		direction : str
 			Segment ordering: "up" (base->apex) or "down" (apex->base).
 
@@ -142,9 +178,9 @@ class OneSidedCone(GeometryElement):
 
 		assert direction in ("up", "down"), f"direction must be 'up' or 'down' (got {direction})"
 
-		lengths = self._determine_segment_lengths(n                   = n,
-			                                      target_axial_length = target_axial_length,
-			                                      segment_lengths     = segment_lengths)
+		stack_options = stack_options or OneSidedCone.StackOptions()
+
+		lengths = self._determine_segment_lengths(stack_options)
 
 		segments: List[Stack.Segment] = []
 		z = 0.0
@@ -167,33 +203,23 @@ class OneSidedCone(GeometryElement):
 		return Stack(segments=segments, name=self.name, bottom_pos=bottom_pos)
 
 
-	def _determine_segment_lengths(self,
-		                           n:                   Optional[int],
-		                           target_axial_length: Optional[float],
-		                           segment_lengths:     Optional[List[float]],
-	) -> List[float]:
+	def _determine_segment_lengths(self, stack_options: StackOptions) -> List[float]:
 		"""Determine the axial segment lengths for a cone-to-stack conversion.
-
-		Exactly one of ``n``, ``target_axial_length``, or ``segment_lengths`` may be
-		provided. If none are provided, a single segment spanning the full cone
-		height is used.
 
 		Parameters
 		----------
-		n : Optional[int]
-			Number of equal-length axial segments.
-		target_axial_length : Optional[float]
-			Maximum segment length (cm). The smallest ``n`` is chosen such that each
-			segment length is less than or equal to ``target_axial_length``.
-		segment_lengths : Optional[List[float]]
-			Explicit axial segment lengths (cm). All entries must be positive and the
-			list must sum to the cone height.
+		stack_options : OneSidedCone.StackOptions
+			Stack segmentation options.
 
 		Returns
 		-------
 		List[float]
 			A list of axial segment lengths (cm) that sum to the cone height.
 		"""
+		n                   = stack_options.n
+		target_axial_length = stack_options.target_axial_length
+		segment_lengths     = stack_options.segment_lengths
+
 		specified = [n is not None, target_axial_length is not None, segment_lengths is not None]
 		assert sum(1 for x in specified if x) <= 1, "Specify at most one of n, target_axial_length, segment_lengths"
 

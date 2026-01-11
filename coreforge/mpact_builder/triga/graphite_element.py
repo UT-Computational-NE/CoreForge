@@ -9,6 +9,7 @@ from coreforge.mpact_builder.mpact_builder import register_builder, build
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.triga.core_element import CoreElement
 import coreforge.geometry_elements as geometry_elements
@@ -134,11 +135,11 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
     def build_stack_and_specs(self,
                               element: geometry_elements_triga.GraphiteElement,
     ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
-        """Build the element stack and corresponding stack specs."""
-        lower_end_options = geometry_elements_triga.GraphiteElement.EndFittingStackOptions(
+
+        lower_end_options = OneSidedCone.StackOptions(
             target_axial_length=self.specs.lower_end_fitting.target_axial_thickness
         )
-        upper_end_options = geometry_elements_triga.GraphiteElement.EndFittingStackOptions(
+        upper_end_options = OneSidedCone.StackOptions(
             target_axial_length=self.specs.upper_end_fitting.target_axial_thickness
         )
         stack = element.as_stack(lower_end_options=lower_end_options,
