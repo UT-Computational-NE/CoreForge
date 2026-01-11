@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, Protocol, Tuple
+from typing import Optional, Tuple
 from dataclasses import dataclass, field
 from math import inf
 
@@ -12,14 +12,6 @@ from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
 import coreforge.geometry_elements as geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
-
-
-class CoreElementBuilder(Protocol):
-    def build_stack_and_specs(
-        self,
-        element: geometry_elements.GeometryElement,
-    ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
-        ...
 
 
 @register_builder(geometry_elements_triga_netl.Reactor)

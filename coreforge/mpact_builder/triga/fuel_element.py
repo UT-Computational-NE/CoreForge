@@ -6,16 +6,17 @@ from math import inf
 import mpactpy
 
 from coreforge.mpact_builder.mpact_builder import register_builder, build
-from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
+from coreforge.mpact_builder.builder import AxisBounds, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
+from coreforge.mpact_builder.triga.core_element import CoreElement
 import coreforge.geometry_elements as geometry_elements
 import coreforge.geometry_elements.triga as geometry_elements_triga
 
 
 @register_builder(geometry_elements_triga.FuelElement)
-class FuelElement(Builder[geometry_elements_triga.FuelElement]):
+class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
     """ An MPACT geometry builder class for a TRIGA Fuel Element
 
     Parameters
