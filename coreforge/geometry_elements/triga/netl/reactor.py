@@ -271,6 +271,15 @@ class Reactor(GeometryElement):
                  shim_1_rod_position:         float,
                  shim_2_rod_position:         float,
                  name:                        str = "reactor") -> None:
+
+        upper_top    = upper_grid_plate.top_to_core_centerline_distance
+        upper_bottom = upper_top - upper_grid_plate.geometry.thickness
+        lower_top    = -lower_grid_plate.top_to_core_centerline_distance
+        lower_bottom = lower_top - lower_grid_plate.geometry.thickness
+        gap          = upper_bottom - lower_top
+        assert gap > 0.0, "Grid plates must have a positive axial gap."
+        assert upper_top > lower_bottom, "Upper grid plate must be above lower grid plate."
+
         super().__init__(name)
         self._pool                        = pool
         self._reflector                   = reflector

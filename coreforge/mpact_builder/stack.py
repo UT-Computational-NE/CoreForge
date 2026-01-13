@@ -133,6 +133,8 @@ class Stack(Builder[geometry_elements.Stack]):
         def __post_init__(self):
             assert self.num_procs > 0, f"num_procs must be > 0 (got {self.num_procs})"
             self.num_procs = min(self.num_procs, cpu_count())
+            self.segment_specs = {segment: (specs if specs is not None else Stack.Segment.Specs())
+                                            for segment, specs in self.segment_specs.items()}
 
 
     def __init__(self, specs: Optional[Specs] = None):
