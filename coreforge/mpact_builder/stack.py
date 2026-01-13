@@ -248,3 +248,44 @@ def _stack_chunk_worker(chunk:         List[geometry_elements.Stack.Segment],
         mpact_geometry = build(segment.element, build_specs, segment_bounds)
         results.append((segment, mpact_geometry))
     return results
+
+
+def get_axial_slice(stack:       geometry_elements.Stack,
+                    stack_specs: Stack.Specs,
+                    start_pos:   float,
+                    stop_pos:    float,
+) -> Optional[Tuple[geometry_elements.Stack, Stack.Specs]]:
+    """Return a stack/specs pair from an axial slice of the stack.
+
+    Parameters
+    ----------
+    stack : geometry_elements.Stack
+        The stack to slice.
+    stack_specs : Stack.Specs
+        Builder specs corresponding to ``stack``.
+    start_pos : float
+        Starting axial position of the slice (cm), in the same coordinate system
+        as ``stack.bottom_pos``.  Snaps to the bottom of the stack if
+        ``start_pos`` is below the stack.
+    stop_pos : float
+        Stopping axial position of the slice (cm), in the same coordinate system
+        as ``stack.bottom_pos``.  Snaps to the top of the stack if
+        ``stop_pos`` is above the stack.
+
+    Returns
+    -------
+    Optional[Tuple[geometry_elements.Stack, Stack.Specs]]
+        The sliced stack and specs, or ``None`` if there is no overlap.
+    """
+    result = stack.get_axial_slice_with_origins(start_pos, stop_pos)
+    if result is None:
+        return None
+    sliced_stack, original_segments = result
+
+    segment_specs = {}
+    for sliced_segment, original_segment in zip(sliced_stack.segments, original_segments):
+        specs = stack_specs.segment_specs.get(original_segment) or Stack.Segment.Specs()
+        segment_specs[sliced_segment] = specs
+
+    sliced_specs = Stack.Specs(segment_specs=segment_specs, num_procs=stack_specs.num_procs)
+    return sliced_stack, sliced_specs

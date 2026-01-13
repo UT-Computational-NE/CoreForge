@@ -118,6 +118,14 @@ def test_unionize_radial_mesh(salt, graphite):
 
 
 def test_get_axial_slice(stack):
+    result = stack.get_axial_slice_with_origins(0.5, 7.5)
+    assert result is not None
+    sliced, origins = result
+    assert isclose(sliced.bottom_pos, 0.5)
+    assert [segment.length for segment in sliced.segments] == pytest.approx([2.5, 1.0, 3.5])
+    assert len(origins) == len(sliced.segments)
+    assert all(origin is segment for origin, segment in zip(origins, stack.segments))
+
     sliced = stack.get_axial_slice(1.0, 6.0)
     assert sliced is not None
     assert isclose(sliced.bottom_pos, 1.0)
@@ -126,3 +134,14 @@ def test_get_axial_slice(stack):
     assert all(segment.element == stack.segments[0].element for segment in sliced.segments)
 
     assert stack.get_axial_slice(8.0, 9.0) is None
+
+
+def test_mpact_builder_get_axial_slice(stack, stack_mpact_specs):
+    sliced = mpact_builder.stack.get_axial_slice(stack, stack_mpact_specs, 0.5, 7.5)
+    assert sliced is not None
+    sliced_stack, sliced_specs = sliced
+    assert isclose(sliced_stack.bottom_pos, 0.5)
+    assert isclose(sliced_stack.length, 7.0)
+    assert [segment.length for segment in sliced_stack.segments] == pytest.approx([2.5, 1.0, 3.5])
+    assert len(sliced_specs.segment_specs) == len(sliced_stack.segments)
+    assert mpact_builder.stack.get_axial_slice(stack, stack_mpact_specs, 8.0, 9.0) is None
