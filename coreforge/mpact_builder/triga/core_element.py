@@ -12,8 +12,7 @@ TCoreElement = TypeVar("TCoreElement", bound=GeometryElement)
 
 
 class CoreElement(Builder[TCoreElement], ABC):
-    """Base builder for TRIGA core elements.
-    """
+    """Base builder for TRIGA core elements."""
 
     @abstractmethod
     def build_stack_and_specs(

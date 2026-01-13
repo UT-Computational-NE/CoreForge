@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List, Any
+from typing import List, Any, Optional
 from math import isclose
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
@@ -163,3 +163,51 @@ class Stack(GeometryElement):
                                           length  = segment.length))
 
         return Stack(segments=segments, name=self.name, bottom_pos=self.bottom_pos)
+
+    def get_axial_slice(self, start_pos: float, stop_pos: float) -> Optional[Stack]:
+        """Return a new Stack from the axial slice of this stack.
+
+        Parameters
+        ----------
+        start_pos : float
+            Starting axial position of the slice (cm), in the same coordinate
+            system as ``bottom_pos``.  Will snap to the bottom of the stack if
+            ``start_pos`` is below the stack.
+        stop_pos : float
+            Stopping axial position of the slice (cm), in the same coordinate
+            system as ``bottom_pos``.  Will snap to the top of the stack if
+            ``stop_pos`` is above the stack.
+
+        Returns
+        -------
+        Optional[Stack]
+            A new stack representing the overlap with the slice bounds. Returns
+            ``None`` if there is no overlap.
+        """
+        assert stop_pos > start_pos, "stop_pos must be greater than start_pos."
+
+        stack_start = self.bottom_pos
+        stack_stop = self.bottom_pos + self.length
+
+        if stop_pos <= stack_start or isclose(stop_pos, stack_start) or \
+           start_pos >= stack_stop or isclose(start_pos, stack_stop):
+            return None
+
+        start_pos = max(start_pos, stack_start)
+        stop_pos = min(stop_pos, stack_stop)
+
+        segments = []
+        cursor = stack_start
+        for segment in self.segments:
+            seg_start = cursor
+            seg_end = cursor + segment.length
+            overlap_start = max(seg_start, start_pos)
+            overlap_end = min(seg_end, stop_pos)
+            if overlap_end > overlap_start and not isclose(overlap_end, overlap_start, rel_tol=TOL):
+                segments.append(Stack.Segment(segment.element, overlap_end - overlap_start))
+            cursor = seg_end
+
+        if not segments:
+            return None
+
+        return Stack(segments=segments, name=self.name, bottom_pos=start_pos)

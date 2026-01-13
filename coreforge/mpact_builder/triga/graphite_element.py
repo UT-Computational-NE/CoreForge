@@ -1,14 +1,12 @@
 from __future__ import annotations
 from typing import Optional, Tuple
 from dataclasses import dataclass, field
-from math import inf
 
 import mpactpy
 
 from coreforge.mpact_builder.mpact_builder import register_builder, build
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
-from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -32,59 +30,33 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
     """
 
     @dataclass
-    class RegionSpecs(BuilderSpecs):
-        """ Building specifications for a GraphiteElement region.
-
-        Attributes
-        ----------
-        target_axial_thickness : float
-            Target axial thickness for segment subdivision (cm).
-        pincell_specs : CylindricalPinCell.Specs
-            Specifications for building the region pincell.
-        """
-
-        target_axial_thickness: Optional[float] = None
-        pincell_specs:          Optional[CylindricalPinCell.Specs] = None
-
-        def __post_init__(self):
-            if not self.target_axial_thickness:
-                self.target_axial_thickness = inf
-
-            assert self.target_axial_thickness > 0.0, \
-                f"target_axial_thickness = {self.target_axial_thickness}"
-
-            if not self.pincell_specs:
-                self.pincell_specs = CylindricalPinCell.Specs()
-
-
-    @dataclass
     class Specs(BuilderSpecs):
         """ Building specifications for GraphiteElement
 
         Attributes
         ----------
-        lower_end_fitting : RegionSpecs
+        lower_end_fitting : Stack.Segment.Specs
             Specs for the lower end fitting region.
-        graphite : RegionSpecs
+        graphite : Stack.Segment.Specs
             Specs for the graphite meat region.
-        upper_end_fitting : RegionSpecs
+        upper_end_fitting : Stack.Segment.Specs
             Specs for the upper end fitting region.
         """
 
-        lower_end_fitting: Optional[GraphiteElement.RegionSpecs] = field(
-            default_factory=lambda: GraphiteElement.RegionSpecs()
+        lower_end_fitting: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
-        graphite: Optional[GraphiteElement.RegionSpecs] = field(
-            default_factory=lambda: GraphiteElement.RegionSpecs()
+        graphite: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
-        upper_end_fitting: Optional[GraphiteElement.RegionSpecs] = field(
-            default_factory=lambda: GraphiteElement.RegionSpecs()
+        upper_end_fitting: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
 
         def __post_init__(self):
-            self.lower_end_fitting = self.lower_end_fitting or GraphiteElement.RegionSpecs()
-            self.graphite          = self.graphite          or GraphiteElement.RegionSpecs()
-            self.upper_end_fitting = self.upper_end_fitting or GraphiteElement.RegionSpecs()
+            self.lower_end_fitting = self.lower_end_fitting or Stack.Segment.Specs()
+            self.graphite = self.graphite or Stack.Segment.Specs()
+            self.upper_end_fitting = self.upper_end_fitting or Stack.Segment.Specs()
 
 
     def __init__(self, specs: Optional[Specs] = None):
@@ -164,9 +136,6 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
         for segment in stack.segments[mid_end:]:
             segment_specs[segment] = self.specs.upper_end_fitting
 
-        stack_specs = Stack.Specs({
-            segment: Stack.Segment.Specs(region_specs.target_axial_thickness,
-                                         region_specs.pincell_specs)
-            for segment, region_specs in segment_specs.items()})
+        stack_specs = Stack.Specs({segment: region_specs for segment, region_specs in segment_specs.items()})
 
         return stack, stack_specs

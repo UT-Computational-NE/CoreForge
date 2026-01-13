@@ -115,3 +115,14 @@ def test_unionize_radial_mesh(salt, graphite):
     pin_b_mats = [zone.material for zone in unionized.segments[1].element.zones]
     assert pin_b_mats == [graphite, graphite, salt, salt]
     assert unionized.segments[1].element.outer_material == graphite
+
+
+def test_get_axial_slice(stack):
+    sliced = stack.get_axial_slice(1.0, 6.0)
+    assert sliced is not None
+    assert isclose(sliced.bottom_pos, 1.0)
+    assert isclose(sliced.length, 5.0)
+    assert [segment.length for segment in sliced.segments] == pytest.approx([2.0, 1.0, 2.0])
+    assert all(segment.element == stack.segments[0].element for segment in sliced.segments)
+
+    assert stack.get_axial_slice(8.0, 9.0) is None

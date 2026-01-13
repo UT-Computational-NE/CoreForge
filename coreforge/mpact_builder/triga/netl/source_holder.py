@@ -1,14 +1,12 @@
 from __future__ import annotations
 from typing import Optional, Tuple
 from dataclasses import dataclass, field
-from math import inf
 
 import mpactpy
 
 from coreforge.mpact_builder.mpact_builder import register_builder, build
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
-from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.triga.core_element import CoreElement
 import coreforge.geometry_elements as geometry_elements
@@ -31,53 +29,27 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
     """
 
     @dataclass
-    class RegionSpecs(BuilderSpecs):
-        """ Building specifications for a SourceHolder region.
-
-        Attributes
-        ----------
-        target_axial_thickness : float
-            Target axial thickness for segment subdivision (cm).
-        pincell_specs : CylindricalPinCell.Specs
-            Specifications for building the region pincell.
-        """
-
-        target_axial_thickness: Optional[float] = None
-        pincell_specs:          Optional[CylindricalPinCell.Specs] = None
-
-        def __post_init__(self):
-            if not self.target_axial_thickness:
-                self.target_axial_thickness = inf
-
-            assert self.target_axial_thickness > 0.0, \
-                f"target_axial_thickness = {self.target_axial_thickness}"
-
-            if not self.pincell_specs:
-                self.pincell_specs = CylindricalPinCell.Specs()
-
-
-    @dataclass
     class Specs(BuilderSpecs):
         """ Building specifications for SourceHolder
 
         Attributes
         ----------
-        solid : RegionSpecs
+        solid : Stack.Segment.Specs
             Specs for the solid cladding regions above/below the cavity.
-        cavity : RegionSpecs
+        cavity : Stack.Segment.Specs
             Specs for the cavity region.
         """
 
-        solid:  Optional[SourceHolder.RegionSpecs] = field(
-            default_factory=lambda: SourceHolder.RegionSpecs()
+        solid: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
-        cavity: Optional[SourceHolder.RegionSpecs] = field(
-            default_factory=lambda: SourceHolder.RegionSpecs()
+        cavity: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
 
         def __post_init__(self):
-            self.solid  = self.solid  or SourceHolder.RegionSpecs()
-            self.cavity = self.cavity or SourceHolder.RegionSpecs()
+            self.solid = self.solid or Stack.Segment.Specs()
+            self.cavity = self.cavity or Stack.Segment.Specs()
 
 
     def __init__(self, specs: Optional[Specs] = None):
@@ -138,10 +110,6 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
         stack = geometry_elements.Stack(segments=[segment for segment, _ in segments],
                                         name=element.name)
 
-        stack_specs = Stack.Specs({
-            segment: Stack.Segment.Specs(region_specs.target_axial_thickness,
-                                         region_specs.pincell_specs)
-            for segment, region_specs in segments
-        })
+        stack_specs = Stack.Specs({segment: region_specs for segment, region_specs in segments})
 
         return stack, stack_specs

@@ -1,14 +1,12 @@
 from __future__ import annotations
 from typing import Optional, Tuple
 from dataclasses import dataclass, field
-from math import inf
 
 import mpactpy
 
 from coreforge.mpact_builder.mpact_builder import register_builder, build
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
-from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -32,69 +30,57 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
     """
 
     @dataclass
-    class RegionSpecs(BuilderSpecs):
-        """ Building specifications for a FuelElement region.
-
-        Attributes
-        ----------
-        target_axial_thickness : float
-            Target axial thickness for segment subdivision (cm).
-        pincell_specs : CylindricalPinCell.Specs
-            Specifications for building the region pincell.
-        """
-
-        target_axial_thickness: Optional[float] = None
-        pincell_specs:          Optional[CylindricalPinCell.Specs] = None
-
-        def __post_init__(self):
-            if not self.target_axial_thickness:
-                self.target_axial_thickness = inf
-
-            assert self.target_axial_thickness > 0.0, \
-                f"target_axial_thickness = {self.target_axial_thickness}"
-
-            if not self.pincell_specs:
-                self.pincell_specs = CylindricalPinCell.Specs()
-
-
-    @dataclass
     class Specs(BuilderSpecs):
         """ Building specifications for FuelElement
 
         Attributes
         ----------
-        lower_end_fitting : RegionSpecs
-            Specs for the lower end fitting region (not currently modeled).
-        lower_reflector : RegionSpecs
+        lower_end_fitting : Stack.Segment.Specs
+            Specs for the lower end fitting region.
+        lower_reflector : Stack.Segment.Specs
             Specs for the lower graphite reflector region.
-        moly_disc : RegionSpecs
+        moly_disc : Stack.Segment.Specs
             Specs for the molybdenum disc region.
-        fuel : RegionSpecs
+        fuel : Stack.Segment.Specs
             Specs for the fuel meat region.
-        upper_reflector : RegionSpecs
+        upper_reflector : Stack.Segment.Specs
             Specs for the upper graphite reflector region.
-        air_gap : RegionSpecs
+        air_gap : Stack.Segment.Specs
             Specs for the upper air gap region.
-        upper_end_fitting : RegionSpecs
-            Specs for the upper end fitting region (not currently modeled).
+        upper_end_fitting : Stack.Segment.Specs
+            Specs for the upper end fitting region.
         """
 
-        lower_end_fitting: Optional[FuelElement.RegionSpecs] = field(default_factory=lambda: FuelElement.RegionSpecs())
-        lower_reflector:   Optional[FuelElement.RegionSpecs] = field(default_factory=lambda: FuelElement.RegionSpecs())
-        moly_disc:         Optional[FuelElement.RegionSpecs] = field(default_factory=lambda: FuelElement.RegionSpecs())
-        fuel:              Optional[FuelElement.RegionSpecs] = field(default_factory=lambda: FuelElement.RegionSpecs())
-        upper_reflector:   Optional[FuelElement.RegionSpecs] = field(default_factory=lambda: FuelElement.RegionSpecs())
-        air_gap:           Optional[FuelElement.RegionSpecs] = field(default_factory=lambda: FuelElement.RegionSpecs())
-        upper_end_fitting: Optional[FuelElement.RegionSpecs] = field(default_factory=lambda: FuelElement.RegionSpecs())
+        lower_end_fitting: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
+        )
+        lower_reflector: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
+        )
+        moly_disc: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
+        )
+        fuel: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
+        )
+        upper_reflector: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
+        )
+        air_gap: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
+        )
+        upper_end_fitting: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
+        )
 
         def __post_init__(self):
-            self.lower_end_fitting = self.lower_end_fitting or FuelElement.RegionSpecs()
-            self.lower_reflector   = self.lower_reflector   or FuelElement.RegionSpecs()
-            self.moly_disc         = self.moly_disc         or FuelElement.RegionSpecs()
-            self.fuel              = self.fuel              or FuelElement.RegionSpecs()
-            self.upper_reflector   = self.upper_reflector   or FuelElement.RegionSpecs()
-            self.air_gap           = self.air_gap           or FuelElement.RegionSpecs()
-            self.upper_end_fitting = self.upper_end_fitting or FuelElement.RegionSpecs()
+            self.lower_end_fitting = self.lower_end_fitting or Stack.Segment.Specs()
+            self.lower_reflector = self.lower_reflector or Stack.Segment.Specs()
+            self.moly_disc = self.moly_disc or Stack.Segment.Specs()
+            self.fuel = self.fuel or Stack.Segment.Specs()
+            self.upper_reflector = self.upper_reflector or Stack.Segment.Specs()
+            self.air_gap = self.air_gap or Stack.Segment.Specs()
+            self.upper_end_fitting = self.upper_end_fitting or Stack.Segment.Specs()
 
 
     def __init__(self, specs: Optional[Specs] = None):
@@ -186,9 +172,6 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
         for segment in stack.segments[mid_end:]:
             segment_specs[segment] = self.specs.upper_end_fitting
 
-        stack_specs = Stack.Specs({
-            segment: Stack.Segment.Specs(region_specs.target_axial_thickness,
-                                         region_specs.pincell_specs)
-            for segment, region_specs in segment_specs.items()})
+        stack_specs = Stack.Specs({segment: region_specs for segment, region_specs in segment_specs.items()})
 
         return stack, stack_specs

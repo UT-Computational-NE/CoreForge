@@ -1,14 +1,12 @@
 from __future__ import annotations
 from typing import Optional, Tuple
 from dataclasses import dataclass, field
-from math import inf
 
 import mpactpy
 
 from coreforge.mpact_builder.mpact_builder import register_builder, build
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
-from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.triga.core_element import CoreElement
 import coreforge.geometry_elements as geometry_elements
@@ -31,77 +29,51 @@ class TransientRod(CoreElement[geometry_elements_triga_netl.TransientRod]):
     """
 
     @dataclass
-    class RegionSpecs(BuilderSpecs):
-        """ Building specifications for a TransientRod region.
-
-        Attributes
-        ----------
-        target_axial_thickness : float
-            Target axial thickness for segment subdivision (cm).
-        pincell_specs : CylindricalPinCell.Specs
-            Specifications for building the region pincell.
-        """
-
-        target_axial_thickness: Optional[float] = None
-        pincell_specs:          Optional[CylindricalPinCell.Specs] = None
-
-        def __post_init__(self):
-            if not self.target_axial_thickness:
-                self.target_axial_thickness = inf
-
-            assert self.target_axial_thickness > 0.0, \
-                f"target_axial_thickness = {self.target_axial_thickness}"
-
-            if not self.pincell_specs:
-                self.pincell_specs = CylindricalPinCell.Specs()
-
-
-    @dataclass
     class Specs(BuilderSpecs):
         """ Building specifications for TransientRod
 
         Attributes
         ----------
-        lower_element_plug : RegionSpecs
+        lower_element_plug : Stack.Segment.Specs
             Specs for the lower element plug region.
-        air_follower : RegionSpecs
+        air_follower : Stack.Segment.Specs
             Specs for the air follower region.
-        lower_magneform_fitting : RegionSpecs
+        lower_magneform_fitting : Stack.Segment.Specs
             Specs for the lower magneform fitting region.
-        absorber : RegionSpecs
+        absorber : Stack.Segment.Specs
             Specs for the absorber region.
-        upper_magneform_fitting : RegionSpecs
+        upper_magneform_fitting : Stack.Segment.Specs
             Specs for the upper magneform fitting region.
-        upper_element_plug : RegionSpecs
+        upper_element_plug : Stack.Segment.Specs
             Specs for the upper element plug region.
         """
 
-        lower_element_plug:       Optional[TransientRod.RegionSpecs] = field(
-            default_factory=lambda: TransientRod.RegionSpecs()
+        lower_element_plug: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
-        air_follower:             Optional[TransientRod.RegionSpecs] = field(
-            default_factory=lambda: TransientRod.RegionSpecs()
+        air_follower: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
-        lower_magneform_fitting:  Optional[TransientRod.RegionSpecs] = field(
-            default_factory=lambda: TransientRod.RegionSpecs()
+        lower_magneform_fitting: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
-        absorber:                 Optional[TransientRod.RegionSpecs] = field(
-            default_factory=lambda: TransientRod.RegionSpecs()
+        absorber: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
-        upper_magneform_fitting:  Optional[TransientRod.RegionSpecs] = field(
-            default_factory=lambda: TransientRod.RegionSpecs()
+        upper_magneform_fitting: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
-        upper_element_plug:       Optional[TransientRod.RegionSpecs] = field(
-            default_factory=lambda: TransientRod.RegionSpecs()
+        upper_element_plug: Optional[Stack.Segment.Specs] = field(
+            default_factory=lambda: Stack.Segment.Specs()
         )
 
         def __post_init__(self):
-            self.lower_element_plug      = self.lower_element_plug      or TransientRod.RegionSpecs()
-            self.air_follower            = self.air_follower            or TransientRod.RegionSpecs()
-            self.lower_magneform_fitting = self.lower_magneform_fitting or TransientRod.RegionSpecs()
-            self.absorber                = self.absorber                or TransientRod.RegionSpecs()
-            self.upper_magneform_fitting = self.upper_magneform_fitting or TransientRod.RegionSpecs()
-            self.upper_element_plug      = self.upper_element_plug      or TransientRod.RegionSpecs()
+            self.lower_element_plug = self.lower_element_plug or Stack.Segment.Specs()
+            self.air_follower = self.air_follower or Stack.Segment.Specs()
+            self.lower_magneform_fitting = self.lower_magneform_fitting or Stack.Segment.Specs()
+            self.absorber = self.absorber or Stack.Segment.Specs()
+            self.upper_magneform_fitting = self.upper_magneform_fitting or Stack.Segment.Specs()
+            self.upper_element_plug = self.upper_element_plug or Stack.Segment.Specs()
 
 
     def __init__(self, specs: Optional[Specs] = None):
@@ -161,10 +133,6 @@ class TransientRod(CoreElement[geometry_elements_triga_netl.TransientRod]):
                     (stack.segments[4], self.specs.upper_magneform_fitting),
                     (stack.segments[5], self.specs.upper_element_plug)]
 
-        stack_specs = Stack.Specs({
-            segment: Stack.Segment.Specs(region_specs.target_axial_thickness,
-                                         region_specs.pincell_specs)
-            for segment, region_specs in segments
-        })
+        stack_specs = Stack.Specs({segment: region_specs for segment, region_specs in segments})
 
         return stack, stack_specs
