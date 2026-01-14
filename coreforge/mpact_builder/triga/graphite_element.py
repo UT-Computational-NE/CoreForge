@@ -35,28 +35,28 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
 
         Attributes
         ----------
-        lower_end_fitting : Stack.Segment.Specs
+        lower_end_fitting : CoreElement.SegmentSpecs
             Specs for the lower end fitting region.
-        graphite : Stack.Segment.Specs
+        graphite : CoreElement.SegmentSpecs
             Specs for the graphite meat region.
-        upper_end_fitting : Stack.Segment.Specs
+        upper_end_fitting : CoreElement.SegmentSpecs
             Specs for the upper end fitting region.
         """
 
-        lower_end_fitting: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        lower_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        graphite: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        graphite: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        upper_end_fitting: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        upper_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
 
         def __post_init__(self):
-            self.lower_end_fitting = self.lower_end_fitting or Stack.Segment.Specs()
-            self.graphite = self.graphite or Stack.Segment.Specs()
-            self.upper_end_fitting = self.upper_end_fitting or Stack.Segment.Specs()
+            self.lower_end_fitting = self.lower_end_fitting or CoreElement.SegmentSpecs()
+            self.graphite = self.graphite or CoreElement.SegmentSpecs()
+            self.upper_end_fitting = self.upper_end_fitting or CoreElement.SegmentSpecs()
 
 
     def __init__(self, specs: Optional[Specs] = None):

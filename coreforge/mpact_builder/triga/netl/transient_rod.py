@@ -34,46 +34,46 @@ class TransientRod(CoreElement[geometry_elements_triga_netl.TransientRod]):
 
         Attributes
         ----------
-        lower_element_plug : Stack.Segment.Specs
+        lower_element_plug : CoreElement.SegmentSpecs
             Specs for the lower element plug region.
-        air_follower : Stack.Segment.Specs
+        air_follower : CoreElement.SegmentSpecs
             Specs for the air follower region.
-        lower_magneform_fitting : Stack.Segment.Specs
+        lower_magneform_fitting : CoreElement.SegmentSpecs
             Specs for the lower magneform fitting region.
-        absorber : Stack.Segment.Specs
+        absorber : CoreElement.SegmentSpecs
             Specs for the absorber region.
-        upper_magneform_fitting : Stack.Segment.Specs
+        upper_magneform_fitting : CoreElement.SegmentSpecs
             Specs for the upper magneform fitting region.
-        upper_element_plug : Stack.Segment.Specs
+        upper_element_plug : CoreElement.SegmentSpecs
             Specs for the upper element plug region.
         """
 
-        lower_element_plug: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        lower_element_plug: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        air_follower: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        air_follower: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        lower_magneform_fitting: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        lower_magneform_fitting: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        absorber: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        absorber: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        upper_magneform_fitting: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        upper_magneform_fitting: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        upper_element_plug: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        upper_element_plug: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
 
         def __post_init__(self):
-            self.lower_element_plug = self.lower_element_plug or Stack.Segment.Specs()
-            self.air_follower = self.air_follower or Stack.Segment.Specs()
-            self.lower_magneform_fitting = self.lower_magneform_fitting or Stack.Segment.Specs()
-            self.absorber = self.absorber or Stack.Segment.Specs()
-            self.upper_magneform_fitting = self.upper_magneform_fitting or Stack.Segment.Specs()
-            self.upper_element_plug = self.upper_element_plug or Stack.Segment.Specs()
+            self.lower_element_plug = self.lower_element_plug or CoreElement.SegmentSpecs()
+            self.air_follower = self.air_follower or CoreElement.SegmentSpecs()
+            self.lower_magneform_fitting = self.lower_magneform_fitting or CoreElement.SegmentSpecs()
+            self.absorber = self.absorber or CoreElement.SegmentSpecs()
+            self.upper_magneform_fitting = self.upper_magneform_fitting or CoreElement.SegmentSpecs()
+            self.upper_element_plug = self.upper_element_plug or CoreElement.SegmentSpecs()
 
 
     def __init__(self, specs: Optional[Specs] = None):

@@ -34,22 +34,22 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
 
         Attributes
         ----------
-        solid : Stack.Segment.Specs
+        solid : CoreElement.SegmentSpecs
             Specs for the solid cladding regions above/below the cavity.
-        cavity : Stack.Segment.Specs
+        cavity : CoreElement.SegmentSpecs
             Specs for the cavity region.
         """
 
-        solid: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        solid: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        cavity: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        cavity: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
 
         def __post_init__(self):
-            self.solid = self.solid or Stack.Segment.Specs()
-            self.cavity = self.cavity or Stack.Segment.Specs()
+            self.solid = self.solid or CoreElement.SegmentSpecs()
+            self.cavity = self.cavity or CoreElement.SegmentSpecs()
 
 
     def __init__(self, specs: Optional[Specs] = None):

@@ -1,17 +1,27 @@
 from __future__ import annotations
-from typing import Optional, Tuple
-from dataclasses import dataclass
+from typing import Dict, Optional, Tuple, TypeAlias
+from dataclasses import dataclass, field
 
 import mpactpy
 
 from coreforge.mpact_builder.mpact_builder import register_builder, build, get_builder
 from coreforge.mpact_builder.builder import Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.infinite_medium import InfiniteMedium as InfiniteMediumBuilder
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder import stack as stack_builder
 from coreforge.mpact_builder.triga.core_element import CoreElement as CoreElementBuilder
+from coreforge.mpact_builder.triga.fuel_element import FuelElement as FuelElementBuilder
+from coreforge.mpact_builder.triga.graphite_element import GraphiteElement as GraphiteElementBuilder
+from coreforge.mpact_builder.triga.netl.central_thimble import CentralThimble as CentralThimbleBuilder
+from coreforge.mpact_builder.triga.netl.fuel_follower_control_rod import (
+    FuelFollowerControlRod as FuelFollowerControlRodBuilder,
+)
+from coreforge.mpact_builder.triga.netl.source_holder import SourceHolder as SourceHolderBuilder
+from coreforge.mpact_builder.triga.netl.transient_rod import TransientRod as TransientRodBuilder
 import coreforge.geometry_elements as geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
+from coreforge.materials import Material
 
 
 @register_builder(geometry_elements_triga_netl.Reactor)
@@ -29,13 +39,77 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         Specifications for building the MPACT representation of this element
     """
 
+    CoreElementSpecs: TypeAlias = (FuelElementBuilder.Specs |
+                                   GraphiteElementBuilder.Specs |
+                                   CentralThimbleBuilder.Specs |
+                                   SourceHolderBuilder.Specs |
+                                   TransientRodBuilder.Specs |
+                                   FuelFollowerControlRodBuilder.Specs)
+
+    @dataclass
+    class VoxelizedSegmentSpecs(Stack.Segment.Specs):
+        """Specifications for voxelized segments outside core element regions.
+
+        Attributes
+        ----------
+        builder_specs : Optional[InfiniteMedium.Specs]
+            Builder specifications for the voxelized segment element.
+        """
+
+        builder_specs: Optional[InfiniteMediumBuilder.Specs] = None
+
+        def __post_init__(self) -> None:
+            super().__post_init__()
+            if self.builder_specs is None:
+                return
+            assert isinstance(
+                self.builder_specs,
+                InfiniteMediumBuilder.Specs,
+            ), "VoxelizedSegmentSpecs.builder_specs must be InfiniteMedium.Specs."
+
+    @dataclass
+    class CoreCellSpecs:
+        """Specifications for a single core location build.
+
+        Attributes
+        ----------
+        element_specs : Optional[CoreElementSpecs]
+            Builder specifications for the core element at this location. Must be
+            consistent with the element being built.
+        outer_region_specs : Optional[Reactor.VoxelizedSegmentSpecs | CoreElementBuilder.SegmentSpecs]
+            Specifications for axial regions outside the core element. Use
+            VoxelizedSegmentSpecs (InfiniteMedium.Specs) when there are no grid
+            plate penetrations, and CoreElement.SegmentSpecs
+            (CylindricalPinCell.Specs) when penetrations are present.
+        axial_bounds : Optional[tuple[float, float]]
+            Lower and upper axial bounds (cm) to clip the constructed stack.
+        """
+
+        element_specs:      Optional[CoreElementSpecs] = None
+        outer_region_specs: Optional[Reactor.VoxelizedSegmentSpecs | CoreElementBuilder.SegmentSpecs] = None
+        axial_bounds:       Optional[Tuple[float, float]] = None
+
+        def __post_init__(self) -> None:
+            if self.axial_bounds is not None:
+                assert self.axial_bounds[1] > self.axial_bounds[0], \
+                    f"Upper axial bound {self.axial_bounds[1]} must be greater than lower axial bound {self.axial_bounds[0]}."
+
     @dataclass
     class Specs(BuilderSpecs):
         """ Building specifications for Reactor
 
         Attributes
         ----------
+        core_specs : Dict[str, Reactor.CoreCellSpecs]
+            Per-location overrides for core element specs.
         """
+
+        core_specs: Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
+
+        def __post_init__(self) -> None:
+            valid_locations = {loc for ring in geometry_elements_triga_netl.Core.RING_MAP for loc in ring}
+            invalid = [loc for loc in self.core_specs.keys() if loc not in valid_locations]
+            assert not invalid, f"Invalid core location(s) in core_specs: {invalid}"
 
 
 
@@ -73,6 +147,19 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         """
         raise NotImplementedError("MPACT builder for Reactor is not implemented yet.")
 
+        # - Make CoreElements and Excore elements special versions of Stack Specs (maybe)
+        # - All Excore elements can share the same target thicknesses and segement lengths cause it'll all be unionized anyways
+        #   - just define once and assign to all excore elements
+        #   - Only the radial resolution need be different for excore elements
+        # - Can define the same specs for the same cell type (e.g., reflector, pool, shroud, beam tube, rsr) and just choose which
+        #   which core locations to assign to (may need to build openmc model and sample the points to see which locations are which cell type)
+        #      - Would be best to sample by universe, but could do it by universe name
+        # - K, build the core lattice, and start adding rings to the outside of it until we get the full radius
+        # - We can make custom stacks for the various regions of resolution (one stack for beam tubes, one for shroud, etc)
+        # - RSR, BeamTube, Shroud, Reflector, Pool resolutions
+        # - We can then place our stacks based on the ring and ring position
+        # - Any interior cells that hit the shroud need to be replaced with shroud cells
+
 
 def build_core_element(
     core_location:                 str,
@@ -80,16 +167,15 @@ def build_core_element(
     lower_grid_plate:              geometry_elements_triga_netl.Reactor.GridPlate,
     element:                       Optional[geometry_elements_triga_netl.Core.Element] = None,
     element_bottom_axial_position: Optional[float] = None,
-    axial_bounds:                  Optional[tuple[float, float]] = None,
-    outer_material:                Optional[geometry_elements_triga_netl.Material] = None,
-    element_specs:                 Optional[BuilderSpecs] = None,
-    outer_region_specs:            Optional[Stack.Segment.Specs] = None,
+    outer_material:                Optional[Material] = None,
+    core_cell_specs:               Optional[Reactor.CoreCellSpecs] = None,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
     """Helper to build an MPACT core for a single element with grid plates.
 
-    This function is intended only for core locations with grid plate penetrations.
-    Non-element axial regions are represented as coolant pincells that use the
-    upper/lower penetration radii as mesh boundaries.
+    This function handles core locations with or without grid plate penetrations.
+    Non-element axial regions are represented as either voxelized InfiniteMedium
+    segments (no penetrations) or cylindrical pincells (with penetrations) that
+    use the upper/lower penetration radii as mesh boundaries.
 
     Parameters
     ----------
@@ -105,26 +191,24 @@ def build_core_element(
         material will be present in the returned universe.
     element_bottom_axial_position : float, optional
         Axial z-position (cm) of the element bottom relative to the core centerline.
-    axial_bounds : Optional[tuple[float, float]],
-        Lower and upper axial bounds (cm) for the constructed core.
-        Defaults to top of upper grid plate or core element and bottom of lower grid plate or core element,
-        whichever are more extreme.
     outer_material : Material, optional
         Material filling the region outside the element and grid plates. If omitted
         and ``element`` is provided, the element's ``outer_material`` is used. If
         ``element`` is ``None``, this must be provided.
-    element_specs : Optional[BuilderSpecs]
-        Builder specifications for the core element. If omitted, the element's
-        builder defaults are used.
-    outer_region_specs : Optional[Stack.Segment.Specs]
-        Specifications for axial regions outside the core element.
-        Defaults to ``Stack.Segment.Specs()`` when omitted.
+    core_cell_specs : Optional[Reactor.CoreCellSpecs]
+        Specifications for building the core cell location, including element
+        specs, outer region specs, and optional axial bounds.
 
     Returns
     -------
     Tuple[geometry_elements.Stack, Stack.Specs]
         Stack and corresponding specs for the core element with grid plates and non-core axial regions.
     """
+
+    core_cell_specs    = core_cell_specs or Reactor.CoreCellSpecs()
+    element_specs      = core_cell_specs.element_specs
+    outer_region_specs = core_cell_specs.outer_region_specs
+    axial_bounds       = core_cell_specs.axial_bounds
 
     upper_penetration_radius = upper_grid_plate.geometry.penetration_map.get(core_location)
     lower_penetration_radius = lower_grid_plate.geometry.penetration_map.get(core_location)
@@ -133,6 +217,20 @@ def build_core_element(
     both_grid_do_not_have_penetrations = not upper_penetration_radius and not lower_penetration_radius
     assert both_grids_have_penetrations or both_grid_do_not_have_penetrations, \
         "Both upper and lower penetration radii must be provided or both must be None."
+
+    if outer_region_specs is None:
+        outer_region_specs = (
+            CoreElementBuilder.SegmentSpecs()
+            if both_grids_have_penetrations
+            else Reactor.VoxelizedSegmentSpecs()
+        )
+
+    if both_grids_have_penetrations:
+        assert isinstance(outer_region_specs, CoreElementBuilder.SegmentSpecs), \
+            "outer_region_specs must be CoreElementBuilder.SegmentSpecs when penetrations are present."
+    else:
+        assert isinstance(outer_region_specs, Reactor.VoxelizedSegmentSpecs), \
+            "outer_region_specs must be Reactor.VoxelizedSegmentSpecs when no penetrations are present."
 
     if element is not None:
         outer_material = outer_material or element.outer_material
@@ -151,9 +249,6 @@ def build_core_element(
         if element is not None:
             axial_bounds = (min(axial_bounds[0], element_bottom_axial_position),
                             max(axial_bounds[1], element_bottom_axial_position + element.length))
-
-    assert axial_bounds[1] > axial_bounds[0], \
-        f"Upper axial bound {axial_bounds[1]} must be greater than lower axial bound {axial_bounds[0]}."
 
     if upper_penetration_radius is None and lower_penetration_radius is None:
         return _build_core_location_with_no_penetrations(upper_grid_plate,
@@ -184,10 +279,10 @@ def _build_core_location_with_no_penetrations(
     upper_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
     lower_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
     axial_bounds:       tuple[float, float],
-    outer_material:     geometry_elements_triga_netl.Material,
-    outer_region_specs: Optional[Stack.Segment.Specs] = None,
+    outer_material:     Material,
+    outer_region_specs: Optional[Reactor.VoxelizedSegmentSpecs] = None,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
-    outer_region_specs = outer_region_specs or Stack.Segment.Specs()
+    outer_region_specs = outer_region_specs or Reactor.VoxelizedSegmentSpecs()
 
     lower_plate_top    = -lower_grid_plate.top_to_core_centerline_distance
     lower_plate_bottom = lower_plate_top - lower_grid_plate.geometry.thickness
@@ -234,9 +329,9 @@ def _build_core_location_with_water_hole(
     upper_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
     lower_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
     axial_bounds:       tuple[float, float],
-    outer_material:     geometry_elements_triga_netl.Material,
+    outer_material:     Material,
     core_location:      str,
-    outer_region_specs: Optional[Stack.Segment.Specs] = None,
+    outer_region_specs: Optional[CoreElementBuilder.SegmentSpecs] = None,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
 
     outer_pincell = _build_outer_pincell(upper_grid_plate,
@@ -272,10 +367,10 @@ def _build_core_location_with_element(
     element:                       geometry_elements_triga_netl.Core.Element,
     element_bottom_axial_position: float,
     axial_bounds:                  tuple[float, float],
-    outer_material:                geometry_elements_triga_netl.Material,
+    outer_material:                Material,
     core_location:                 str,
-    element_specs:                 Optional[BuilderSpecs] = None,
-    outer_region_specs:            Optional[Stack.Segment.Specs] = None,
+    element_specs:                 Optional[CoreElementSpecs] = None,
+    outer_region_specs:            Optional[CoreElementBuilder.SegmentSpecs] = None,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
 
     outer_pincell = _build_outer_pincell(upper_grid_plate,
@@ -323,7 +418,7 @@ def _build_core_location_with_element(
 def _build_outer_pincell(
     upper_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
     lower_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
-    outer_material:     geometry_elements_triga_netl.Material,
+    outer_material:     Material,
     core_location:      str,
 ) -> geometry_elements.CylindricalPinCell:
 
@@ -402,7 +497,7 @@ def _build_grid_stack_and_specs(
     stack_specs:        Stack.Specs,
     plate_top:          float,
     plate_bottom:       float,
-    plate_material:     geometry_elements_triga_netl.Material,
+    plate_material:     Material,
     penetration_radius: float,
 ) -> Optional[Tuple[geometry_elements.Stack, Stack.Specs]]:
 

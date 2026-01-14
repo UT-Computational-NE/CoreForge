@@ -35,52 +35,52 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
 
         Attributes
         ----------
-        lower_end_fitting : Stack.Segment.Specs
+        lower_end_fitting : CoreElement.SegmentSpecs
             Specs for the lower end fitting region.
-        lower_reflector : Stack.Segment.Specs
+        lower_reflector : CoreElement.SegmentSpecs
             Specs for the lower graphite reflector region.
-        moly_disc : Stack.Segment.Specs
+        moly_disc : CoreElement.SegmentSpecs
             Specs for the molybdenum disc region.
-        fuel : Stack.Segment.Specs
+        fuel : CoreElement.SegmentSpecs
             Specs for the fuel meat region.
-        upper_reflector : Stack.Segment.Specs
+        upper_reflector : CoreElement.SegmentSpecs
             Specs for the upper graphite reflector region.
-        air_gap : Stack.Segment.Specs
+        air_gap : CoreElement.SegmentSpecs
             Specs for the upper air gap region.
-        upper_end_fitting : Stack.Segment.Specs
+        upper_end_fitting : CoreElement.SegmentSpecs
             Specs for the upper end fitting region.
         """
 
-        lower_end_fitting: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        lower_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        lower_reflector: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        lower_reflector: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        moly_disc: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        moly_disc: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        fuel: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        fuel: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        upper_reflector: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        upper_reflector: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        air_gap: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        air_gap: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
-        upper_end_fitting: Optional[Stack.Segment.Specs] = field(
-            default_factory=lambda: Stack.Segment.Specs()
+        upper_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
+            default_factory=lambda: CoreElement.SegmentSpecs()
         )
 
         def __post_init__(self):
-            self.lower_end_fitting = self.lower_end_fitting or Stack.Segment.Specs()
-            self.lower_reflector = self.lower_reflector or Stack.Segment.Specs()
-            self.moly_disc = self.moly_disc or Stack.Segment.Specs()
-            self.fuel = self.fuel or Stack.Segment.Specs()
-            self.upper_reflector = self.upper_reflector or Stack.Segment.Specs()
-            self.air_gap = self.air_gap or Stack.Segment.Specs()
-            self.upper_end_fitting = self.upper_end_fitting or Stack.Segment.Specs()
+            self.lower_end_fitting = self.lower_end_fitting or CoreElement.SegmentSpecs()
+            self.lower_reflector = self.lower_reflector or CoreElement.SegmentSpecs()
+            self.moly_disc = self.moly_disc or CoreElement.SegmentSpecs()
+            self.fuel = self.fuel or CoreElement.SegmentSpecs()
+            self.upper_reflector = self.upper_reflector or CoreElement.SegmentSpecs()
+            self.air_gap = self.air_gap or CoreElement.SegmentSpecs()
+            self.upper_end_fitting = self.upper_end_fitting or CoreElement.SegmentSpecs()
 
 
     def __init__(self, specs: Optional[Specs] = None):
