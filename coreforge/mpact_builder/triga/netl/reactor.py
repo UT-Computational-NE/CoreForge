@@ -73,7 +73,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         Attributes
         ----------
-        element_specs : Optional[CoreElementSpecs]
+        element_specs : Optional[Reactor.CoreElementSpecs]
             Builder specifications for the core element at this location. Must be
             consistent with the element being built.
         outer_region_specs : Optional[Reactor.VoxelizedSegmentSpecs | CoreElementBuilder.SegmentSpecs]
@@ -85,7 +85,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             Lower and upper axial bounds (cm) to clip the constructed stack.
         """
 
-        element_specs:      Optional[CoreElementSpecs] = None
+        element_specs:      Optional[Reactor.CoreElementSpecs] = None
         outer_region_specs: Optional[Reactor.VoxelizedSegmentSpecs | CoreElementBuilder.SegmentSpecs] = None
         axial_bounds:       Optional[Tuple[float, float]] = None
 
