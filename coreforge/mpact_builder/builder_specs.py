@@ -10,7 +10,7 @@ from coreforge.materials import msre as materials_msre
 
 MaterialSpecs: TypeAlias = Dict[Material, mpactpy.Material.MPACTSpecs]
 
-DEFAULT_MPACT_SPECS: Dict[type[Material], mpactpy.Material.MPACTSpecs] = {
+DEFAULT_MPACT_MATERIAL_SPECS: Dict[type[Material], mpactpy.Material.MPACTSpecs] = {
     materials.Air: mpactpy.Material.MPACTSpecs({}, False, False, False, False),
     materials.B4C: mpactpy.Material.MPACTSpecs({}, False, False, False, False),
     materials.Graphite: mpactpy.Material.MPACTSpecs({'C': "C_in_Graphite"}, False, False, False, False),

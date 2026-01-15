@@ -1,5 +1,5 @@
 from .builder import Builder, AxisBounds, Bounds, build_material
-from .builder_specs import BuilderSpecs, MaterialSpecs, DEFAULT_MPACT_SPECS
+from .builder_specs import BuilderSpecs, MaterialSpecs, DEFAULT_MPACT_MATERIAL_SPECS
 from .voxel_builder import VoxelBuilder
 from .mpact_builder import build, get_builder, register_builder
 from .infinite_medium import InfiniteMedium
@@ -28,5 +28,5 @@ __all__ = [
     "Bounds",
     "Builder",
     "MaterialSpecs",
-    "DEFAULT_MPACT_SPECS"
+    "DEFAULT_MPACT_MATERIAL_SPECS"
 ]

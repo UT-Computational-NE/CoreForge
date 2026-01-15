@@ -28,9 +28,9 @@ def infinite_medium_mpact_specs():
 def mpact_voxel_specs(salt, graphite, air):
     # Set up material specs mapping from OpenMC materials to MPACT specs
     mat_specs = {
-        salt:     mpact_builder.DEFAULT_MPACT_SPECS[type(salt)],
-        graphite: mpact_builder.DEFAULT_MPACT_SPECS[type(graphite)],
-        air:      mpact_builder.DEFAULT_MPACT_SPECS[type(air)]
+        salt:     mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(salt)],
+        graphite: mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(graphite)],
+        air:      mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(air)]
     }
 
     overlay_policy = mpactpy.PinMesh.OverlayPolicy(

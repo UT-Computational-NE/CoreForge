@@ -10,7 +10,7 @@ import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 from coreforge.materials import Material
 import coreforge.openmc_builder as openmc_builder
 from coreforge.mpact_builder import (Bounds, Builder, BuilderSpecs, HexLattice, InfiniteMedium, Stack, stack as stack_builder,
-                                     build, get_builder, register_builder)
+                                     MaterialSpecs, DEFAULT_MPACT_MATERIAL_SPECS, build, get_builder, register_builder)
 from coreforge.mpact_builder.triga import CoreElement, FuelElement, GraphiteElement
 from .central_thimble import CentralThimble
 from .fuel_follower_control_rod import FuelFollowerControlRod
@@ -100,6 +100,10 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         min_thickness : float
             The minimum allowed thickness (cm) for axial mesh unionization.
             See HexLattice.Specs.min_thickness for details.
+        material_specs : MaterialSpecs
+            Specifications for how materials should be treated in MPACT.
+            Should be used for all materials that are not in DEFAULT_MPACT_MATERIAL_SPECS,
+            or to override the default behavior for specific materials.
         num_procs : int = 1
             Number of processors to use when building the reactor.
         openmc_universe : Optional[openmc.Universe]
@@ -114,6 +118,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         core_specs:      Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
         min_thickness:   float = 0.0
+        material_specs:  MaterialSpecs = field(default_factory=MaterialSpecs)
         openmc_universe: Optional[openmc.Universe] = None
         num_procs:       int = 1
         offset:          Optional[Tuple[float, float, float]] = None
@@ -172,21 +177,21 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 #                                                num_procs     = self.specs.num_procs,)
 #
 #        mpact_core = build(lattice, lattice_specs)
-
-        # - All Excore elements can share the same target thicknesses and segement lengths cause it'll all be unionized anyways
-        #   - just define once and assign to all excore elements
-        #   - Only the radial resolution need be different for excore elements
-        # - Can define the same specs for the same cell type (e.g., reflector, pool, shroud, beam tube, rsr) and just choose which
-        #   which core locations to assign to (may need to build openmc model and sample the points to see which locations are which cell type)
-        #      - Would be best to sample by universe, but could do it by universe name
-        # - K, build the core lattice, and start adding rings to the outside of it until we get the full radius
-        # - We can make custom stacks for the various regions of resolution (one stack for beam tubes, one for shroud, etc)
-        # - RSR, BeamTube, Shroud, Reflector, Pool resolutions
-        # - We can then place our stacks based on the ring and ring position
-        # - Any interior cells that hit the shroud need to be replaced with shroud cells
-        # - Allow for providing a custom OpenMC model for excore regions?  If not present, generate from Reactor
-
-#        return _apply_openmc_overlay(mpact_core, openmc_universe, self.specs.num_procs, self.specs.offset)
+#
+#        # - All Excore elements can share the same target thicknesses and segement lengths cause it'll all be unionized anyways
+#        #   - just define once and assign to all excore elements
+#        #   - Only the radial resolution need be different for excore elements
+#        # - Can define the same specs for the same cell type (e.g., reflector, pool, shroud, beam tube, rsr) and just choose which
+#        #   which core locations to assign to (may need to build openmc model and sample the points to see which locations are which cell type)
+#        #      - Would be best to sample by universe, but could do it by universe name
+#        # - K, build the core lattice, and start adding rings to the outside of it until we get the full radius
+#        # - We can make custom stacks for the various regions of resolution (one stack for beam tubes, one for shroud, etc)
+#        # - RSR, BeamTube, Shroud, Reflector, Pool resolutions
+#        # - We can then place our stacks based on the ring and ring position
+#        # - Any interior cells that hit the shroud need to be replaced with shroud cells
+#        # - Allow for providing a custom OpenMC model for excore regions?  If not present, generate from Reactor
+#
+#        return _apply_openmc_overlay(mpact_core, openmc_universe, self.specs.material_specs, self.specs.num_procs, self.specs.offset)
 
 
 def _apply_openmc_overlay(core: mpactpy.Core,

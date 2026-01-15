@@ -8,7 +8,7 @@ import mpactpy
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Material
-from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs, DEFAULT_MPACT_SPECS
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs, DEFAULT_MPACT_MATERIAL_SPECS
 
 T = TypeVar("T", bound=GeometryElement)
 
@@ -131,7 +131,7 @@ def build_material(material: Material, specs: Optional[MaterialSpecs] = None) ->
 
     cls = type(material)
     while cls is not object:
-        mpact_specs = DEFAULT_MPACT_SPECS.get(cls)
+        mpact_specs = DEFAULT_MPACT_MATERIAL_SPECS.get(cls)
         if mpact_specs:
             return mpactpy.Material.from_openmc_material(openmc_material, mpact_specs)
         cls = cls.__base__
