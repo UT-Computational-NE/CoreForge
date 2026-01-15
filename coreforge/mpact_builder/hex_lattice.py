@@ -7,14 +7,7 @@ import os
 
 import mpactpy
 
-from coreforge.mpact_builder import (
-    AxisBounds,
-    Bounds,
-    Builder,
-    BuilderSpecs,
-    build,
-    register_builder,
-)
+from coreforge.mpact_builder import AxisBounds, Bounds, Builder, BuilderSpecs, build, register_builder
 from coreforge.mpact_builder.utils import build_elements
 from coreforge import geometry_elements
 

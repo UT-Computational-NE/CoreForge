@@ -4,15 +4,7 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder import (
-    AxisBounds,
-    Bounds,
-    Builder,
-    BuilderSpecs,
-    MaterialSpecs,
-    build_material,
-    register_builder,
-)
+from coreforge.mpact_builder import AxisBounds, Bounds, Builder, BuilderSpecs, MaterialSpecs, build_material, register_builder
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.CylindricalPinCell)

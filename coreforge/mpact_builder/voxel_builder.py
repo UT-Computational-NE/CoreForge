@@ -9,13 +9,7 @@ import openmc
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Material
-from coreforge.mpact_builder import (
-    Bounds,
-    Builder,
-    BuilderSpecs,
-    MaterialSpecs,
-    build_material,
-)
+from coreforge.mpact_builder import Bounds, Builder, BuilderSpecs, MaterialSpecs, build_material
 from coreforge.openmc_builder import build as build_openmc_universe
 
 

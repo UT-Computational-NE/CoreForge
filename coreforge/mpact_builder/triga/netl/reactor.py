@@ -9,8 +9,7 @@ import coreforge.geometry_elements as geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 from coreforge.materials import Material
 import coreforge.openmc_builder as openmc_builder
-from coreforge.mpact_builder import (Bounds, Builder, BuilderSpecs, HexLattice,
-                                     InfiniteMedium, Stack, stack as stack_builder,
+from coreforge.mpact_builder import (Bounds, Builder, BuilderSpecs, HexLattice, InfiniteMedium, Stack, stack as stack_builder,
                                      build, get_builder, register_builder)
 from coreforge.mpact_builder.triga import CoreElement, FuelElement, GraphiteElement
 from .central_thimble import CentralThimble

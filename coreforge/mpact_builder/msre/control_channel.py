@@ -4,15 +4,7 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder import (
-    Bounds,
-    Builder,
-    BuilderSpecs,
-    CylindricalPinCell,
-    Stack,
-    build,
-    register_builder,
-)
+from coreforge.mpact_builder import Bounds, Builder, BuilderSpecs, CylindricalPinCell, Stack, build, register_builder
 import coreforge.geometry_elements.msre as geometry_elements_msre
 
 @register_builder(geometry_elements_msre.ControlChannel)

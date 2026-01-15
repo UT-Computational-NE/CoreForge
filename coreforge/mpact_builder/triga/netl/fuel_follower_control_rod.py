@@ -4,14 +4,7 @@ from dataclasses import dataclass, field
 
 import mpactpy
 
-from coreforge.mpact_builder import (
-    AxisBounds,
-    Bounds,
-    BuilderSpecs,
-    Stack,
-    build,
-    register_builder,
-)
+from coreforge.mpact_builder import AxisBounds, Bounds, BuilderSpecs, Stack, build, register_builder
 from coreforge.mpact_builder.triga import CoreElement
 import coreforge.geometry_elements as geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl

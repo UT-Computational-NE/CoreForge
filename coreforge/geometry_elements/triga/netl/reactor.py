@@ -6,15 +6,10 @@ from math import isclose
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.geometry_elements.triga.netl import (
-    BeamPort               as BeamPortGeometry,
-    Core                   as CoreGeometry,
-    GridPlate              as GridPlateGeometry,
-    Pool                   as PoolGeometry,
-    Reflector              as ReflectorGeometry,
-    RSRCavity              as RSRCavityGeometry,
-    Shroud                 as ShroudGeometry,
-)
+from coreforge.geometry_elements.triga.netl import (BeamPort as BeamPortGeometry, Core as CoreGeometry,
+                                                    GridPlate as GridPlateGeometry, Pool as PoolGeometry,
+                                                    Reflector as ReflectorGeometry, RSRCavity as RSRCavityGeometry,
+                                                    Shroud as ShroudGeometry)
 
 
 class Reactor(GeometryElement):

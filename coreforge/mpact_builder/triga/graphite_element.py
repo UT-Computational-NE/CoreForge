@@ -4,14 +4,7 @@ from dataclasses import dataclass, field
 
 import mpactpy
 
-from coreforge.mpact_builder import (
-    AxisBounds,
-    Bounds,
-    BuilderSpecs,
-    Stack,
-    build,
-    register_builder,
-)
+from coreforge.mpact_builder import AxisBounds, Bounds, BuilderSpecs, Stack, build, register_builder
 from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.mpact_builder.triga import CoreElement
 import coreforge.geometry_elements as geometry_elements

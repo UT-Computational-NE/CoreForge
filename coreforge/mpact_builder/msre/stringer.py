@@ -4,14 +4,7 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder import (
-    Bounds,
-    Builder,
-    BuilderSpecs,
-    Stack,
-    build,
-    register_builder,
-)
+from coreforge.mpact_builder import Bounds, Builder, BuilderSpecs, Stack, build, register_builder
 from coreforge.mpact_builder.msre.block import Block
 import coreforge.geometry_elements.msre as geometry_elements_msre
 
