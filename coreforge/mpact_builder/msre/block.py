@@ -8,10 +8,14 @@ import mpactpy
 from mpactpy.pin import build_rec_pin, build_gcyl_pin
 
 from coreforge.shapes import Rectangle, Stadium, Circle
-from coreforge.mpact_builder.mpact_builder import register_builder
-from coreforge.mpact_builder.builder import Bounds, Builder, build_material
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
-from coreforge.mpact_builder.material_specs import MaterialSpecs
+from coreforge.mpact_builder import (
+    Bounds,
+    Builder,
+    BuilderSpecs,
+    MaterialSpecs,
+    build_material,
+    register_builder,
+)
 import coreforge.geometry_elements.msre as geometry_elements_msre
 from coreforge.utils import remove_none_2D
 
@@ -66,8 +70,8 @@ class Block(Builder[geometry_elements_msre.Block]):
             assert all(thickness > 0. for thickness in self.target_cell_thicknesses.values()), \
                 f"target_cell_thicknesses = {self.target_cell_thicknesses}"
 
-            if not self.material_specs:
-                self.material_specs = MaterialSpecs()
+            if self.material_specs is None:
+                self.material_specs = {}
 
 
     class Channel(ABC):

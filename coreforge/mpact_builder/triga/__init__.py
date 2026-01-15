@@ -7,5 +7,5 @@ __all__ = [
     "CoreElement",
     "FuelElement",
     "GraphiteElement",
-    "netl"
+    "netl",
 ]

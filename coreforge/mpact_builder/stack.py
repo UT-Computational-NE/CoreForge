@@ -6,9 +6,14 @@ from multiprocessing import cpu_count
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build
-from coreforge.mpact_builder.builder import Bounds, Builder, AxisBounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder import (
+    AxisBounds,
+    Bounds,
+    Builder,
+    BuilderSpecs,
+    build,
+    register_builder,
+)
 from coreforge.mpact_builder.utils import build_elements
 from coreforge import geometry_elements
 

@@ -2,26 +2,22 @@ from __future__ import annotations
 from typing import Dict, Optional, Tuple, TypeAlias
 from dataclasses import dataclass, field
 
+import openmc
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build, get_builder
-from coreforge.mpact_builder.builder import Bounds, Builder
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
-from coreforge.mpact_builder.infinite_medium import InfiniteMedium as InfiniteMediumBuilder
-from coreforge.mpact_builder.stack import Stack
-from coreforge.mpact_builder import stack as stack_builder
-from coreforge.mpact_builder.triga.core_element import CoreElement as CoreElementBuilder
-from coreforge.mpact_builder.triga.fuel_element import FuelElement as FuelElementBuilder
-from coreforge.mpact_builder.triga.graphite_element import GraphiteElement as GraphiteElementBuilder
-from coreforge.mpact_builder.triga.netl.central_thimble import CentralThimble as CentralThimbleBuilder
-from coreforge.mpact_builder.triga.netl.fuel_follower_control_rod import (
-    FuelFollowerControlRod as FuelFollowerControlRodBuilder,
-)
-from coreforge.mpact_builder.triga.netl.source_holder import SourceHolder as SourceHolderBuilder
-from coreforge.mpact_builder.triga.netl.transient_rod import TransientRod as TransientRodBuilder
 import coreforge.geometry_elements as geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 from coreforge.materials import Material
+import coreforge.openmc_builder as openmc_builder
+from coreforge.mpact_builder import (Bounds, Builder, BuilderSpecs, HexLattice,
+                                     InfiniteMedium, Stack, stack as stack_builder,
+                                     build, get_builder, register_builder)
+from coreforge.mpact_builder.triga import CoreElement, FuelElement, GraphiteElement
+from .central_thimble import CentralThimble
+from .fuel_follower_control_rod import FuelFollowerControlRod
+from .source_holder import SourceHolder
+from .transient_rod import TransientRod
+
 
 
 @register_builder(geometry_elements_triga_netl.Reactor)
@@ -39,12 +35,12 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         Specifications for building the MPACT representation of this element
     """
 
-    CoreElementSpecs: TypeAlias = (FuelElementBuilder.Specs |
-                                   GraphiteElementBuilder.Specs |
-                                   CentralThimbleBuilder.Specs |
-                                   SourceHolderBuilder.Specs |
-                                   TransientRodBuilder.Specs |
-                                   FuelFollowerControlRodBuilder.Specs)
+    CoreElementSpecs: TypeAlias = (FuelElement.Specs |
+                                   GraphiteElement.Specs |
+                                   CentralThimble.Specs |
+                                   SourceHolder.Specs |
+                                   TransientRod.Specs |
+                                   FuelFollowerControlRod.Specs)
 
     @dataclass
     class VoxelizedSegmentSpecs(Stack.Segment.Specs):
@@ -56,7 +52,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             Builder specifications for the voxelized segment element.
         """
 
-        builder_specs: Optional[InfiniteMediumBuilder.Specs] = None
+        builder_specs: Optional[InfiniteMedium.Specs] = None
 
         def __post_init__(self) -> None:
             super().__post_init__()
@@ -64,7 +60,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                 return
             assert isinstance(
                 self.builder_specs,
-                InfiniteMediumBuilder.Specs,
+                InfiniteMedium.Specs,
             ), "VoxelizedSegmentSpecs.builder_specs must be InfiniteMedium.Specs."
 
     @dataclass
@@ -76,7 +72,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         element_specs : Optional[Reactor.CoreElementSpecs]
             Builder specifications for the core element at this location. Must be
             consistent with the element being built.
-        outer_region_specs : Optional[Reactor.VoxelizedSegmentSpecs | CoreElementBuilder.SegmentSpecs]
+        outer_region_specs : Optional[Reactor.VoxelizedSegmentSpecs | CoreElement.SegmentSpecs]
             Specifications for axial regions outside the core element. Use
             VoxelizedSegmentSpecs (InfiniteMedium.Specs) when there are no grid
             plate penetrations, and CoreElement.SegmentSpecs
@@ -86,7 +82,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         """
 
         element_specs:      Optional[Reactor.CoreElementSpecs] = None
-        outer_region_specs: Optional[Reactor.VoxelizedSegmentSpecs | CoreElementBuilder.SegmentSpecs] = None
+        outer_region_specs: Optional[Reactor.VoxelizedSegmentSpecs | CoreElement.SegmentSpecs] = None
         axial_bounds:       Optional[Tuple[float, float]] = None
 
         def __post_init__(self) -> None:
@@ -102,14 +98,33 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         ----------
         core_specs : Dict[str, Reactor.CoreCellSpecs]
             Per-location overrides for core element specs.
+        min_thickness : float
+            The minimum allowed thickness (cm) for axial mesh unionization.
+            See HexLattice.Specs.min_thickness for details.
+        num_procs : int = 1
+            Number of processors to use when building the reactor.
+        openmc_universe : Optional[openmc.Universe]
+            Optional OpenMC geometry for excore regions. If provided, excore
+            regions will be built from this geometry instead of using the
+            OpenMC geometry generated from the Reactor.
+        offset : Tuple[float, float, float]
+            Offset of the OpenMC model's lower-left corner relative to the
+            MPACT Core lower-left.  Needs only be provided if the provided OpenMC
+            is not centered at the origin.  Otherwise, will be determined automatically.
         """
 
-        core_specs: Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
+        core_specs:      Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
+        min_thickness:   float = 0.0
+        openmc_universe: Optional[openmc.Universe] = None
+        num_procs:       int = 1
+        offset:          Optional[Tuple[float, float, float]] = None
 
         def __post_init__(self) -> None:
             valid_locations = {loc for ring in geometry_elements_triga_netl.Core.RING_MAP for loc in ring}
             invalid = [loc for loc in self.core_specs.keys() if loc not in valid_locations]
             assert not invalid, f"Invalid core location(s) in core_specs: {invalid}"
+            assert self.num_procs > 0, f"num_procs must be > 0 (got {self.num_procs})"
+            assert self.min_thickness >= 0.0, f"min_thickness must be >= 0.0 cm (got {self.min_thickness})"
 
 
 
@@ -145,9 +160,20 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         mpactpy.Core
             A new MPACT geometry based on this geometry element
         """
-        raise NotImplementedError("MPACT builder for Reactor is not implemented yet.")
+        pass
+#        openmc_universe  = self.specs.openmc_universe or openmc_builder.build(element)
+#        openmc_materials = openmc.Materials(list(openmc_universe.get_all_materials().values()))
+#        openmc_geometry  = openmc.Geometry(openmc_universe)
+#
+#        element_specs = {} # To be filled in
+#
+#        lattice       = # To be filled in
+#        lattice_specs = HexLattice.Specs(min_thickness = self.specs.min_thickness,
+#                                                element_specs = element_specs,
+#                                                num_procs     = self.specs.num_procs,)
+#
+#        mpact_core = build(lattice, lattice_specs)
 
-        # - Make CoreElements and Excore elements special versions of Stack Specs (maybe)
         # - All Excore elements can share the same target thicknesses and segement lengths cause it'll all be unionized anyways
         #   - just define once and assign to all excore elements
         #   - Only the radial resolution need be different for excore elements
@@ -159,7 +185,46 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         # - RSR, BeamTube, Shroud, Reflector, Pool resolutions
         # - We can then place our stacks based on the ring and ring position
         # - Any interior cells that hit the shroud need to be replaced with shroud cells
+        # - Allow for providing a custom OpenMC model for excore regions?  If not present, generate from Reactor
 
+#        return _apply_openmc_overlay(mpact_core, openmc_universe, self.specs.num_procs, self.specs.offset)
+
+
+def _apply_openmc_overlay(core: mpactpy.Core,
+                          openmc_universe: openmc.Universe,
+                          num_procs: int,
+                          offset: int) -> mpactpy.Core:
+    pass
+    # I need to refactor MaterialSpecs into a typed dict or something
+    # Default to MPACT default MaterialSpecs and then replace with whatever is in MatSpecs
+    # Maybe add a helper function in mpactpy for all eligible pins or all eligible pins with material_specs
+    # Or maybe we can think of something better
+
+#    openmc_materials = openmc.Materials(list(openmc_universe.get_all_materials().values()))
+#    openmc_geometry  = openmc.Geometry(openmc_universe)
+#
+#    # Only overlay pins/modules/lattices/assemblies that contain voxelized pins
+#    pins_to_overlay = {pin for pin in core.pins if isinstance(pin.pinmesh, mpactpy.RectangularPinMesh)}
+#    modules_to_overlay = {m for m in core.modules if pins_to_overlay.intersection(m.pins)}
+#    lattices_to_overlay = {l for l in core.lattices if modules_to_overlay.intersection(l.modules)}
+#    assemblies_to_overlay = {a for a in core.assemblies if lattices_to_overlay.intersection(a.lattices)}
+#
+#    # Create overlay masks
+#    pin_mask:      mpactpy.Pin.OverlayMask      = {material                for material in core.materials}
+#    module_mask:   mpactpy.Module.OverlayMask   = {pin:      pin_mask      for pin      in pins_to_overlay}
+#    lattice_mask:  mpactpy.Lattice.OverlayMask  = {module:   module_mask   for module   in modules_to_overlay}
+#    assembly_mask: mpactpy.Assembly.OverlayMask = {lattice:  lattice_mask  for lattice  in lattices_to_overlay}
+#    include_only:  mpactpy.Core.OverlayMask     = {assembly: assembly_mask for assembly in assemblies_to_overlay}
+#
+#    overlay_policy           = mpactpy.PinMesh.OverlayPolicy(num_procs=num_procs)
+#    material_specs           = MPACT_MATERIAL_SPECS.material_specs
+#    material_specs           = {material.name: material_specs[material] for material in material_specs}
+#    overlay_policy.mat_specs = {material: material_specs[material.name] for material in openmc_materials}
+#
+#    half_mpact_model_width = core.width['X'] * 0.5
+#    offset = (-half_mpact_model_width, -half_mpact_model_width, 0.0)
+#
+#    return core.overlay(openmc_geometry, offset, include_only, overlay_policy)
 
 def build_core_element(
     core_location:                 str,
@@ -220,14 +285,14 @@ def build_core_element(
 
     if outer_region_specs is None:
         outer_region_specs = (
-            CoreElementBuilder.SegmentSpecs()
+            CoreElement.SegmentSpecs()
             if both_grids_have_penetrations
             else Reactor.VoxelizedSegmentSpecs()
         )
 
     if both_grids_have_penetrations:
-        assert isinstance(outer_region_specs, CoreElementBuilder.SegmentSpecs), \
-            "outer_region_specs must be CoreElementBuilder.SegmentSpecs when penetrations are present."
+        assert isinstance(outer_region_specs, CoreElement.SegmentSpecs), \
+            "outer_region_specs must be CoreElement.SegmentSpecs when penetrations are present."
     else:
         assert isinstance(outer_region_specs, Reactor.VoxelizedSegmentSpecs), \
             "outer_region_specs must be Reactor.VoxelizedSegmentSpecs when no penetrations are present."
@@ -331,7 +396,7 @@ def _build_core_location_with_water_hole(
     axial_bounds:       tuple[float, float],
     outer_material:     Material,
     core_location:      str,
-    outer_region_specs: Optional[CoreElementBuilder.SegmentSpecs] = None,
+    outer_region_specs: Optional[CoreElement.SegmentSpecs] = None,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
 
     outer_pincell = _build_outer_pincell(upper_grid_plate,
@@ -369,8 +434,8 @@ def _build_core_location_with_element(
     axial_bounds:                  tuple[float, float],
     outer_material:                Material,
     core_location:                 str,
-    element_specs:                 Optional[CoreElementSpecs] = None,
-    outer_region_specs:            Optional[CoreElementBuilder.SegmentSpecs] = None,
+    element_specs:                 Optional[Reactor.CoreElementSpecs] = None,
+    outer_region_specs:            Optional[CoreElement.SegmentSpecs] = None,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
 
     outer_pincell = _build_outer_pincell(upper_grid_plate,
@@ -378,7 +443,7 @@ def _build_core_location_with_element(
                                          outer_material,
                                          core_location)
 
-    builder_cls: CoreElementBuilder = get_builder(element)
+    builder_cls: CoreElement = get_builder(element)
     element_stack, element_stack_specs = builder_cls(element_specs).build_stack_and_specs(element)
     element_top = element_bottom_axial_position + element_stack.length
 

@@ -3,7 +3,7 @@ from typing import Optional
 import mpactpy
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.mpact_builder.builder import Bounds, Builder, build_material
+from coreforge.mpact_builder.builder import Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
 from coreforge.mpact_builder.voxel_builder import VoxelBuilder
 

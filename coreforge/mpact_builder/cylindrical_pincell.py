@@ -4,10 +4,15 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder, build_material
-from coreforge.mpact_builder.mpact_builder import register_builder
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
-from coreforge.mpact_builder.material_specs import MaterialSpecs
+from coreforge.mpact_builder import (
+    AxisBounds,
+    Bounds,
+    Builder,
+    BuilderSpecs,
+    MaterialSpecs,
+    build_material,
+    register_builder,
+)
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.CylindricalPinCell)
@@ -60,8 +65,8 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
                 for dim in ["radial", "azimuthal"]:
                     self.target_cell_thicknesses.setdefault(dim, inf)
 
-            if not self.material_specs:
-                self.material_specs = MaterialSpecs()
+            if self.material_specs is None:
+                self.material_specs = {}
 
             assert all(thickness > 0. for thickness in self.target_cell_thicknesses.values()), \
                 f"target_cell_thicknesses = {self.target_cell_thicknesses}"

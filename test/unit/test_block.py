@@ -30,10 +30,10 @@ def unequal_block(salt, graphite, circle_chan, rect_chan):
 
 @pytest.fixture
 def mpact_voxel_specs(salt, graphite):
-    mat_specs = mpact_builder.MaterialSpecs({
+    mat_specs = {
         salt:     mpact_builder.DEFAULT_MPACT_SPECS[type(salt)],
         graphite: mpact_builder.DEFAULT_MPACT_SPECS[type(graphite)],
-    })
+    }
 
     return mpact_builder.VoxelBuilder.Specs(
         target_thicknesses = {"X": 2.5, "Y": 2.5, "Z": 1.0},

@@ -9,9 +9,13 @@ import openmc
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Material
-from coreforge.mpact_builder.builder import Bounds, Builder, build_material
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
-from coreforge.mpact_builder.material_specs import MaterialSpecs
+from coreforge.mpact_builder import (
+    Bounds,
+    Builder,
+    BuilderSpecs,
+    MaterialSpecs,
+    build_material,
+)
 from coreforge.openmc_builder import build as build_openmc_universe
 
 
@@ -56,7 +60,7 @@ class VoxelBuilder(Builder[GeometryElement]):
 
         target_thicknesses: Optional[TargetThicknesses] = None
         num_div: Optional[NumDivisions] = None
-        material_specs: MaterialSpecs = field(default_factory=MaterialSpecs)
+        material_specs: MaterialSpecs = field(default_factory=dict)
         overlay_policy: mpactpy.PinMesh.OverlayPolicy = field(default_factory=mpactpy.PinMesh.OverlayPolicy)
         offset:         Tuple[float, float, float] = (0.0, 0.0, 0.0)
 
@@ -65,6 +69,8 @@ class VoxelBuilder(Builder[GeometryElement]):
                 self.target_thicknesses = {}
             if self.num_div is None:
                 self.num_div = {}
+            if self.material_specs is None:
+                self.material_specs = {}
 
             valid_axes = {"X", "Y", "Z"}
             for axis in self.target_thicknesses:
@@ -89,8 +95,7 @@ class VoxelBuilder(Builder[GeometryElement]):
                 if num_div is not None:
                     assert num_div > 0, f"num_div[{axis}] = {num_div}"
 
-            material_specs = self.material_specs.material_specs
-            self.overlay_policy.mat_specs = {mat.openmc_material: spec for mat, spec in material_specs.items()}
+            self.overlay_policy.mat_specs = {mat.openmc_material: spec for mat, spec in self.material_specs.items()}
 
     def __init__(self,
                  specs:                  Specs,

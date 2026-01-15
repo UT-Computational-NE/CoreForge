@@ -7,7 +7,7 @@ from .block import Block
 from .cone import OneSidedCone
 from . import msre
 from . import triga
-from .openmc_builder import build
+from .openmc_builder import build, get_builder, register_builder
 
 __all__ = [
     "PinCell",
@@ -19,5 +19,7 @@ __all__ = [
     "OneSidedCone",
     "msre",
     "triga",
-    "build"
+    "build",
+    "get_builder",
+    "register_builder"
 ]

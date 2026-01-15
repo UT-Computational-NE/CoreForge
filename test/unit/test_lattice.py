@@ -66,10 +66,10 @@ def hex_lattice_mpact_specs(stack, unequal_stack, stack_mpact_specs):
 
 @pytest.fixture
 def mpact_voxel_specs(salt, graphite):
-    mat_specs = mpact_builder.MaterialSpecs({
+    mat_specs = {
         salt:     mpact_builder.DEFAULT_MPACT_SPECS[type(salt)],
         graphite: mpact_builder.DEFAULT_MPACT_SPECS[type(graphite)],
-    })
+    }
 
     return mpact_builder.VoxelBuilder.Specs(
         target_thicknesses = {"X": 1.0, "Y": 1.0, "Z": 1.0},
