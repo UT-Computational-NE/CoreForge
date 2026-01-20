@@ -189,7 +189,11 @@ class Stack(GeometryElement):
             Order of the original segments corresponds to the order of the sliced
             stack's segments. Returns ``None`` if there is no overlap.
         """
-        assert stop_pos > start_pos, "stop_pos must be greater than start_pos."
+        if stop_pos < start_pos or isclose(start_pos, stop_pos, rel_tol=TOL):
+            return None
+
+        assert stop_pos > start_pos, "stop_pos must be greater than start_pos." + \
+            f" Got start_pos={start_pos}, stop_pos={stop_pos}."
 
         stack_start = self.bottom_pos
         stack_stop = self.bottom_pos + self.length

@@ -4,6 +4,7 @@ from math import isclose, pi, sqrt, asin
 from coreforge.shapes import Circle, Rectangle, Square, Stadium, Hexagon, \
                             Torispherical_Dome, ASME_Flanged_Dished_Dome, \
                             Cone, OneSidedCone
+from coreforge.shapes.utils import is_convex, convex_contains_point
 from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE
 
 TOL = ROUNDING_RELATIVE_TOLERANCE * 1E-2
@@ -46,6 +47,62 @@ def test_rectangle():
 
     region = rectangle.make_region()
     assert region is not None
+
+
+def test_contains_point_circle():
+    circle = Circle(r=1.0)
+    assert circle.contains_point((0.5, 0.0))
+    assert circle.contains_point((1.0, 0.0))
+    assert circle.contains_point((0.5, 0.0), rotation=45.0)
+    assert not circle.contains_point((1.1, 0.0))
+
+
+def test_contains_point_rectangle_rotation():
+    rectangle = Rectangle(w=2.0, h=1.0)
+    assert rectangle.contains_point((0.9, 0.0))
+    assert not rectangle.contains_point((0.9, 0.0), rotation=90.0)
+    assert rectangle.contains_point((0.0, 0.4), rotation=90.0)
+
+
+def test_contains_point_hexagon():
+    hexagon = Hexagon(inner_radius=1.0, orientation='y')
+    assert hexagon.contains_point((0.0, 0.0))
+    assert not hexagon.contains_point((2.0, 0.0))
+
+
+def test_contains_point_stadium():
+    stadium = Stadium(r=0.5, a=2.0)
+    assert stadium.contains_point((0.0, 0.4))
+    assert not stadium.contains_point((0.0, 0.6))
+
+
+def test_convex_utils():
+    square = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+    concave = [(-1.0, -1.0), (1.0, -1.0), (0.0, 0.0), (1.0, 1.0), (-1.0, 1.0)]
+
+    assert is_convex(square)
+    assert not is_convex(concave)
+    assert convex_contains_point(square, (0.0, 0.0))
+    assert not convex_contains_point(square, (2.0, 0.0))
+
+    with pytest.raises(AssertionError):
+        convex_contains_point(concave, (0.0, 0.0))
+
+
+def test_circle_rectangle_intersection():
+    rectangle = Rectangle(w=2.0, h=1.0)
+    circle = Circle(r=0.4)
+
+    assert rectangle.intersects(circle)
+    assert circle.intersects(rectangle)
+
+    outside_circle = Circle(r=0.4)
+    assert not rectangle.intersects(outside_circle, other_center=(2.0, 0.0))
+    assert not outside_circle.intersects(rectangle, self_center=(2.0, 0.0))
+
+    touching_circle = Circle(r=0.4)
+    assert rectangle.intersects(touching_circle, other_center=(1.4, 0.0))
+    assert touching_circle.intersects(rectangle, self_center=(1.4, 0.0))
 
 
 

@@ -1,13 +1,17 @@
 from __future__ import annotations
-from typing import Dict, Optional, Tuple, TypeAlias
+from typing import Dict, List, Optional, Tuple, TypeAlias
 from dataclasses import dataclass, field
+from math import ceil, inf, isclose
 
+from coreforge.mpact_builder.triga import core_element
 import openmc
 import mpactpy
+from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE as TOL
 
 import coreforge.geometry_elements as geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 from coreforge.materials import Material
+from coreforge.shapes import Rectangle
 import coreforge.openmc_builder as openmc_builder
 from coreforge.mpact_builder import (Bounds, Builder, BuilderSpecs, HexLattice, InfiniteMedium, Stack, stack as stack_builder,
                                      MaterialSpecs, DEFAULT_MPACT_MATERIAL_SPECS, build, get_builder, register_builder)
@@ -78,16 +82,51 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             (CylindricalPinCell.Specs) when penetrations are present.
         axial_bounds : Optional[tuple[float, float]]
             Lower and upper axial bounds (cm) to clip the constructed stack.
+        unionize_radial_mesh : bool
+            Whether to unionize the radial mesh across stack segments when a core
+            element is present.  Only applicable for cells with core elements.
         """
 
         element_specs:      Optional[Reactor.CoreElementSpecs] = None
         outer_region_specs: Optional[Reactor.VoxelizedSegmentSpecs | CoreElement.SegmentSpecs] = None
         axial_bounds:       Optional[Tuple[float, float]] = None
+        unionize_radial_mesh: bool = False
 
         def __post_init__(self) -> None:
             if self.axial_bounds is not None:
                 assert self.axial_bounds[1] > self.axial_bounds[0], \
                     f"Upper axial bound {self.axial_bounds[1]} must be greater than lower axial bound {self.axial_bounds[0]}."
+
+    @dataclass
+    class VoxelationSpecs:
+        """ Specifications for voxelation of non-core regions
+
+        Attributes
+        ----------
+        shroud_target_thicknesses : float
+            Target radial thickness (cm) for shroud region voxelation.
+        rsr_target_thicknesses : float
+            Target radial thickness (cm) for RSR region voxelation.
+        reflector_target_thicknesses : float
+            Target radial thickness (cm) for reflector region voxelation.
+        beamport_target_thicknesses : float
+            Target radial thickness (cm) for beamport region voxelation.
+        pool_target_thicknesses : float
+            Target radial thickness (cm) for pool region voxelation.
+        """
+
+        shroud_target_thicknesses:    float = inf
+        rsr_target_thicknesses:       float = inf
+        reflector_target_thicknesses: float = inf
+        beamport_target_thicknesses:  float = inf
+        pool_target_thicknesses:      float = inf
+
+        def __post_init__(self) -> None:
+            assert self.shroud_target_thicknesses > 0.0, "shroud_target_thicknesses must be > 0.0 cm"
+            assert self.rsr_target_thicknesses > 0.0, "rsr_target_thicknesses must be > 0.0 cm"
+            assert self.reflector_target_thicknesses > 0.0, "reflector_target_thicknesses must be > 0.0 cm"
+            assert self.beamport_target_thicknesses > 0.0, "beamport_target_thicknesses must be > 0.0 cm"
+            assert self.pool_target_thicknesses > 0.0, "pool_target_thicknesses must be > 0.0 cm"
 
     @dataclass
     class Specs(BuilderSpecs):
@@ -97,6 +136,8 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         ----------
         core_specs : Dict[str, Reactor.CoreCellSpecs]
             Per-location overrides for core element specs.
+        voxelation_specs : Reactor.VoxelationSpecs
+            Specifications for voxelation of non-core regions.
         min_thickness : float
             The minimum allowed thickness (cm) for axial mesh unionization.
             See HexLattice.Specs.min_thickness for details.
@@ -110,18 +151,22 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             Optional OpenMC geometry for excore regions. If provided, excore
             regions will be built from this geometry instead of using the
             OpenMC geometry generated from the Reactor.
+        exclude_excore : bool
+            Whether to skip excore overlay construction.
         offset : Tuple[float, float, float]
             Offset of the OpenMC model's lower-left corner relative to the
             MPACT Core lower-left.  Needs only be provided if the provided OpenMC
             is not centered at the origin.  Otherwise, will be determined automatically.
         """
 
-        core_specs:      Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
-        min_thickness:   float = 0.0
-        material_specs:  MaterialSpecs = field(default_factory=MaterialSpecs)
-        openmc_universe: Optional[openmc.Universe] = None
-        num_procs:       int = 1
-        offset:          Optional[Tuple[float, float, float]] = None
+        core_specs:       Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
+        voxelation_specs: Reactor.VoxelationSpecs = field(default_factory=lambda: Reactor.VoxelationSpecs())
+        min_thickness:    float = 0.0
+        material_specs:   MaterialSpecs = field(default_factory=dict)
+        openmc_universe:  Optional[openmc.Universe] = None
+        num_procs:        int = 1
+        exclude_excore:   bool = False
+        offset:           Optional[Tuple[float, float, float]] = None
 
         def __post_init__(self) -> None:
             valid_locations = {loc for ring in geometry_elements_triga_netl.Core.RING_MAP for loc in ring}
@@ -164,71 +209,254 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         mpactpy.Core
             A new MPACT geometry based on this geometry element
         """
-        pass
-#        openmc_universe  = self.specs.openmc_universe or openmc_builder.build(element)
-#        openmc_materials = openmc.Materials(list(openmc_universe.get_all_materials().values()))
-#        openmc_geometry  = openmc.Geometry(openmc_universe)
-#
-#        element_specs = {} # To be filled in
-#
-#        lattice       = # To be filled in
-#        lattice_specs = HexLattice.Specs(min_thickness = self.specs.min_thickness,
-#                                                element_specs = element_specs,
-#                                                num_procs     = self.specs.num_procs,)
-#
-#        mpact_core = build(lattice, lattice_specs)
-#
-#        # - All Excore elements can share the same target thicknesses and segement lengths cause it'll all be unionized anyways
-#        #   - just define once and assign to all excore elements
-#        #   - Only the radial resolution need be different for excore elements
-#        # - Can define the same specs for the same cell type (e.g., reflector, pool, shroud, beam tube, rsr) and just choose which
-#        #   which core locations to assign to (may need to build openmc model and sample the points to see which locations are which cell type)
-#        #      - Would be best to sample by universe, but could do it by universe name
-#        # - K, build the core lattice, and start adding rings to the outside of it until we get the full radius
-#        # - We can make custom stacks for the various regions of resolution (one stack for beam tubes, one for shroud, etc)
-#        # - RSR, BeamTube, Shroud, Reflector, Pool resolutions
-#        # - We can then place our stacks based on the ring and ring position
-#        # - Any interior cells that hit the shroud need to be replaced with shroud cells
-#        # - Allow for providing a custom OpenMC model for excore regions?  If not present, generate from Reactor
-#
-#        return _apply_openmc_overlay(mpact_core, openmc_universe, self.specs.material_specs, self.specs.num_procs, self.specs.offset)
+        reactor = element
+
+        elements = []
+        element_specs = {}
+        for ring in geometry_elements_triga_netl.Core.RING_MAP:
+            elements.append([])
+            for loc in ring:
+                core_cell_specs = self.specs.core_specs.get(loc, None)
+                if core_cell_specs is None:
+                    core_cell_specs = Reactor.CoreCellSpecs(axial_bounds=reactor.pool_axial_bounds)
+                else:
+                    core_cell_specs = Reactor.CoreCellSpecs(
+                        element_specs        = core_cell_specs.element_specs,
+                        outer_region_specs   = core_cell_specs.outer_region_specs,
+                        axial_bounds         = reactor.pool_axial_bounds,
+                        unionize_radial_mesh = core_cell_specs.unionize_radial_mesh,
+                    )
+                element                       = reactor.core.full_map.get(loc, None)
+                element_bottom_axial_position = reactor.get_element_bottom_axial_position(element)
+                stack, stack_specs = build_core_element(core_location                 = loc,
+                                                        upper_grid_plate              = reactor.upper_grid_plate,
+                                                        lower_grid_plate              = reactor.lower_grid_plate,
+                                                        element                       = element,
+                                                        element_bottom_axial_position = element_bottom_axial_position,
+                                                        outer_material                = reactor.pool.material,
+                                                        core_cell_specs               = core_cell_specs)
+                elements[-1].append(stack)
+                element_specs[stack] = stack_specs
+
+        lattice = geometry_elements.HexLattice(pitch          = reactor.core.pitch,
+                                               outer_material = reactor.pool.material,
+                                               elements       = elements,
+                                               name           = f"{reactor.name}",
+                                               orientation    = 'y',
+                                               map_type       = 'ring')
+
+        lattice_specs = HexLattice.Specs(min_thickness = self.specs.min_thickness,
+                                         element_specs = element_specs,
+                                         num_procs     = self.specs.num_procs)
+
+        mpact_core = build(lattice, lattice_specs)
+
+        if self.specs.exclude_excore:
+            return mpact_core
+
+        openmc_universe = self.specs.openmc_universe or openmc_builder.build(reactor)
+        return self._apply_openmc_overlay(mpact_core, openmc_universe, reactor)
 
 
-def _apply_openmc_overlay(core: mpactpy.Core,
-                          openmc_universe: openmc.Universe,
-                          num_procs: int,
-                          offset: int) -> mpactpy.Core:
-    pass
-    # I need to refactor MaterialSpecs into a typed dict or something
-    # Default to MPACT default MaterialSpecs and then replace with whatever is in MatSpecs
-    # Maybe add a helper function in mpactpy for all eligible pins or all eligible pins with material_specs
-    # Or maybe we can think of something better
+    def _apply_openmc_overlay(self,
+                              core: mpactpy.Core,
+                              openmc_universe: openmc.Universe,
+                              reactor: geometry_elements_triga_netl.Reactor
+    ) -> mpactpy.Core:
 
-#    openmc_materials = openmc.Materials(list(openmc_universe.get_all_materials().values()))
-#    openmc_geometry  = openmc.Geometry(openmc_universe)
-#
-#    # Only overlay pins/modules/lattices/assemblies that contain voxelized pins
-#    pins_to_overlay = {pin for pin in core.pins if isinstance(pin.pinmesh, mpactpy.RectangularPinMesh)}
-#    modules_to_overlay = {m for m in core.modules if pins_to_overlay.intersection(m.pins)}
-#    lattices_to_overlay = {l for l in core.lattices if modules_to_overlay.intersection(l.modules)}
-#    assemblies_to_overlay = {a for a in core.assemblies if lattices_to_overlay.intersection(a.lattices)}
-#
-#    # Create overlay masks
-#    pin_mask:      mpactpy.Pin.OverlayMask      = {material                for material in core.materials}
-#    module_mask:   mpactpy.Module.OverlayMask   = {pin:      pin_mask      for pin      in pins_to_overlay}
-#    lattice_mask:  mpactpy.Lattice.OverlayMask  = {module:   module_mask   for module   in modules_to_overlay}
-#    assembly_mask: mpactpy.Assembly.OverlayMask = {lattice:  lattice_mask  for lattice  in lattices_to_overlay}
-#    include_only:  mpactpy.Core.OverlayMask     = {assembly: assembly_mask for assembly in assemblies_to_overlay}
-#
-#    overlay_policy           = mpactpy.PinMesh.OverlayPolicy(num_procs=num_procs)
-#    material_specs           = MPACT_MATERIAL_SPECS.material_specs
-#    material_specs           = {material.name: material_specs[material] for material in material_specs}
-#    overlay_policy.mat_specs = {material: material_specs[material.name] for material in openmc_materials}
-#
-#    half_mpact_model_width = core.width['X'] * 0.5
-#    offset = (-half_mpact_model_width, -half_mpact_model_width, 0.0)
-#
-#    return core.overlay(openmc_geometry, offset, include_only, overlay_policy)
+        core = self._add_excore_cells(core, reactor)
+
+        # Only overlay pins/modules/lattices/assemblies that contain voxelized pins
+        pins_to_overlay = {pin for pin in core.pins if isinstance(pin.pinmesh, mpactpy.RectangularPinMesh)}
+        modules_to_overlay = {m for m in core.modules if pins_to_overlay.intersection(m.pins)}
+        lattices_to_overlay = {l for l in core.lattices if modules_to_overlay.intersection(l.modules)}
+        assemblies_to_overlay = {a for a in core.assemblies if lattices_to_overlay.intersection(a.lattices)}
+
+        # Create overlay masks
+        pin_mask:      mpactpy.Pin.OverlayMask      = {material                for material in core.materials}
+        module_mask:   mpactpy.Module.OverlayMask   = {pin:      pin_mask      for pin      in pins_to_overlay}
+        lattice_mask:  mpactpy.Lattice.OverlayMask  = {module:   module_mask   for module   in modules_to_overlay}
+        assembly_mask: mpactpy.Assembly.OverlayMask = {lattice:  lattice_mask  for lattice  in lattices_to_overlay}
+        include_only:  mpactpy.Core.OverlayMask     = {assembly: assembly_mask for assembly in assemblies_to_overlay}
+
+        overlay_policy           = mpactpy.PinMesh.OverlayPolicy(num_procs=self.specs.num_procs)
+
+        # Map MPACT materials specs to OpenMC materials
+        openmc_materials         = openmc.Materials(list(openmc_universe.get_all_materials().values()))
+        material_specs           = DEFAULT_MPACT_MATERIAL_SPECS | self.specs.material_specs
+        material_specs           = {material.name: material_specs[material] for material in material_specs.keys()}
+        print(material_specs)
+        overlay_policy.mat_specs = {material: material_specs[material.name] for material in openmc_materials}
+
+        half_mpact_model_width = core.width['X'] * 0.5
+        offset = self.specs.offset or (-half_mpact_model_width, -half_mpact_model_width, 0.0)
+
+        return core.overlay(openmc.Geometry(openmc_universe), offset, include_only, overlay_policy)
+
+
+
+    def _add_excore_cells(self,
+                          core: mpactpy.Core,
+                          reactor: geometry_elements_triga_netl.Reactor
+    ) -> mpactpy.Core:
+
+        core_map = core.assembly_map
+        if not core_map:
+            return core
+
+        axial_mesh = self._get_axial_mesh(reactor)
+        if not axial_mesh:
+            return core
+
+        row_pitch = next((pitch for pitch in core.pitch["row"] if pitch > 0.0), None)
+        col_pitch = next((pitch for pitch in core.pitch["column"] if pitch > 0.0), None)
+        assert row_pitch is not None and col_pitch is not None, \
+            "MPACT core must have non-zero row and column pitch to add excore cells."
+
+        pad_cols = max(0, ceil((reactor.pool.radius - core.width["X"] * 0.5) / col_pitch))
+        pad_rows = max(0, ceil((reactor.pool.radius - core.width["Y"] * 0.5) / row_pitch))
+        if pad_rows == 0 and pad_cols == 0:
+            return core
+
+        num_rows = len(core_map)
+        num_cols = len(core_map[0])
+        padded_rows = num_rows + 2 * pad_rows
+        padded_cols = num_cols + 2 * pad_cols
+        padded_map = [[None for _ in range(padded_cols)]
+                      for _ in range(padded_rows)]
+
+        for row_index, row in enumerate(core_map):
+            padded_map[row_index + pad_rows][pad_cols:pad_cols + num_cols] = row
+
+        total_width_x = padded_cols * col_pitch
+        total_width_y = padded_rows * row_pitch
+
+        for row_index, row in enumerate(padded_map):
+            y_center = (row_index + 0.5) * row_pitch - total_width_y * 0.5
+            for col_index, assembly in enumerate(row):
+                x_center = (col_index + 0.5) * col_pitch - total_width_x * 0.5
+                row[col_index] = self._set_cell(assembly,
+                                                (col_pitch, row_pitch),
+                                                (x_center, y_center),
+                                                axial_mesh,
+                                                reactor)
+
+        return mpactpy.Core(padded_map,
+                            symmetry_opt=core.symmetry_opt,
+                            quarter_sym_opt=core.quarter_sym_opt,
+                            min_thickness=self.specs.min_thickness)
+
+
+
+    def _get_axial_mesh(self, reactor: geometry_elements_triga_netl.Reactor
+    ) -> List[float]:
+
+        pool_bottom, pool_top = reactor.pool_axial_bounds
+        reflector_bottom, reflector_top = reactor.reflector_axial_bounds
+        rsr_bottom, _ = reactor.rsr_axial_bounds
+
+        points = [pool_bottom,
+                  pool_top,
+                  reflector_bottom,
+                  reflector_top,
+                  rsr_bottom]
+
+        for beamport_id in (1, 2, 3, 4):
+            points.extend(reactor.beamport_axial_bounds[beamport_id])
+
+        def within_pool(z: float) -> bool:
+            return ((z > pool_bottom or isclose(z, pool_bottom, rel_tol=TOL, abs_tol=TOL)) and
+                    (z < pool_top or isclose(z, pool_top, rel_tol=TOL, abs_tol=TOL)))
+
+        points = sorted(z for z in points if within_pool(z))
+
+        unique_points: List[float] = []
+        for z in points:
+            if not unique_points or not isclose(z, unique_points[-1], rel_tol=TOL):
+                unique_points.append(z)
+
+        if len(unique_points) < 2:
+            return []
+
+        axial_mesh = []
+        for start, stop in zip(unique_points[:-1], unique_points[1:]):
+            length = stop - start
+            if isclose(length, 0.0, rel_tol=TOL, abs_tol=TOL):
+                continue
+            if length < 0.0:
+                raise ValueError("Axial mesh points must be ordered from bottom to top.")
+            axial_mesh.append(length)
+
+        return axial_mesh
+
+
+
+    def _set_cell(self,
+                  assembly: Optional[mpactpy.Assembly],
+                  side_lengths: Tuple[float, float],
+                  radial_location: Tuple[float, float],
+                  axial_mesh: List[float],
+                  reactor: geometry_elements_triga_netl.Reactor,
+    ) -> Optional[mpactpy.Assembly]:
+
+        if not axial_mesh:
+            return None
+
+        rect = Rectangle(w=side_lengths[0], h=side_lengths[1])
+        if reactor.shroud_inner_contains(rect, radial_location) and assembly is not None:
+            return assembly
+
+        if not reactor.pool_contains(rect, radial_location):
+            return None
+
+        voxel_specs = self.specs.voxelation_specs
+        material = mpactpy.Material(temperature=300.0,
+                                    number_densities={"H1": 1.0})
+
+        lattice_cache: Dict[Tuple[float, float], mpactpy.Lattice] = {}
+        lattice_map: List[mpactpy.Lattice] = []
+        z_cursor = reactor.pool_axial_bounds[0]
+        for length in axial_mesh:
+            z_next = z_cursor + length
+            axial_bounds = (z_cursor, z_next)
+            z_cursor = z_next
+
+            target_thicknesses: List[float] = []
+            if reactor.shroud_intersects(rect, radial_location, axial_bounds):
+                target_thicknesses.append(voxel_specs.shroud_target_thicknesses)
+            if reactor.rsr_intersects(rect, radial_location, axial_bounds):
+                target_thicknesses.append(voxel_specs.rsr_target_thicknesses)
+            if reactor.reflector_intersects(rect, radial_location, axial_bounds):
+                target_thicknesses.append(voxel_specs.reflector_target_thicknesses)
+            if reactor.any_beamport_intersects(rect, radial_location, axial_bounds):
+                target_thicknesses.append(voxel_specs.beamport_target_thicknesses)
+
+            if not target_thicknesses:
+                target_thicknesses.append(voxel_specs.pool_target_thicknesses)
+
+            target_thickness = min(target_thicknesses)
+
+            lattice = None
+            for (cached_length, cached_thickness), cached_lattice in lattice_cache.items():
+                if (isclose(length, cached_length, rel_tol=TOL, abs_tol=TOL) and
+                        isclose(target_thickness, cached_thickness, rel_tol=TOL, abs_tol=TOL)):
+                    lattice = cached_lattice
+                    break
+            if lattice is None:
+                pin = mpactpy.build_rec_pin(
+                    thicknesses={"X": [side_lengths[0]],
+                                 "Y": [side_lengths[1]],
+                                 "Z": [length]},
+                    materials=[material],
+                    target_cell_thicknesses={"X": target_thickness, "Y": target_thickness},
+                )
+                module = mpactpy.Module(1, [[pin]])
+                lattice = mpactpy.Lattice([[module]])
+                lattice_cache[(length, target_thickness)] = lattice
+            lattice_map.append(lattice)
+
+        return mpactpy.Assembly(lattice_map)
+
 
 def build_core_element(
     core_location:                 str,
@@ -333,15 +561,24 @@ def build_core_element(
                                                     core_location,
                                                     outer_region_specs)
 
-    return _build_core_location_with_element(upper_grid_plate,
-                                             lower_grid_plate,
-                                             element,
-                                             element_bottom_axial_position,
-                                             axial_bounds,
-                                             outer_material,
-                                             core_location,
-                                             element_specs,
-                                             outer_region_specs)
+    stack, specs = _build_core_location_with_element(upper_grid_plate,
+                                                     lower_grid_plate,
+                                                     element,
+                                                     element_bottom_axial_position,
+                                                     axial_bounds,
+                                                     outer_material,
+                                                     core_location,
+                                                     element_specs,
+                                                     outer_region_specs)
+    if core_cell_specs.unionize_radial_mesh:
+        old_segments = stack.segments
+        old_specs = specs
+        stack = stack.unionize_radial_mesh()
+        segment_specs = {new_segment: old_specs.segment_specs.get(old_segment)
+                         for new_segment, old_segment in zip(stack.segments, old_segments)}
+        specs = Stack.Specs(segment_specs=segment_specs, num_procs=old_specs.num_procs)
+
+    return stack, specs
 
 
 def _build_core_location_with_no_penetrations(

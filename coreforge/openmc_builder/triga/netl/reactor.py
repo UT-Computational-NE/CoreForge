@@ -7,7 +7,6 @@ import openmc
 from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder, build
 from coreforge.shapes import Hexagon
-import coreforge.geometry_elements.triga as geometry_elements_triga
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 
 @register_builder(geometry_elements_triga_netl.Reactor)
@@ -56,7 +55,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                                  region = pool_region,
                                  name   = "reactor_pool"))
 
-        return openmc.Universe(cells=cells)
+        return openmc.Universe(cells=cells, name=element.name)
 
 
 def build_pool(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Universe:
@@ -212,28 +211,7 @@ def build_core_lattice(reactor: geometry_elements_triga_netl.Reactor) -> openmc.
         ring_universes = []
         for element_index, element in enumerate(ring):
             core_location = geometry_elements_triga_netl.Core.RING_MAP[ring_index][element_index]
-            element_bottom_axial_position = None # For None elements
-            if isinstance(element, geometry_elements_triga_netl.CentralThimble):
-                element_bottom_axial_position = -0.5 * element.length
-            elif isinstance(element, geometry_elements_triga.FuelElement):
-                element_bottom_axial_position = (-0.5 * element.fuel_meat.length -
-                    element.moly_disc.thickness - element.lower_end_fitting.length -
-                    element.lower_graphite_reflector.thickness)
-            elif isinstance(element, geometry_elements_triga.GraphiteElement):
-                element_bottom_axial_position = (-0.5 * element.graphite_meat.length -
-                    element.lower_end_fitting.length)
-            elif element is reactor.core.transient_rod:
-                element_bottom_axial_position = reactor.transient_rod_position
-            elif element is reactor.core.regulating_rod:
-                element_bottom_axial_position = reactor.regulating_rod_position
-            elif element is reactor.core.shim_1_rod:
-                element_bottom_axial_position = reactor.shim_1_rod_position
-            elif element is reactor.core.shim_2_rod:
-                element_bottom_axial_position = reactor.shim_2_rod_position
-            elif isinstance(element, geometry_elements_triga_netl.SourceHolder):
-                element_bottom_axial_position = (
-                    reactor.upper_grid_plate.top_to_core_centerline_distance -
-                    element.length)
+            element_bottom_axial_position = reactor.get_element_bottom_axial_position(element)
 
             universe = build_core_element(
                 core_location=core_location,
