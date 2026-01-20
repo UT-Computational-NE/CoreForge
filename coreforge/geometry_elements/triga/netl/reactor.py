@@ -6,16 +6,21 @@ from math import isclose
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.geometry_elements.triga.netl import (BeamPort as BeamPortGeometry, Core as CoreGeometry,
-                                                    GridPlate as GridPlateGeometry, Pool as PoolGeometry,
-                                                    Reflector as ReflectorGeometry, RSRCavity as RSRCavityGeometry,
-                                                    Shroud as ShroudGeometry)
 from coreforge.materials import Material, unique_materials
 from coreforge.shapes import Circle, Rectangle
-import coreforge.geometry_elements.triga as geometry_elements_triga
-import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
+from coreforge.geometry_elements.triga import FuelElement as FuelElementGeometry, GraphiteElement as GraphiteElementGeometry
+from .beam_port import BeamPort as BeamPortGeometry
+from .core import Core as CoreGeometry
+from .grid_plate import GridPlate as GridPlateGeometry
+from .pool import Pool as PoolGeometry
+from .reflector import Reflector as ReflectorGeometry
+from .rsr_cavity import RSRCavity as RSRCavityGeometry
+from .shroud import Shroud as ShroudGeometry
+from .central_thimble import CentralThimble as CentralThimbleGeometry
+from .source_holder import SourceHolder as SourceHolderGeometry
 
 
+# pylint: disable=too-many-public-methods
 class Reactor(GeometryElement):
     """Top-level TRIGA NETL reactor geometry container with placement metadata.
 
@@ -458,31 +463,32 @@ class Reactor(GeometryElement):
             if no element is provided or no special placement is required.
         """
 
-        if element is None:
-            return None
+        axial_position: float | None = None
 
-        if isinstance(element, geometry_elements_triga_netl.CentralThimble):
-            return -0.5 * element.length
-        if isinstance(element, geometry_elements_triga.FuelElement):
-            return (-0.5 * element.fuel_meat.length -
-                    element.moly_disc.thickness -
-                    element.lower_end_fitting.length -
-                    element.lower_graphite_reflector.thickness)
-        if isinstance(element, geometry_elements_triga.GraphiteElement):
-            return (-0.5 * element.graphite_meat.length -
+        if isinstance(element, CentralThimbleGeometry):
+            axial_position = -0.5 * element.length
+        if isinstance(element, FuelElementGeometry):
+            axial_position = (-0.5 * element.fuel_meat.length -
+                              element.moly_disc.thickness -
+                              element.lower_end_fitting.length -
+                              element.lower_graphite_reflector.thickness)
+        if isinstance(element, GraphiteElementGeometry):
+            axial_position = (-0.5 * element.graphite_meat.length -
                     element.lower_end_fitting.length)
         if element is self.core.transient_rod:
-            return self.transient_rod_position
+            axial_position = self.transient_rod_position
         if element is self.core.regulating_rod:
-            return self.regulating_rod_position
+            axial_position = self.regulating_rod_position
         if element is self.core.shim_1_rod:
-            return self.shim_1_rod_position
+            axial_position = self.shim_1_rod_position
         if element is self.core.shim_2_rod:
-            return self.shim_2_rod_position
-        if isinstance(element, geometry_elements_triga_netl.SourceHolder):
-            return self.upper_grid_plate.top_to_core_centerline_distance - element.length
+            axial_position = self.shim_2_rod_position
+        if isinstance(element, SourceHolderGeometry):
+            axial_position = self.upper_grid_plate.top_to_core_centerline_distance - \
+                             element.length
 
-        raise ValueError(f"Unsupported core element type: {type(element).__name__}")
+        return axial_position
+
 
     def _axial_bounds_intersect(self,
                                 bounds_a: Tuple[float, float],

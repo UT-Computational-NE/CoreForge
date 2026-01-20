@@ -102,7 +102,8 @@ class Core(GeometryElement):
     Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder
     ControlRod: TypeAlias = TransientRod | FuelFollowerControlRod
     Fixture:    TypeAlias = CentralThimble | TransientRod | FuelFollowerControlRod
-    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | CentralThimble | TransientRod | FuelFollowerControlRod
+    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | CentralThimble | \
+                            TransientRod | FuelFollowerControlRod
 
     RESERVED_LOCATIONS: ClassVar[List[str]] = ["A-01", "C-01", "C-07", "D-06", "D-14",
                                                "G-01", "G-07", "G-13", "G-19", "G-25", "G-31"]

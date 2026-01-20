@@ -3,19 +3,25 @@ from typing import Dict, List, Optional, Tuple, TypeAlias
 from dataclasses import dataclass, field
 from math import ceil, inf, isclose
 
-from coreforge.mpact_builder.triga import core_element
 import openmc
 import mpactpy
 from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE as TOL
 
-import coreforge.geometry_elements as geometry_elements
+from coreforge import geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 from coreforge.materials import Material
 from coreforge.shapes import Rectangle
-import coreforge.openmc_builder as openmc_builder
-from coreforge.mpact_builder import (Bounds, Builder, BuilderSpecs, HexLattice, InfiniteMedium, Stack, stack as stack_builder,
-                                     MaterialSpecs, DEFAULT_MPACT_MATERIAL_SPECS, build, get_builder, register_builder)
-from coreforge.mpact_builder.triga import CoreElement, FuelElement, GraphiteElement
+from coreforge import openmc_builder
+from coreforge.mpact_builder.builder import Bounds, Builder
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs, DEFAULT_MPACT_MATERIAL_SPECS
+from coreforge.mpact_builder.hex_lattice import HexLattice
+from coreforge.mpact_builder.infinite_medium import InfiniteMedium
+from coreforge.mpact_builder.stack import Stack
+import coreforge.mpact_builder.stack as stack_builder
+from coreforge.mpact_builder.mpact_builder import build, get_builder, register_builder
+from coreforge.mpact_builder.triga.core_element import CoreElement
+from coreforge.mpact_builder.triga.fuel_element import FuelElement
+from coreforge.mpact_builder.triga.graphite_element import GraphiteElement
 from .central_thimble import CentralThimble
 from .fuel_follower_control_rod import FuelFollowerControlRod
 from .source_holder import SourceHolder
@@ -160,7 +166,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         """
 
         core_specs:       Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
-        voxelation_specs: Reactor.VoxelationSpecs = field(default_factory=lambda: Reactor.VoxelationSpecs())
+        voxelation_specs: Reactor.VoxelationSpecs = field(default_factory=lambda: Reactor.VoxelationSpecs())  # pylint: disable=unnecessary-lambda
         min_thickness:    float = 0.0
         material_specs:   MaterialSpecs = field(default_factory=dict)
         openmc_universe:  Optional[openmc.Universe] = None
@@ -170,7 +176,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         def __post_init__(self) -> None:
             valid_locations = {loc for ring in geometry_elements_triga_netl.Core.RING_MAP for loc in ring}
-            invalid = [loc for loc in self.core_specs.keys() if loc not in valid_locations]
+            invalid = [loc for loc in self.core_specs if loc not in valid_locations]
             assert not invalid, f"Invalid core location(s) in core_specs: {invalid}"
             assert self.num_procs > 0, f"num_procs must be > 0 (got {self.num_procs})"
             assert self.min_thickness >= 0.0, f"min_thickness must be >= 0.0 cm (got {self.min_thickness})"
@@ -273,7 +279,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         assemblies_to_overlay = {a for a in core.assemblies if lattices_to_overlay.intersection(a.lattices)}
 
         # Create overlay masks
-        pin_mask:      mpactpy.Pin.OverlayMask      = {material                for material in core.materials}
+        pin_mask:      mpactpy.Pin.OverlayMask      = set(core.materials)
         module_mask:   mpactpy.Module.OverlayMask   = {pin:      pin_mask      for pin      in pins_to_overlay}
         lattice_mask:  mpactpy.Lattice.OverlayMask  = {module:   module_mask   for module   in modules_to_overlay}
         assembly_mask: mpactpy.Assembly.OverlayMask = {lattice:  lattice_mask  for lattice  in lattices_to_overlay}
@@ -282,12 +288,10 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         overlay_policy           = mpactpy.PinMesh.OverlayPolicy(num_procs=self.specs.num_procs)
 
         # Map MPACT materials specs to OpenMC materials
-        material_specs           = {material: DEFAULT_MPACT_MATERIAL_SPECS[type(material)] for material in reactor.get_materials()}
-        print(material_specs)
-        material_specs           = material_specs | self.specs.material_specs
-        print(material_specs)
+        default_material_specs   = {material: DEFAULT_MPACT_MATERIAL_SPECS[type(material)]
+                                    for material in reactor.get_materials()} | self.specs.material_specs
+        material_specs           = default_material_specs | self.specs.material_specs
         material_specs           = {material.name: material_specs[material] for material in material_specs.keys()}
-        print(material_specs)
         openmc_materials         = openmc.Materials(list(openmc_universe.get_all_materials().values()))
         overlay_policy.mat_specs = {material: material_specs[material.name] for material in openmc_materials}
 
@@ -556,7 +560,7 @@ def build_core_element(
                                                          axial_bounds,
                                                          outer_material,
                                                          outer_region_specs)
-    elif element is None:
+    if element is None:
         return _build_core_location_with_water_hole(upper_grid_plate,
                                                     lower_grid_plate,
                                                     axial_bounds,

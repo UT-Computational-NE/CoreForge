@@ -12,6 +12,7 @@ from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, B4C, Material, Water, unique_materials
 
 
+# pylint: disable=too-many-public-methods
 class TransientRod(GeometryElement):
     """TRIGA NETL transient rod definitions and pincell builders.
 

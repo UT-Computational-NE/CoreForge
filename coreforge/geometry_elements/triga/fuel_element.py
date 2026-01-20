@@ -13,6 +13,7 @@ from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Graphite, Material, Mo, SS304, UZrH, Water, Zr, unique_materials
 
 
+# pylint: disable=too-many-public-methods
 class FuelElement(GeometryElement):
     """TRIGA fuel element definitions and pincell builder.
 

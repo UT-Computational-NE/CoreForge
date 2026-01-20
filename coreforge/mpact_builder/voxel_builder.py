@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from math import ceil, inf, isinf
+from math import ceil, inf
 from typing import Optional, Tuple, TypedDict
 
 import mpactpy
@@ -9,7 +9,8 @@ import openmc
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Material
-from coreforge.mpact_builder import Bounds, Builder, BuilderSpecs, MaterialSpecs, build_material
+from coreforge.mpact_builder.builder import Bounds, Builder, build_material
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
 from coreforge.openmc_builder import build as build_openmc_universe
 
 

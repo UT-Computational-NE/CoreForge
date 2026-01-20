@@ -4,10 +4,13 @@ from dataclasses import dataclass, field
 
 import mpactpy
 
-from coreforge.mpact_builder import AxisBounds, Bounds, BuilderSpecs, Stack, build, register_builder
+from coreforge.mpact_builder.builder import AxisBounds, Bounds
+from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.stack import Stack
+from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.geometry_elements.cone import OneSidedCone
-from coreforge.mpact_builder.triga import CoreElement
-import coreforge.geometry_elements as geometry_elements
+from coreforge.mpact_builder.triga.core_element import CoreElement
+from coreforge import geometry_elements
 import coreforge.geometry_elements.triga as geometry_elements_triga
 
 
@@ -49,25 +52,25 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
         """
 
         lower_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         lower_reflector: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         moly_disc: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         fuel: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         upper_reflector: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         air_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         upper_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
 
         def __post_init__(self):
@@ -169,6 +172,6 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
         for segment in stack.segments[mid_end:]:
             segment_specs[segment] = self.specs.upper_end_fitting
 
-        stack_specs = Stack.Specs({segment: region_specs for segment, region_specs in segment_specs.items()})
+        stack_specs = Stack.Specs(segment_specs)
 
         return stack, stack_specs

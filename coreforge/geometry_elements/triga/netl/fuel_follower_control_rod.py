@@ -12,6 +12,7 @@ from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, B4C, Material, SS304, UZrH, Water, Zr, unique_materials
 
 
+# pylint: disable=too-many-public-methods
 class FuelFollowerControlRod(GeometryElement):
     """TRIGA NETL fuel-follower control rod definitions and pincell builders.
 
@@ -604,19 +605,22 @@ class FuelFollowerControlRod(GeometryElement):
             The Fuel Follower Control Rod as a Stack
         """
 
-        return Stack(segments   = [Stack.Segment(self.lower_element_plug_pincell, self.lower_element_plug.thickness),
-                                   Stack.Segment(self.air_gap_pincell, self.lower_air_gap.thickness),
-                                   Stack.Segment(self.lower_magneform_fitting_pincell, self.lower_magneform_fitting.thickness),
-                                   Stack.Segment(self.fuel_follower_pincell, self.fuel_follower.length),
-                                   Stack.Segment(self.air_gap_pincell, self.above_fuel_follower_air_gap.thickness),
-                                   Stack.Segment(self.middle_magneform_fitting_pincell, self.middle_magneform_fitting.thickness),
-                                   Stack.Segment(self.absorber_pincell, self.absorber.length),
-                                   Stack.Segment(self.air_gap_pincell, self.above_absorber_air_gap.thickness),
-                                   Stack.Segment(self.upper_magneform_fitting_pincell, self.upper_magneform_fitting.thickness),
-                                   Stack.Segment(self.air_gap_pincell, self.upper_air_gap.thickness),
-                                   Stack.Segment(self.upper_element_plug_pincell, self.upper_element_plug.thickness)],
-                      name       = self.name,
-                      bottom_pos = bottom_pos)
+        return Stack( name       = self.name,
+                      bottom_pos = bottom_pos,
+                      segments   = [
+            Stack.Segment(self.lower_element_plug_pincell, self.lower_element_plug.thickness),
+            Stack.Segment(self.air_gap_pincell, self.lower_air_gap.thickness),
+            Stack.Segment(self.lower_magneform_fitting_pincell, self.lower_magneform_fitting.thickness),
+            Stack.Segment(self.fuel_follower_pincell, self.fuel_follower.length),
+            Stack.Segment(self.air_gap_pincell, self.above_fuel_follower_air_gap.thickness),
+            Stack.Segment(self.middle_magneform_fitting_pincell, self.middle_magneform_fitting.thickness),
+            Stack.Segment(self.absorber_pincell, self.absorber.length),
+            Stack.Segment(self.air_gap_pincell, self.above_absorber_air_gap.thickness),
+            Stack.Segment(self.upper_magneform_fitting_pincell, self.upper_magneform_fitting.thickness),
+            Stack.Segment(self.air_gap_pincell, self.upper_air_gap.thickness),
+            Stack.Segment(self.upper_element_plug_pincell, self.upper_element_plug.thickness)
+            ],
+        )
 
     @staticmethod
     def build_absorber_pincell(cladding:       Cladding,

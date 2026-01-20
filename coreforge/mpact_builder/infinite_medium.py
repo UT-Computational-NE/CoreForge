@@ -4,7 +4,9 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder import Bounds, Builder, BuilderSpecs, MaterialSpecs, build_material, register_builder
+from coreforge.mpact_builder.builder import Bounds, Builder, build_material
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.mpact_builder import register_builder
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.InfiniteMedium)

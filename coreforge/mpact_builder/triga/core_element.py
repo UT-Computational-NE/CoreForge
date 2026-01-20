@@ -5,8 +5,10 @@ from dataclasses import dataclass
 from typing import Optional, Tuple, TypeVar
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.mpact_builder import Builder, CylindricalPinCell, Stack
-import coreforge.geometry_elements as geometry_elements
+from coreforge.mpact_builder.builder import Builder
+from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
+from coreforge.mpact_builder.stack import Stack
+from coreforge import geometry_elements
 
 TCoreElement = TypeVar("TCoreElement", bound=GeometryElement)
 

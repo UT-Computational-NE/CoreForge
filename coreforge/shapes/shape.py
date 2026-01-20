@@ -1,9 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Any, Tuple, TypeVar
+from typing import Any, Callable, Tuple, TypeVar, cast
 
 import openmc
 
 T = TypeVar('T', bound='Shape')
+
+
+def _call_intersection(method: Callable[..., bool], *args: Any) -> bool:
+    return method(*args)
 
 class Shape(ABC):
     """ An abstract class for channel shapes
@@ -55,12 +59,18 @@ class Shape(ABC):
         method_name = f"_intersects_with_{other.__class__.__name__.lower()}"
         method = getattr(self, method_name, None)
         if callable(method):
-            return method(other, self_center, other_center)
+            return _call_intersection(cast(Callable[..., bool], method),
+                                      other,
+                                      self_center,
+                                      other_center)
 
         reverse_name = f"_intersects_with_{self.__class__.__name__.lower()}"
         reverse_method = getattr(other, reverse_name, None)
         if callable(reverse_method):
-            return reverse_method(self, other_center, self_center)
+            return _call_intersection(cast(Callable[..., bool], reverse_method),
+                                      self,
+                                      other_center,
+                                      self_center)
 
         return NotImplemented
 

@@ -5,9 +5,13 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder import AxisBounds, Bounds, BuilderSpecs, CylindricalPinCell, Stack, build, register_builder
-from coreforge.mpact_builder.triga import CoreElement
-import coreforge.geometry_elements as geometry_elements
+from coreforge.mpact_builder.builder import AxisBounds, Bounds
+from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
+from coreforge.mpact_builder.stack import Stack
+from coreforge.mpact_builder.mpact_builder import build, register_builder
+from coreforge.mpact_builder.triga.core_element import CoreElement
+from coreforge import geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 
 

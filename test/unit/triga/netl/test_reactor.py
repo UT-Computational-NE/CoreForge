@@ -1,6 +1,5 @@
 from copy import deepcopy
 from math import cos, radians, sin
-import os
 
 import pytest
 
@@ -189,8 +188,7 @@ def test_openmc_builder(reactor):
     assert len(universe.cells) == 9
 
 
-def test_mpact_builder_without_excore(reactor):
-    num_procs = min(20, os.cpu_count() or 1)
+def test_mpact_builder_without_excore(reactor, num_procs):
     specs = mpact_builder.triga.netl.Reactor.Specs(exclude_excore=True, num_procs=num_procs)
     core = mpact_builder.build(reactor, specs)
     assert core.nx > 0
@@ -201,8 +199,7 @@ def test_mpact_builder_without_excore(reactor):
     assert core.width["Y"] > 0.0
 
 
-def test_mpact_builder_with_excore(reactor):
-    num_procs = min(20, os.cpu_count() or 1)
+def test_mpact_builder_with_excore(reactor, num_procs):
     specs = mpact_builder.triga.netl.Reactor.Specs(num_procs=num_procs)
     core = mpact_builder.build(reactor, specs)
     assert core.nx > 0

@@ -4,9 +4,12 @@ from dataclasses import dataclass, field
 
 import mpactpy
 
-from coreforge.mpact_builder import AxisBounds, Bounds, BuilderSpecs, Stack, build, register_builder
-from coreforge.mpact_builder.triga import CoreElement
-import coreforge.geometry_elements as geometry_elements
+from coreforge.mpact_builder.builder import AxisBounds, Bounds
+from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.stack import Stack
+from coreforge.mpact_builder.mpact_builder import build, register_builder
+from coreforge.mpact_builder.triga.core_element import CoreElement
+from coreforge import geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 
 
@@ -56,37 +59,37 @@ class FuelFollowerControlRod(CoreElement[geometry_elements_triga_netl.FuelFollow
         """
 
         lower_element_plug: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         lower_air_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         lower_magneform_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         fuel_follower: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         above_fuel_follower_air_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         middle_magneform_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         absorber: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         above_absorber_air_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         upper_magneform_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         upper_air_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         upper_element_plug: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
 
         def __post_init__(self):
@@ -155,18 +158,18 @@ class FuelFollowerControlRod(CoreElement[geometry_elements_triga_netl.FuelFollow
     ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
 
         stack = element.as_stack().unionize_radial_mesh()
-        segments = [(stack.segments[0], self.specs.lower_element_plug),
-                    (stack.segments[1], self.specs.lower_air_gap),
-                    (stack.segments[2], self.specs.lower_magneform_fitting),
-                    (stack.segments[3], self.specs.fuel_follower),
-                    (stack.segments[4], self.specs.above_fuel_follower_air_gap),
-                    (stack.segments[5], self.specs.middle_magneform_fitting),
-                    (stack.segments[6], self.specs.absorber),
-                    (stack.segments[7], self.specs.above_absorber_air_gap),
-                    (stack.segments[8], self.specs.upper_magneform_fitting),
-                    (stack.segments[9], self.specs.upper_air_gap),
-                    (stack.segments[10], self.specs.upper_element_plug)]
+        segment_specs = {stack.segments[0]: self.specs.lower_element_plug,
+                         stack.segments[1]: self.specs.lower_air_gap,
+                         stack.segments[2]: self.specs.lower_magneform_fitting,
+                         stack.segments[3]: self.specs.fuel_follower,
+                         stack.segments[4]: self.specs.above_fuel_follower_air_gap,
+                         stack.segments[5]: self.specs.middle_magneform_fitting,
+                         stack.segments[6]: self.specs.absorber,
+                         stack.segments[7]: self.specs.above_absorber_air_gap,
+                         stack.segments[8]: self.specs.upper_magneform_fitting,
+                         stack.segments[9]: self.specs.upper_air_gap,
+                         stack.segments[10]: self.specs.upper_element_plug}
 
-        stack_specs = Stack.Specs({segment: region_specs for segment, region_specs in segments})
+        stack_specs = Stack.Specs(segment_specs)
 
         return stack, stack_specs

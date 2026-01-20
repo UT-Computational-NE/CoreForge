@@ -8,7 +8,9 @@ import mpactpy
 from mpactpy.pin import build_rec_pin, build_gcyl_pin
 
 from coreforge.shapes import Rectangle, Stadium, Circle
-from coreforge.mpact_builder import Bounds, Builder, BuilderSpecs, MaterialSpecs, build_material, register_builder
+from coreforge.mpact_builder.builder import Bounds, Builder, build_material
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.mpact_builder import register_builder
 import coreforge.geometry_elements.msre as geometry_elements_msre
 from coreforge.utils import remove_none_2D
 

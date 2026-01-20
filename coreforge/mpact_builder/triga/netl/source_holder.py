@@ -4,9 +4,12 @@ from dataclasses import dataclass, field
 
 import mpactpy
 
-from coreforge.mpact_builder import AxisBounds, Bounds, BuilderSpecs, Stack, build, register_builder
-from coreforge.mpact_builder.triga import CoreElement
-import coreforge.geometry_elements as geometry_elements
+from coreforge.mpact_builder.builder import AxisBounds, Bounds
+from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.stack import Stack
+from coreforge.mpact_builder.mpact_builder import build, register_builder
+from coreforge.mpact_builder.triga.core_element import CoreElement
+from coreforge import geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 
 
@@ -38,10 +41,10 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
         """
 
         solid: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
         cavity: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=lambda: CoreElement.SegmentSpecs()
+            default_factory = CoreElement.SegmentSpecs
         )
 
         def __post_init__(self):
@@ -100,13 +103,10 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
 
         stack = element.as_stack()
 
-        segments = [(stack.segments[0], self.specs.solid),
-                    (stack.segments[1], self.specs.cavity),
-                    (stack.segments[2], self.specs.solid)]
+        segment_specs = {stack.segments[0]: self.specs.solid,
+                         stack.segments[1]: self.specs.cavity,
+                         stack.segments[2]: self.specs.solid}
 
-        stack = geometry_elements.Stack(segments=[segment for segment, _ in segments],
-                                        name=element.name)
-
-        stack_specs = Stack.Specs({segment: region_specs for segment, region_specs in segments})
+        stack_specs = Stack.Specs(segment_specs)
 
         return stack, stack_specs

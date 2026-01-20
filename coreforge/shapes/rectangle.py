@@ -1,10 +1,10 @@
 from math import sqrt, isclose
 from typing import Any, Tuple
 
-from coreforge.shapes.circle import Circle
 import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
+from coreforge.shapes.circle import Circle
 from coreforge.shapes.shape import Shape_2D
 from coreforge.shapes.utils import to_local
 

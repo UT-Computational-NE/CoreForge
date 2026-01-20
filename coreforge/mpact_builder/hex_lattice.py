@@ -3,11 +3,12 @@ from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass, field
 from multiprocessing import cpu_count
 from math import sqrt
-import os
 
 import mpactpy
 
-from coreforge.mpact_builder import AxisBounds, Bounds, Builder, BuilderSpecs, build, register_builder
+from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
+from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.utils import build_elements
 from coreforge import geometry_elements
 
