@@ -6,6 +6,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.materials import Material, unique_materials
 
 class Stack(GeometryElement):
     """ A class for Z-axis aligned segments (i.e. stacks)
@@ -115,6 +116,12 @@ class Stack(GeometryElement):
 
     def __hash__(self) -> int:
         return hash((relative_round(self.bottom_pos, TOL), tuple(self.segments)))
+
+    def get_materials(self) -> List[Material]:
+        materials: List[Material] = []
+        for segment in self.segments:
+            materials.extend(segment.element.get_materials())
+        return unique_materials(materials)
 
     def __add__(self, other: Stack) -> Stack:
         assert isinstance(other, Stack), f"Can only add Stack to Stack (got {type(other)})"

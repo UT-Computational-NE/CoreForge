@@ -5,7 +5,7 @@ from math import isclose
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shapes import Shape_2D
-from coreforge.materials import Material
+from coreforge.materials import Material, unique_materials
 from coreforge.geometry_elements.geometry_element import GeometryElement
 
 class PinCell(GeometryElement):
@@ -172,3 +172,8 @@ class PinCell(GeometryElement):
                      relative_round(self.x0, TOL),
                      relative_round(self.y0, TOL),
                      tuple(self.zones)))
+
+    def get_materials(self) -> List[Material]:
+        materials = [zone.material for zone in self.zones]
+        materials.append(self.outer_material)
+        return unique_materials(materials)

@@ -282,10 +282,13 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         overlay_policy           = mpactpy.PinMesh.OverlayPolicy(num_procs=self.specs.num_procs)
 
         # Map MPACT materials specs to OpenMC materials
-        openmc_materials         = openmc.Materials(list(openmc_universe.get_all_materials().values()))
-        material_specs           = DEFAULT_MPACT_MATERIAL_SPECS | self.specs.material_specs
+        material_specs           = {material: DEFAULT_MPACT_MATERIAL_SPECS[type(material)] for material in reactor.get_materials()}
+        print(material_specs)
+        material_specs           = material_specs | self.specs.material_specs
+        print(material_specs)
         material_specs           = {material.name: material_specs[material] for material in material_specs.keys()}
         print(material_specs)
+        openmc_materials         = openmc.Materials(list(openmc_universe.get_all_materials().values()))
         overlay_policy.mat_specs = {material: material_specs[material.name] for material in openmc_materials}
 
         half_mpact_model_width = core.width['X'] * 0.5

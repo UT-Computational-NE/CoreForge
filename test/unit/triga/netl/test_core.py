@@ -2,6 +2,7 @@ import pytest
 from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import Core
+from coreforge.materials import unique_materials
 from .test_central_thimble import central_thimble  # reuse fixtures
 from .test_transient_rod import transient_rod
 from .test_fuel_follower_control_rod import control_rod
@@ -95,6 +96,11 @@ def test_initialization(core, fuel_element, graphite_element, source_holder, cen
     assert core.full_map["D-14"] == control_rod
     assert core.full_map["G-01"] is None
     assert core.full_map["G-32"] == source_holder
+    expected = [core.fill_material]
+    for element in core.full_map.values():
+        if element is not None:
+            expected.extend(element.get_materials())
+    assert core.get_materials() == unique_materials(expected)
 
 def test_equality_and_hash(core, unequal_core):
     assert core == deepcopy(core)

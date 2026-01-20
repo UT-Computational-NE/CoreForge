@@ -8,6 +8,7 @@ import mpactpy
 
 from coreforge.shapes import Circle, Square, Hexagon, Stadium
 from coreforge.geometry_elements import PinCell, CylindricalPinCell
+from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
@@ -68,6 +69,8 @@ def test_pincell_initialization(pincell):
     assert geom_element.outer_material.name == "Salt"
     assert isclose(geom_element.x0, 1.0)
     assert isclose(geom_element.y0, -2.0)
+    expected = unique_materials([zone.material for zone in geom_element.zones] + [geom_element.outer_material])
+    assert geom_element.get_materials() == expected
 
 def test_equality_and_hash(pincell, unequal_pincell):
     assert pincell == deepcopy(pincell)
@@ -132,6 +135,8 @@ def test_cylindrical_pincell_initialization(cylindrical_pincell):
     assert geom_element.outer_material.name == "Graphite"
     assert isclose(geom_element.x0, 0.0)
     assert isclose(geom_element.y0, 0.0)
+    expected = unique_materials([zone.material for zone in geom_element.zones] + [geom_element.outer_material])
+    assert geom_element.get_materials() == expected
 
 def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pincell_mpact_specs, salt, graphite):
 

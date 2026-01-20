@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from math import isclose
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
@@ -10,6 +10,7 @@ from coreforge.geometry_elements.triga.netl import (BeamPort as BeamPortGeometry
                                                     GridPlate as GridPlateGeometry, Pool as PoolGeometry,
                                                     Reflector as ReflectorGeometry, RSRCavity as RSRCavityGeometry,
                                                     Shroud as ShroudGeometry)
+from coreforge.materials import Material, unique_materials
 from coreforge.shapes import Circle, Rectangle
 import coreforge.geometry_elements.triga as geometry_elements_triga
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
@@ -424,6 +425,20 @@ class Reactor(GeometryElement):
             relative_round(self.shim_1_rod_position, TOL),
             relative_round(self.shim_2_rod_position, TOL),
         ))
+
+    def get_materials(self) -> List[Material]:
+        materials: List[Material] = []
+        materials.extend(self.pool.get_materials())
+        materials.extend(self.reflector.geometry.get_materials())
+        materials.extend(self.shroud.get_materials())
+        materials.extend(self.rotary_specimen_rack_cavity.get_materials())
+        materials.extend(self.core.get_materials())
+        materials.extend(self.upper_grid_plate.geometry.get_materials())
+        materials.extend(self.lower_grid_plate.geometry.get_materials())
+        for beam_port in (self.beam_port_1_5, self.beam_port_2, self.beam_port_3, self.beam_port_4):
+            if beam_port is not None:
+                materials.extend(beam_port.geometry.get_materials())
+        return unique_materials(materials)
 
 
     def get_element_bottom_axial_position(self,

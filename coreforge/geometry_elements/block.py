@@ -5,7 +5,7 @@ from math import isclose
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shapes import Shape_2D
-from coreforge.materials import Material
+from coreforge.materials import Material, unique_materials
 from coreforge.geometry_elements.geometry_element import GeometryElement
 
 class Block(GeometryElement):
@@ -220,3 +220,8 @@ class Block(GeometryElement):
                      self.prism_material,
                      self.outer_material,
                      tuple(self.channels)))
+
+    def get_materials(self) -> List[Material]:
+        materials = [self.prism_material, self.outer_material]
+        materials.extend(channel.material for channel in self.channels if channel)
+        return unique_materials(materials)

@@ -2,7 +2,7 @@ import pytest
 from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import Pool
-from coreforge.materials import Water
+from coreforge.materials import Water, unique_materials
 
 
 @pytest.fixture
@@ -19,6 +19,7 @@ def test_initialization(pool):
     assert pool.radius == pytest.approx(90.0)
     assert pool.height == pytest.approx(160.0)
     assert isinstance(pool.material, Water)
+    assert pool.get_materials() == unique_materials([pool.material])
 
 
 def test_equality_and_hash(pool, unequal_pool):

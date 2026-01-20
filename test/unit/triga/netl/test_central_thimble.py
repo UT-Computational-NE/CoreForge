@@ -3,7 +3,7 @@ from copy import deepcopy
 from math import isclose
 
 from coreforge.geometry_elements.triga.netl import CentralThimble
-from coreforge.materials import Al6061T6, Water
+from coreforge.materials import Al6061T6, Water, unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 
@@ -50,6 +50,12 @@ def test_initialization(central_thimble):
     assert isinstance(materials[0], Water)
     assert isinstance(materials[1], Al6061T6)
     assert isinstance(pin.outer_material, Water)
+    expected = unique_materials([
+        central_thimble.cladding.material,
+        central_thimble.fill_material,
+        central_thimble.outer_material,
+    ])
+    assert central_thimble.get_materials() == expected
 
 
 def test_equality_and_hash(central_thimble, unequal_thimble):

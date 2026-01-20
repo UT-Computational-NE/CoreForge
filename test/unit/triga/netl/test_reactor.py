@@ -5,6 +5,7 @@ import os
 import pytest
 
 from coreforge.geometry_elements.triga.netl import Reactor
+from coreforge.materials import unique_materials
 from coreforge.shapes import Rectangle
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
@@ -113,6 +114,17 @@ def test_initialization(reactor, pool, reflector, rsr_cavity):
     assert reactor.shroud_axial_bounds == pytest.approx(expected_reflector)
     assert reactor.rsr_axial_bounds == pytest.approx(expected_rsr)
     assert reactor.beamport_axial_bounds[5] == reactor.beamport_axial_bounds[1]
+    expected = []
+    expected.extend(reactor.pool.get_materials())
+    expected.extend(reactor.reflector.geometry.get_materials())
+    expected.extend(reactor.shroud.get_materials())
+    expected.extend(reactor.rotary_specimen_rack_cavity.get_materials())
+    expected.extend(reactor.core.get_materials())
+    expected.extend(reactor.upper_grid_plate.geometry.get_materials())
+    expected.extend(reactor.lower_grid_plate.geometry.get_materials())
+    for beam_port in (reactor.beam_port_1_5, reactor.beam_port_2, reactor.beam_port_3, reactor.beam_port_4):
+        expected.extend(beam_port.geometry.get_materials())
+    assert reactor.get_materials() == unique_materials(expected)
 
 
 def test_equality_and_hash(reactor, unequal_reactor):

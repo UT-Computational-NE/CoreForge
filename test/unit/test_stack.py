@@ -5,6 +5,7 @@ from math import isclose
 from numpy.testing import assert_allclose
 
 from coreforge.geometry_elements import Stack, CylindricalPinCell
+from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
@@ -45,6 +46,7 @@ def test_stack_initialization(stack, pincell):
     assert geom_element.segments[0].element == pincell
     assert geom_element.segments[1].element == pincell
     assert geom_element.segments[2].element == pincell
+    assert geom_element.get_materials() == unique_materials(pincell.get_materials())
 
 def test_equality_and_hash(stack, unequal_stack):
     assert stack == deepcopy(stack)

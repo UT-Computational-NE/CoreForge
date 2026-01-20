@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isclose
-from typing import Optional
+from typing import List, Optional
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.stack import Stack
-from coreforge.materials import Air, B4C, Material, SS304, UZrH, Water, Zr
+from coreforge.materials import Air, B4C, Material, SS304, UZrH, Water, Zr, unique_materials
 
 
 class FuelFollowerControlRod(GeometryElement):
@@ -573,6 +573,22 @@ class FuelFollowerControlRod(GeometryElement):
             self.outer_material,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
+
+    def get_materials(self) -> List[Material]:
+        materials = [
+            self.cladding.material,
+            self.absorber.material,
+            self.fuel_follower.material,
+            self.zr_fill_rod.material,
+            self.upper_element_plug.material,
+            self.lower_element_plug.material,
+            self.upper_magneform_fitting.material,
+            self.middle_magneform_fitting.material,
+            self.lower_magneform_fitting.material,
+            self.fill_gas,
+            self.outer_material,
+        ]
+        return unique_materials(materials)
 
     def as_stack(self, bottom_pos: float = 0.0) -> Stack:
         """ A method for getting a copy of the Fuel Follower Control Rod as a Stack

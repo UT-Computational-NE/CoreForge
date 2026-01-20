@@ -3,7 +3,7 @@ from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import GridPlate
 from coreforge.geometry_elements.triga.netl.grid_plate import grid_plate_penetration_map
-from coreforge.materials import Al6061T6
+from coreforge.materials import Al6061T6, unique_materials
 
 CM_PER_INCH = 2.54
 
@@ -38,6 +38,7 @@ def test_initialization(grid_plate):
     assert grid_plate.penetration_map["C-01"] == pytest.approx(1.505 * 0.5 * CM_PER_INCH)
     assert grid_plate.penetration_map["A-01"] == pytest.approx(1.5   * 0.5 * CM_PER_INCH)
     assert isinstance(grid_plate.material, Al6061T6)
+    assert grid_plate.get_materials() == unique_materials([grid_plate.material])
 
 
 def test_equality_and_hash(grid_plate, unequal_grid_plate):

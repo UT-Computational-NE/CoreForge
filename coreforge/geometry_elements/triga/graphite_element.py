@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isclose, sqrt
-from typing import Literal, Optional
+from typing import List, Literal, Optional
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
@@ -10,7 +10,7 @@ from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.geometry_elements.stack import Stack
-from coreforge.materials import Air, Al6061T6, Graphite, Material, Water
+from coreforge.materials import Air, Al6061T6, Graphite, Material, Water, unique_materials
 
 
 class GraphiteElement(GeometryElement):
@@ -294,6 +294,17 @@ class GraphiteElement(GeometryElement):
             self.outer_material,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
+
+    def get_materials(self) -> List[Material]:
+        materials = [
+            self.cladding.material,
+            self.graphite_meat.material,
+            self.upper_end_fitting.material,
+            self.lower_end_fitting.material,
+            self.fill_gas,
+            self.outer_material,
+        ]
+        return unique_materials(materials)
 
     def as_stack(
         self,

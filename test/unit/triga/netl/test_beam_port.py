@@ -2,7 +2,7 @@ import pytest
 from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import BeamPort
-from coreforge.materials import Air, Al6061T6
+from coreforge.materials import Air, Al6061T6, unique_materials
 
 CM_PER_INCH = 2.54
 
@@ -33,6 +33,8 @@ def test_initialization(beam_port):
     assert beam_port.length == pytest.approx(180.0)
     assert isinstance(beam_port.tube_material, Al6061T6)
     assert isinstance(beam_port.fill_material, Air)
+    expected = unique_materials([beam_port.tube_material, beam_port.fill_material])
+    assert beam_port.get_materials() == expected
 
 
 def test_equality_and_hash(beam_port, unequal_beam_port):

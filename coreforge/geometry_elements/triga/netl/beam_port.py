@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from math import isclose
-from typing import Optional
+from typing import List, Optional
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.materials import Al6061T6, Air, Material
+from coreforge.materials import Al6061T6, Air, Material, unique_materials
 
 
 class BeamPort(GeometryElement):
@@ -86,3 +86,6 @@ class BeamPort(GeometryElement):
             self.tube_material,
             self.fill_material,
         ))
+
+    def get_materials(self) -> List[Material]:
+        return unique_materials([self.tube_material, self.fill_material])

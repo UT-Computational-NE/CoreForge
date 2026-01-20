@@ -1,6 +1,8 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any, TypeVar
+from typing import Any, List, TypeVar
+
+from coreforge.materials import Material
 
 
 T = TypeVar('T', bound='GeometryElement')
@@ -36,4 +38,14 @@ class GeometryElement(ABC):
     @abstractmethod
     def __hash__(self) -> int:
         """ Method for creating a hash (required because we're defining __eq__)
+        """
+
+    @abstractmethod
+    def get_materials(self) -> List[Material]:
+        """Return the unique materials used by this geometry element.
+
+        Returns
+        -------
+        List[Material]
+            Unique materials used by this geometry element.
         """

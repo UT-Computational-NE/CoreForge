@@ -5,7 +5,7 @@ from math import isclose
 from numpy.testing import assert_allclose
 
 from coreforge.geometry_elements.triga import GraphiteElement
-from coreforge.materials import Air, Al6061T6, Graphite, Water
+from coreforge.materials import Air, Al6061T6, Graphite, Water, unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 
@@ -66,6 +66,15 @@ def test_initialization(graphite_element):
     assert isinstance(materials[0], Graphite)
     assert isinstance(materials[1], Al6061T6)
     assert isinstance(pin.outer_material, Water)
+    expected = unique_materials([
+        graphite_element.cladding.material,
+        graphite_element.graphite_meat.material,
+        graphite_element.upper_end_fitting.material,
+        graphite_element.lower_end_fitting.material,
+        graphite_element.fill_gas,
+        graphite_element.outer_material,
+    ])
+    assert graphite_element.get_materials() == expected
 
 
 def test_equality_and_hash(graphite_element, unequal_graphite_element):

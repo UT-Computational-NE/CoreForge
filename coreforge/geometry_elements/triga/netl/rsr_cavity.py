@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isclose
-from typing import Optional
+from typing import List, Optional
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.materials import Air, Al6061T6, Material
+from coreforge.materials import Air, Al6061T6, Material, unique_materials
 
 
 class RSRCavity(GeometryElement):
@@ -137,3 +137,7 @@ class RSRCavity(GeometryElement):
             self.tube_specs,
             self.material,
         ))
+
+    def get_materials(self) -> List[Material]:
+        materials = [self.material, self.tube_specs.material]
+        return unique_materials(materials)

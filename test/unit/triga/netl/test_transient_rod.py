@@ -3,7 +3,7 @@ import pytest
 from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import TransientRod
-from coreforge.materials import Air, Al6061T6, B4C, Water
+from coreforge.materials import Air, Al6061T6, B4C, Water, unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 
@@ -108,6 +108,17 @@ def test_initialization(transient_rod):
         + transient_rod.upper_element_plug.thickness
     )
     assert isclose(transient_rod.length, expected_length)
+    expected_materials = unique_materials([
+        transient_rod.cladding.material,
+        transient_rod.absorber.material,
+        transient_rod.fill_gas,
+        transient_rod.outer_material,
+        transient_rod.upper_element_plug.material,
+        transient_rod.lower_element_plug.material,
+        transient_rod.upper_magneform_fitting.material,
+        transient_rod.lower_magneform_fitting.material,
+    ])
+    assert transient_rod.get_materials() == expected_materials
 
 
 def test_equality_and_hash(transient_rod, unequal_transient_rod):

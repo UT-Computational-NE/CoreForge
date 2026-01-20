@@ -3,7 +3,7 @@ from copy import deepcopy
 from math import isclose
 
 from coreforge.geometry_elements.triga.netl import SourceHolder
-from coreforge.materials import Al6061T6, Air, Water
+from coreforge.materials import Al6061T6, Air, Water, unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 
@@ -71,6 +71,12 @@ def test_initialization(source_holder):
     assert solid_radii == pytest.approx([source_holder.cladding.outer_radius])
     assert isinstance(solid_mats[0], Al6061T6)
     assert isinstance(solid_pin.outer_material, Water)
+    expected = unique_materials([
+        source_holder.cavity.material,
+        source_holder.cladding.material,
+        source_holder.outer_material,
+    ])
+    assert source_holder.get_materials() == expected
 
 
 def test_equality_and_hash(source_holder, unequal_source_holder):

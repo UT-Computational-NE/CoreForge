@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional, Literal
+from typing import List, Optional, Literal
 from math import isclose, sqrt
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
@@ -10,7 +10,7 @@ from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.geometry_elements.stack import Stack
-from coreforge.materials import Air, Graphite, Material, Mo, SS304, UZrH, Water, Zr
+from coreforge.materials import Air, Graphite, Material, Mo, SS304, UZrH, Water, Zr, unique_materials
 
 
 class FuelElement(GeometryElement):
@@ -551,6 +551,21 @@ class FuelElement(GeometryElement):
             self.lower_end_fitting,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
+
+    def get_materials(self) -> List[Material]:
+        materials = [
+            self.cladding.material,
+            self.fill_gas,
+            self.outer_material,
+            self.upper_end_fitting.material,
+            self.upper_graphite_reflector.material,
+            self.zr_fill_rod.material,
+            self.fuel_meat.material,
+            self.moly_disc.material,
+            self.lower_graphite_reflector.material,
+            self.lower_end_fitting.material,
+        ]
+        return unique_materials(materials)
 
     def as_stack(
         self,

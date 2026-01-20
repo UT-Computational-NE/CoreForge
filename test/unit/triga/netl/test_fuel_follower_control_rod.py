@@ -3,7 +3,7 @@ import pytest
 from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import FuelFollowerControlRod
-from coreforge.materials import Air, B4C, SS304, UZrH, Water, Zr
+from coreforge.materials import Air, B4C, SS304, UZrH, Water, Zr, unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 
@@ -138,6 +138,20 @@ def test_initialization(control_rod):
         control_rod.cladding.inner_radius,
         control_rod.cladding.outer_radius,
     ])
+    expected = unique_materials([
+        control_rod.cladding.material,
+        control_rod.absorber.material,
+        control_rod.fuel_follower.material,
+        control_rod.zr_fill_rod.material,
+        control_rod.upper_element_plug.material,
+        control_rod.lower_element_plug.material,
+        control_rod.upper_magneform_fitting.material,
+        control_rod.middle_magneform_fitting.material,
+        control_rod.lower_magneform_fitting.material,
+        control_rod.fill_gas,
+        control_rod.outer_material,
+    ])
+    assert control_rod.get_materials() == expected
     assert isinstance(air_pin.zones[0].material, Air)
     assert isinstance(air_pin.zones[1].material, SS304)
     assert isinstance(air_pin.outer_material, Water)

@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isclose
-from typing import Optional
+from typing import List, Optional
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.stack import Stack
-from coreforge.materials import Al6061T6, Material, Water
+from coreforge.materials import Al6061T6, Material, Water, unique_materials
 
 
 class CentralThimble(GeometryElement):
@@ -142,6 +142,14 @@ class CentralThimble(GeometryElement):
             self.fill_material,
             self.outer_material,
         ))
+
+    def get_materials(self) -> List[Material]:
+        materials = [
+            self.cladding.material,
+            self.fill_material,
+            self.outer_material,
+        ]
+        return unique_materials(materials)
 
     def as_stack(self, bottom_pos: float = 0.0) -> Stack:
         """ A method for getting a copy of the Central Thimble as a Stack

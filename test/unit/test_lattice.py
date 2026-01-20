@@ -6,6 +6,7 @@ from numpy.testing import assert_allclose
 from mpactpy import RectangularPinMesh, Pin
 
 from coreforge.geometry_elements import RectLattice, HexLattice
+from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
@@ -88,6 +89,12 @@ def test_rect_lattice_initialization(rect_lattice, stack, unequal_stack):
     assert geom_element.elements == [[None,  p1, None],
                                      [  p2,  p1,   p2],
                                      [None,  p1, None]]
+    expected = [geom_element.outer_material]
+    for row in geom_element.elements:
+        for element in row:
+            if element is not None:
+                expected.extend(element.get_materials())
+    assert geom_element.get_materials() == unique_materials(expected)
 
 
 def test_rect_lattice_equality(rect_lattice, unequal_rect_lattice):
@@ -155,6 +162,12 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
         assert len(ring) == len(expected_ring)
         for i, element, expected_element in zip(range(len(ring)), ring, expected_ring):
             assert element == expected_element
+    expected = [geom_element.outer_material]
+    for ring in geom_element.elements:
+        for element in ring:
+            if element is not None:
+                expected.extend(element.get_materials())
+    assert geom_element.get_materials() == unique_materials(expected)
 
     geom_element = hex_y_lattice
     assert geom_element.name == "hex_lattice"
@@ -166,6 +179,12 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
         assert len(ring) == len(expected_ring)
         for element, expected_element in zip(ring, expected_ring):
             assert element == expected_element
+    expected = [geom_element.outer_material]
+    for ring in geom_element.elements:
+        for element in ring:
+            if element is not None:
+                expected.extend(element.get_materials())
+    assert geom_element.get_materials() == unique_materials(expected)
 
 def test_hex_lattice_equality(hex_x_lattice, hex_y_lattice):
     assert hex_x_lattice == deepcopy(hex_x_lattice)

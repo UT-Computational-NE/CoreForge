@@ -1,4 +1,4 @@
-from .material import Material
+from .material import Material, unique_materials
 from .graphite import Graphite
 from .inconel import Inconel
 from .air import Air
@@ -15,6 +15,7 @@ from .al_6061_t6 import Al6061T6
 
 __all__ = [
     "Material",
+    "unique_materials",
     "Graphite",
     "Inconel",
     "Air",

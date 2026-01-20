@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Dict, Any
+from typing import Dict, Any, Iterable, List
 from math import isclose
 
 import openmc
@@ -75,3 +75,26 @@ class Material(ABC):
         return hash((relative_round(self.density, TOL),
                      relative_round(self.temperature, TOL),
                      tuple(number_densities)))
+
+
+def unique_materials(materials: Iterable["Material"]) -> List["Material"]:
+    """Return a list of unique materials, preserving the first-seen order.
+
+    Parameters
+    ----------
+    materials : Iterable[Material]
+        Materials to de-duplicate.
+
+    Returns
+    -------
+    List[Material]
+        Unique materials (using hash/eq for comparison).
+    """
+    unique: List[Material] = []
+    seen = set()
+    for material in materials:
+        if material in seen:
+            continue
+        seen.add(material)
+        unique.append(material)
+    return unique

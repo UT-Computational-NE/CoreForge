@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 from math import isclose
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.triga.netl.core import Core
-from coreforge.materials import Material, Al6061T6
+from coreforge.materials import Material, Al6061T6, unique_materials
 
 
 class GridPlate(GeometryElement):
@@ -104,6 +104,9 @@ class GridPlate(GeometryElement):
             ),
             self.material,
         ))
+
+    def get_materials(self) -> List[Material]:
+        return unique_materials([self.material])
 
 
 def grid_plate_penetration_map(fuel_location_radius:        float,

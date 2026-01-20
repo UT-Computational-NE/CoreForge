@@ -2,7 +2,7 @@ import pytest
 from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import RSRCavity
-from coreforge.materials import Air, Al6061T6
+from coreforge.materials import Air, Al6061T6, unique_materials
 
 CM_PER_INCH = 2.54
 
@@ -46,6 +46,8 @@ def test_initialization_defaults(rsr_cavity):
     assert rsr_cavity.tube_to_center_distance == pytest.approx(26.312 * 0.5 * CM_PER_INCH)
     assert isinstance(rsr_cavity.tube_specs.material, Al6061T6)
     assert isinstance(rsr_cavity.material, Air)
+    expected = unique_materials([rsr_cavity.material, rsr_cavity.tube_specs.material])
+    assert rsr_cavity.get_materials() == expected
 
 
 def test_equality_and_hash(rsr_cavity, unequal_rsr_cavity):

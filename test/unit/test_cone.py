@@ -3,6 +3,7 @@ from copy import deepcopy
 from math import isclose, sqrt
 
 from coreforge.geometry_elements import CylindricalPinCell, OneSidedCone
+from coreforge.materials import unique_materials
 from coreforge.shapes import OneSidedCone as OneSidedConeShape
 
 import coreforge.openmc_builder as openmc_builder
@@ -37,6 +38,7 @@ def test_initialization(cone, graphite, air):
     assert isclose(geom_element.h, cone_h)
     assert geom_element.fill_material == graphite
     assert geom_element.outer_material == air
+    assert geom_element.get_materials() == unique_materials([graphite, air])
 
     shape = OneSidedConeShape(r=2.0, h=3.0)
     geom_element = OneSidedCone(cone=shape, name="cone", fill_material=graphite, outer_material=air)

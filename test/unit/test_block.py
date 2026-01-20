@@ -7,6 +7,7 @@ from mpactpy import RectangularPinMesh, Pin
 
 from coreforge.shapes import Circle, Square, Rectangle
 from coreforge.geometry_elements import Block
+from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
@@ -61,6 +62,7 @@ def test_block_initialization(block, salt, graphite):
     assert isclose(channel.distance_from_block_center, 5.0*0.5)
     assert isclose(channel.rotation_about_block_center, 90.0)
     assert channel.material == salt
+    assert geom_element.get_materials() == unique_materials([graphite, salt])
 
 def test_equality_and_hash(block, unequal_block):
     assert block == deepcopy(block)

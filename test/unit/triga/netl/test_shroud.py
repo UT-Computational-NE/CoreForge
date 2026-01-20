@@ -2,7 +2,7 @@ import pytest
 from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import Shroud
-from coreforge.materials import Al6061T6
+from coreforge.materials import Al6061T6, unique_materials
 
 CM_PER_INCH = 2.54
 
@@ -31,6 +31,7 @@ def test_initialization(shroud):
     assert shroud.primary_hex_inner_radius == pytest.approx(10.21875 * CM_PER_INCH)
     assert shroud.rotated_hex_inner_radius == pytest.approx(10.75 * CM_PER_INCH)
     assert isinstance(shroud.material, Al6061T6)
+    assert shroud.get_materials() == unique_materials([shroud.material])
 
 
 def test_equality_and_hash(shroud, unequal_shroud):

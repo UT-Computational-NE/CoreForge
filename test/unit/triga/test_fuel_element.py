@@ -5,7 +5,7 @@ from math import isclose
 from numpy.testing import assert_allclose
 
 from coreforge.geometry_elements.triga import FuelElement
-from coreforge.materials import Air, Graphite, SS304, UZrH, Water, Zr
+from coreforge.materials import Air, Graphite, SS304, UZrH, Water, Zr, unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 
@@ -111,6 +111,19 @@ def test_initialization(fuel_element):
         fuel_element.cladding.outer_radius,
     ])
     assert isinstance(air_pin.zones[0].material, Air)
+    expected = unique_materials([
+        fuel_element.cladding.material,
+        fuel_element.fill_gas,
+        fuel_element.outer_material,
+        fuel_element.upper_end_fitting.material,
+        fuel_element.upper_graphite_reflector.material,
+        fuel_element.zr_fill_rod.material,
+        fuel_element.fuel_meat.material,
+        fuel_element.moly_disc.material,
+        fuel_element.lower_graphite_reflector.material,
+        fuel_element.lower_end_fitting.material,
+    ])
+    assert fuel_element.get_materials() == expected
 
 def test_equality_and_hash(fuel_element, unequal_fuel_element):
     assert fuel_element == deepcopy(fuel_element)

@@ -10,7 +10,7 @@ from mpactpy.utils import relative_round
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.stack import Stack
-from coreforge.materials import Material
+from coreforge.materials import Material, unique_materials
 from coreforge.shapes import OneSidedCone as OneSidedConeShape
 
 
@@ -147,6 +147,9 @@ class OneSidedCone(GeometryElement):
 		return hash((self.shape,
 			         self.fill_material,
 			         self.outer_material))
+
+	def get_materials(self) -> List[Material]:
+		return unique_materials([self.fill_material, self.outer_material])
 
 	def as_stack(self,
 		         bottom_pos:    float = 0.0,

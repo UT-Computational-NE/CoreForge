@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 from math import isclose
-from typing import Optional
+from typing import List, Optional
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.materials import Material, Water
+from coreforge.materials import Material, Water, unique_materials
 
 
 class Pool(GeometryElement):
@@ -74,3 +74,6 @@ class Pool(GeometryElement):
             relative_round(self.height, TOL),
             self.material,
         ))
+
+    def get_materials(self) -> List[Material]:
+        return unique_materials([self.material])

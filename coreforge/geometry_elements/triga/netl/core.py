@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import ClassVar, Dict, List, TypeAlias
 
 from coreforge.geometry_elements import GeometryElement, HexLattice
-from coreforge.materials.material import Material
+from coreforge.materials import Material, unique_materials
 from coreforge.geometry_elements.triga import FuelElement, GraphiteElement
 from coreforge.geometry_elements.triga.netl.central_thimble import CentralThimble
 from coreforge.geometry_elements.triga.netl.fuel_follower_control_rod import FuelFollowerControlRod
@@ -230,3 +230,10 @@ class Core(GeometryElement):
             tuple(sorted(self.loading.items())),
             self.fill_material,
         ))
+
+    def get_materials(self) -> List[Material]:
+        materials = [self.fill_material]
+        for element in self.full_map.values():
+            if element is not None:
+                materials.extend(element.get_materials())
+        return unique_materials(materials)

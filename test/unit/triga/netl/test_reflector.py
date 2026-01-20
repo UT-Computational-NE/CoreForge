@@ -2,7 +2,7 @@ import pytest
 from copy import deepcopy
 
 from coreforge.geometry_elements.triga.netl import Reflector
-from coreforge.materials import Graphite
+from coreforge.materials import Graphite, unique_materials
 
 CM_PER_INCH = 2.54
 
@@ -28,6 +28,7 @@ def test_initialization(reflector):
     assert reflector.radius == pytest.approx(42.0 * 0.5 * CM_PER_INCH)
     assert reflector.height == pytest.approx(23.13 * CM_PER_INCH)
     assert isinstance(reflector.material, Graphite)
+    assert reflector.get_materials() == unique_materials([reflector.material])
 
 
 def test_equality_and_hash(reflector, unequal_reflector):

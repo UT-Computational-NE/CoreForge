@@ -7,6 +7,7 @@ from mpactpy import RectangularPinMesh, Pin
 import mpactpy
 
 from coreforge.geometry_elements import InfiniteMedium
+from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import air, graphite
@@ -55,6 +56,7 @@ def test_initialization(infinite_medium):
     geom_element = infinite_medium
     assert geom_element.name == "infinite_medium"
     assert geom_element.material.name == "Air"
+    assert geom_element.get_materials() == unique_materials([geom_element.material])
 
 def test_equality_and_hash(infinite_medium, unequal_infinite_medium):
     assert infinite_medium == deepcopy(infinite_medium)
