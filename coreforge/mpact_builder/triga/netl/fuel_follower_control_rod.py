@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -34,6 +34,8 @@ class FuelFollowerControlRod(CoreElement[geometry_elements_triga_netl.FuelFollow
 
         Attributes
         ----------
+        material_specs : Optional[MaterialSpecs]
+            Default material specifications for all pincell segments.
         lower_element_plug : CoreElement.SegmentSpecs
             Specs for the lower element plug region.
         lower_air_gap : CoreElement.SegmentSpecs
@@ -58,6 +60,7 @@ class FuelFollowerControlRod(CoreElement[geometry_elements_triga_netl.FuelFollow
             Specs for the upper element plug region.
         """
 
+        material_specs: Optional[MaterialSpecs] = None
         lower_element_plug: Optional[CoreElement.SegmentSpecs] = field(
             default_factory = CoreElement.SegmentSpecs
         )
@@ -169,6 +172,8 @@ class FuelFollowerControlRod(CoreElement[geometry_elements_triga_netl.FuelFollow
                          stack.segments[8]: self.specs.upper_magneform_fitting,
                          stack.segments[9]: self.specs.upper_air_gap,
                          stack.segments[10]: self.specs.upper_element_plug}
+
+        self._apply_material_specs(segment_specs, self.specs.material_specs)
 
         stack_specs = Stack.Specs(segment_specs)
 

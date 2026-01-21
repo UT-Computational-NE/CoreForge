@@ -241,6 +241,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                                                         element_bottom_axial_position = element_bottom_axial_position,
                                                         outer_material                = reactor.pool.material,
                                                         core_cell_specs               = core_cell_specs)
+                stack_specs.apply_material_specs(stack, self.specs.material_specs)
                 elements[-1].append(stack)
                 element_specs[stack] = stack_specs
 
@@ -262,8 +263,6 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         openmc_universe = self.specs.openmc_universe or openmc_builder.build(reactor)
         return self._apply_openmc_overlay(mpact_core, openmc_universe, reactor)
-
-
     def _apply_openmc_overlay(self,
                               core: mpactpy.Core,
                               openmc_universe: openmc.Universe,
@@ -289,11 +288,12 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         # Map MPACT materials specs to OpenMC materials
         default_material_specs   = {material: DEFAULT_MPACT_MATERIAL_SPECS[type(material)]
-                                    for material in reactor.get_materials()} | self.specs.material_specs
+                                    for material in reactor.get_materials() if type(material) in DEFAULT_MPACT_MATERIAL_SPECS}
         material_specs           = default_material_specs | self.specs.material_specs
         material_specs           = {material.name: material_specs[material] for material in material_specs.keys()}
         openmc_materials         = openmc.Materials(list(openmc_universe.get_all_materials().values()))
-        overlay_policy.mat_specs = {material: material_specs[material.name] for material in openmc_materials}
+        overlay_policy.mat_specs = {material: material_specs[material.name]
+                                    for material in openmc_materials if material.name in material_specs}
 
         half_mpact_model_width = core.width['X'] * 0.5
         offset = self.specs.offset or (-half_mpact_model_width, -half_mpact_model_width, 0.0)

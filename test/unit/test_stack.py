@@ -62,10 +62,12 @@ def test_openmc_builder(stack):
     for cell in universe.cells.values():
         assert cell.fill.name == "pincell"
 
-def test_mpact_builder(stack, stack_mpact_specs):
+def test_mpact_builder(stack, stack_mpact_specs, graphite):
     geom_element  = stack
     bounds        = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=-4.0, max=4.0),
                                          Y=mpact_builder.AxisBounds(min=-4.0, max=4.0))
+    material_specs = {graphite: mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(graphite)]}
+    stack_mpact_specs.apply_material_specs(geom_element, material_specs)
     core          = mpact_builder.build(geom_element, stack_mpact_specs, bounds)
 
     assert isclose(core.mod_dim['X'], 8.0)
@@ -84,6 +86,11 @@ def test_mpact_builder(stack, stack_mpact_specs):
     assert isclose(assembly.lattice_map[0].pitch['Z'], 3.0)
     assert isclose(assembly.lattice_map[1].pitch['Z'], 1.0)
     assert isclose(assembly.lattice_map[2].pitch['Z'], 4.0)
+
+    for segment in geom_element.segments:
+        segment_specs = stack_mpact_specs.segment_specs[segment]
+        assert graphite in segment_specs.builder_specs.material_specs
+        assert segment_specs.builder_specs.material_specs[graphite] == material_specs[graphite]
 
     geom_element = Stack(name = "bad_stack", segments = [Stack.Segment(element=stack, length=8.0)])
     expected_assertion = "Unsupported Geometry! Stack: bad_stack Segment 0: stack is not a 2D radial geometry"

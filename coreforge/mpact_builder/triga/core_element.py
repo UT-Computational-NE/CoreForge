@@ -6,6 +6,7 @@ from typing import Optional, Tuple, TypeVar
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.mpact_builder.builder import Builder
+from coreforge.mpact_builder.builder_specs import MaterialSpecs
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
 from coreforge import geometry_elements
@@ -34,6 +35,21 @@ class CoreElement(Builder[TCoreElement], ABC):
                 return
             assert isinstance(self.builder_specs, CylindricalPinCell.Specs), \
                 "CoreElement.SegmentSpecs.builder_specs must be CylindricalPinCell.Specs."
+
+    @staticmethod
+    def _apply_material_specs(
+        segment_specs: dict[Stack.Segment, "CoreElement.SegmentSpecs"],
+        material_specs: Optional[MaterialSpecs],
+    ) -> None:
+        """Merge element-level material specs into segment builder specs."""
+        if not material_specs:
+            return
+        for specs in segment_specs.values():
+            if specs.builder_specs is None:
+                specs.builder_specs = CylindricalPinCell.Specs()
+            specs.builder_specs.material_specs = (
+                material_specs | specs.builder_specs.material_specs
+            )
 
     @abstractmethod
     def build_stack_and_specs(

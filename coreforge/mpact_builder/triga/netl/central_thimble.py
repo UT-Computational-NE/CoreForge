@@ -6,7 +6,7 @@ from math import inf
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.mpact_builder import build, register_builder
@@ -36,12 +36,15 @@ class CentralThimble(CoreElement[geometry_elements_triga_netl.CentralThimble]):
 
         Attributes
         ----------
+        material_specs : Optional[MaterialSpecs]
+            Default material specifications for the thimble pincell.
         target_axial_thickness : float
             Target axial thickness for segment subdivision (cm).
         pincell_specs : CylindricalPinCell.Specs
             Specifications for building the thimble pincell.
         """
 
+        material_specs: Optional[MaterialSpecs] = None
         target_axial_thickness: Optional[float] = None
         pincell_specs:          Optional[CylindricalPinCell.Specs] = None
 
@@ -106,7 +109,9 @@ class CentralThimble(CoreElement[geometry_elements_triga_netl.CentralThimble]):
     ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
 
         stack = element.as_stack()
-        segment_specs = CoreElement.SegmentSpecs(self.specs.target_axial_thickness,
-                                                 self.specs.pincell_specs)
-        stack_specs = Stack.Specs({stack.segments[0]: segment_specs})
+        segment_specs = {stack.segments[0]: CoreElement.SegmentSpecs(
+                         self.specs.target_axial_thickness,
+                         self.specs.pincell_specs)}
+        self._apply_material_specs(segment_specs, self.specs.material_specs)
+        stack_specs = Stack.Specs(segment_specs)
         return stack, stack_specs

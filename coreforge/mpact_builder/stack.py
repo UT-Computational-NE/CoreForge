@@ -7,9 +7,11 @@ from multiprocessing import cpu_count
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.utils import build_elements
+from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
+from coreforge.mpact_builder.infinite_medium import InfiniteMedium
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.Stack)
@@ -135,6 +137,45 @@ class Stack(Builder[geometry_elements.Stack]):
             self.num_procs = min(self.num_procs, cpu_count())
             self.segment_specs = {segment: (specs if specs is not None else Stack.Segment.Specs())
                                             for segment, specs in self.segment_specs.items()}
+
+        def apply_material_specs(self,
+                                 stack: geometry_elements.Stack,
+                                 material_specs: Optional[MaterialSpecs]) -> None:
+            """Apply default material specs to stack segment builder specs.
+
+            Parameters
+            ----------
+            stack : geometry_elements.Stack
+                Stack whose segment specs should be updated.
+            material_specs : Optional[MaterialSpecs]
+                Material specs to apply as defaults.
+            """
+            if not material_specs:
+                return
+
+            for segment in stack.segments:
+                element = segment.element
+                assert isinstance(
+                    element,
+                    (geometry_elements.CylindricalPinCell, geometry_elements.InfiniteMedium),
+                ), "Stack segment elements must be CylindricalPinCell or InfiniteMedium."
+
+                segment_specs = self.segment_specs.get(segment)
+                if segment_specs is None:
+                    segment_specs = Stack.Segment.Specs()
+                    self.segment_specs[segment] = segment_specs
+
+                if isinstance(element, geometry_elements.CylindricalPinCell):
+                    builder_specs = segment_specs.builder_specs
+                    if builder_specs is None:
+                        builder_specs = CylindricalPinCell.Specs()
+                else:
+                    builder_specs = segment_specs.builder_specs
+                    if builder_specs is None:
+                        builder_specs = InfiniteMedium.Specs()
+
+                builder_specs.material_specs = material_specs | builder_specs.material_specs
+                segment_specs.builder_specs = builder_specs
 
 
     def __init__(self, specs: Optional[Specs] = None):

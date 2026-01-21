@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.geometry_elements.cone import OneSidedCone
@@ -35,6 +35,8 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
 
         Attributes
         ----------
+        material_specs : Optional[MaterialSpecs]
+            Default material specifications for all pincell segments.
         lower_end_fitting : CoreElement.SegmentSpecs
             Specs for the lower end fitting region.
         lower_reflector : CoreElement.SegmentSpecs
@@ -51,6 +53,7 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
             Specs for the upper end fitting region.
         """
 
+        material_specs: Optional[MaterialSpecs] = None
         lower_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
             default_factory = CoreElement.SegmentSpecs
         )
@@ -171,6 +174,8 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
 
         for segment in stack.segments[mid_end:]:
             segment_specs[segment] = self.specs.upper_end_fitting
+
+        self._apply_material_specs(segment_specs, self.specs.material_specs)
 
         stack_specs = Stack.Specs(segment_specs)
 

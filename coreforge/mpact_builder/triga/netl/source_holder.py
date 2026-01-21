@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -34,12 +34,15 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
 
         Attributes
         ----------
+        material_specs : Optional[MaterialSpecs]
+            Default material specifications for all pincell segments.
         solid : CoreElement.SegmentSpecs
             Specs for the solid cladding regions above/below the cavity.
         cavity : CoreElement.SegmentSpecs
             Specs for the cavity region.
         """
 
+        material_specs: Optional[MaterialSpecs] = None
         solid: Optional[CoreElement.SegmentSpecs] = field(
             default_factory = CoreElement.SegmentSpecs
         )
@@ -106,6 +109,8 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
         segment_specs = {stack.segments[0]: self.specs.solid,
                          stack.segments[1]: self.specs.cavity,
                          stack.segments[2]: self.specs.solid}
+
+        self._apply_material_specs(segment_specs, self.specs.material_specs)
 
         stack_specs = Stack.Specs(segment_specs)
 
