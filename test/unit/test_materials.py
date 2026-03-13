@@ -3,7 +3,7 @@ from math import isclose
 
 import mpactpy
 
-from coreforge.materials import Material, Graphite, Inconel, Air, SS304, SS316H, Water, Helium, INOR8, B4C, Mo, Zr, UZrH, Al6061T6
+from coreforge.materials import Material, Graphite, Inconel, Air, SS304, SS316H, Water, Helium, INOR8, B4C, Mo, Zr, UZrH, Al6061T6, unique_materials
 import coreforge.mpact_builder as mpact_builder
 
 @pytest.fixture
@@ -99,6 +99,26 @@ def test_equality_and_hash(air, graphite):
     assert material != unequal_material
     assert hash(material) == hash(equal_material)
     assert hash(material) != hash(unequal_material)
+
+
+def test_unique_materials(air, water):
+    # Equal materials with different names remain distinct.
+    material_a = Material(air.openmc_material)
+    material_b = Material(air.openmc_material)
+    material_b.openmc_material.name = "Air Copy"
+    assert unique_materials([material_a, material_b]) == [material_a, material_b]
+
+    # Equal materials with the same name collapse to the first-seen material.
+    material_c = Material(air.openmc_material)
+    material_d = Material(air.openmc_material)
+    assert unique_materials([material_c, material_d]) == [material_c]
+
+    # Different materials with the same name are rejected.
+    material_e = Material(air.openmc_material)
+    material_f = Material(water.openmc_material)
+    material_f.openmc_material.name = material_e.name
+    with pytest.raises(ValueError, match="must be equal"):
+        unique_materials([material_e, material_f])
 
 def test_graphite(graphite):
     material = mpact_builder.build_material(graphite)

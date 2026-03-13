@@ -88,13 +88,23 @@ def unique_materials(materials: Iterable["Material"]) -> List["Material"]:
     Returns
     -------
     List[Material]
-        Unique materials (using hash/eq for comparison).
+        Unique materials by name, preserving first-seen order.
+
+    Raises
+    ------
+    ValueError
+        If two materials share a name but differ in composition.
     """
     unique: List[Material] = []
-    seen = set()
+    seen_by_name: Dict[str, Material] = {}
     for material in materials:
-        if material in seen:
+        seen_material = seen_by_name.get(material.name)
+        if seen_material is None:
+            seen_by_name[material.name] = material
+            unique.append(material)
             continue
-        seen.add(material)
-        unique.append(material)
+        if seen_material != material:
+            raise ValueError(
+                f"Materials named '{material.name}' must be equal to be treated as duplicates."
+            )
     return unique

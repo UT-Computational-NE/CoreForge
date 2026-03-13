@@ -284,19 +284,20 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         assembly_mask: mpactpy.Assembly.OverlayMask = {lattice:  lattice_mask  for lattice  in lattices_to_overlay}
         include_only:  mpactpy.Core.OverlayMask     = {assembly: assembly_mask for assembly in assemblies_to_overlay}
 
-        overlay_policy           = mpactpy.PinMesh.OverlayPolicy(num_procs=self.specs.num_procs)
+        overlay_policy = mpactpy.PinMesh.OverlayPolicy(num_procs=self.specs.num_procs)
 
-        # Map MPACT materials specs to OpenMC materials
-        default_material_specs   = {material: DEFAULT_MPACT_MATERIAL_SPECS[type(material)]
-                                    for material in reactor.get_materials() if type(material) in DEFAULT_MPACT_MATERIAL_SPECS}
-        material_specs           = default_material_specs | self.specs.material_specs
-        material_specs           = {material.name: material_specs[material] for material in material_specs.keys()}
-        openmc_materials         = openmc.Materials(list(openmc_universe.get_all_materials().values()))
+        # Map MPACT material specs to OpenMC materials by material name.
+        material_specs = {}
+        for material in reactor.get_materials():
+            mpact_specs = self.specs.material_specs.get(material, DEFAULT_MPACT_MATERIAL_SPECS.get(type(material)))
+            if mpact_specs is not None:
+                material_specs[material.name] = mpact_specs
+
+        openmc_materials = openmc.Materials(list(openmc_universe.get_all_materials().values()))
         overlay_policy.mat_specs = {material: material_specs[material.name]
                                     for material in openmc_materials if material.name in material_specs}
 
-        half_mpact_model_width = core.width['X'] * 0.5
-        offset = self.specs.offset or (-half_mpact_model_width, -half_mpact_model_width, 0.0)
+        offset = self.specs.offset or (-core.width['X'] * 0.5, -core.width['Y'] * 0.5, 0.0)
 
         return core.overlay(openmc.Geometry(openmc_universe), offset, include_only, overlay_policy)
 

@@ -60,7 +60,7 @@ class Stack(Builder[geometry_elements.Stack]):
             builder_specs:          Optional[BuilderSpecs] = None
 
             def __post_init__(self):
-                if not self.target_axial_thickness:
+                if self.target_axial_thickness is None:
                     self.target_axial_thickness = inf
 
                 assert self.target_axial_thickness > 0.0, \
@@ -286,7 +286,7 @@ def _stack_chunk_worker(chunk:         List[geometry_elements.Stack.Segment],
     results = []
     for segment in chunk:
         build_specs    = segment_specs.get(segment).builder_specs if segment_specs and segment_specs.get(segment) else None
-        bounds_z       = bounds.Z if bounds else AxisBounds(min=0.0, max=segment.length)
+        bounds_z       = AxisBounds(min=0.0, max=segment.length)
         segment_bounds = Bounds(X=bounds.X, Y=bounds.Y, Z=bounds_z) if bounds else Bounds(Z=bounds_z)
         mpact_geometry = build(segment.element, build_specs, segment_bounds)
         results.append((segment, mpact_geometry))
