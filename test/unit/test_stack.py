@@ -4,7 +4,8 @@ from math import isclose
 
 from numpy.testing import assert_allclose
 
-from coreforge.geometry_elements import Stack
+from coreforge.geometry_elements import Stack, CylindricalPinCell
+from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
@@ -45,12 +46,11 @@ def test_stack_initialization(stack, pincell):
     assert geom_element.segments[0].element == pincell
     assert geom_element.segments[1].element == pincell
     assert geom_element.segments[2].element == pincell
+    assert geom_element.get_materials() == unique_materials(pincell.get_materials())
 
-def test_equality(stack, unequal_stack):
+def test_equality_and_hash(stack, unequal_stack):
     assert stack == deepcopy(stack)
     assert stack != unequal_stack
-
-def test_hash(stack, unequal_stack):
     assert hash(stack) == hash(deepcopy(stack))
     assert hash(stack) != hash(unequal_stack)
 
@@ -62,9 +62,13 @@ def test_openmc_builder(stack):
     for cell in universe.cells.values():
         assert cell.fill.name == "pincell"
 
-def test_mpact_builder(stack, stack_mpact_specs):
+def test_mpact_builder(stack, stack_mpact_specs, graphite):
     geom_element  = stack
-    core          = mpact_builder.build(geom_element, stack_mpact_specs)
+    bounds        = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=-4.0, max=4.0),
+                                         Y=mpact_builder.AxisBounds(min=-4.0, max=4.0))
+    material_specs = {graphite: mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(graphite)]}
+    stack_mpact_specs.apply_material_specs(geom_element, material_specs)
+    core          = mpact_builder.build(geom_element, stack_mpact_specs, bounds)
 
     assert isclose(core.mod_dim['X'], 8.0)
     assert isclose(core.mod_dim['Y'], 8.0)
@@ -83,7 +87,70 @@ def test_mpact_builder(stack, stack_mpact_specs):
     assert isclose(assembly.lattice_map[1].pitch['Z'], 1.0)
     assert isclose(assembly.lattice_map[2].pitch['Z'], 4.0)
 
+    for segment in geom_element.segments:
+        segment_specs = stack_mpact_specs.segment_specs[segment]
+        assert graphite in segment_specs.builder_specs.material_specs
+        assert segment_specs.builder_specs.material_specs[graphite] == material_specs[graphite]
+
     geom_element = Stack(name = "bad_stack", segments = [Stack.Segment(element=stack, length=8.0)])
     expected_assertion = "Unsupported Geometry! Stack: bad_stack Segment 0: stack is not a 2D radial geometry"
     with pytest.raises(AssertionError, match=expected_assertion):
         core = mpact_builder.build(geom_element)
+
+
+def test_unionize_radial_mesh(salt, graphite):
+    pin_a = CylindricalPinCell(
+        radii=[1.0, 2.0],
+        materials=[salt, graphite, salt],
+        name="pin_a",
+    )
+    pin_b = CylindricalPinCell(
+        radii=[1.5, 2.5],
+        materials=[graphite, salt, graphite],
+        name="pin_b",
+    )
+    stack = Stack([Stack.Segment(element=pin_a, length=3.0),
+                   Stack.Segment(element=pin_b, length=4.0)])
+
+    unionized = stack.unionize_radial_mesh()
+    union_radii = [zone.shape.outer_radius for zone in unionized.segments[0].element.zones]
+
+    assert union_radii == pytest.approx([1.0, 1.5, 2.0, 2.5])
+
+    pin_a_mats = [zone.material for zone in unionized.segments[0].element.zones]
+    assert pin_a_mats == [salt, graphite, graphite, salt]
+    assert unionized.segments[0].element.outer_material == salt
+
+    pin_b_mats = [zone.material for zone in unionized.segments[1].element.zones]
+    assert pin_b_mats == [graphite, graphite, salt, salt]
+    assert unionized.segments[1].element.outer_material == graphite
+
+
+def test_get_axial_slice(stack):
+    result = stack.get_axial_slice_with_origins(0.5, 7.5)
+    assert result is not None
+    sliced, origins = result
+    assert isclose(sliced.bottom_pos, 0.5)
+    assert [segment.length for segment in sliced.segments] == pytest.approx([2.5, 1.0, 3.5])
+    assert len(origins) == len(sliced.segments)
+    assert all(origin is segment for origin, segment in zip(origins, stack.segments))
+
+    sliced = stack.get_axial_slice(1.0, 6.0)
+    assert sliced is not None
+    assert isclose(sliced.bottom_pos, 1.0)
+    assert isclose(sliced.length, 5.0)
+    assert [segment.length for segment in sliced.segments] == pytest.approx([2.0, 1.0, 2.0])
+    assert all(segment.element == stack.segments[0].element for segment in sliced.segments)
+
+    assert stack.get_axial_slice(8.0, 9.0) is None
+
+
+def test_mpact_builder_get_axial_slice(stack, stack_mpact_specs):
+    sliced = mpact_builder.stack.get_axial_slice(stack, stack_mpact_specs, 0.5, 7.5)
+    assert sliced is not None
+    sliced_stack, sliced_specs = sliced
+    assert isclose(sliced_stack.bottom_pos, 0.5)
+    assert isclose(sliced_stack.length, 7.0)
+    assert [segment.length for segment in sliced_stack.segments] == pytest.approx([2.5, 1.0, 3.5])
+    assert len(sliced_specs.segment_specs) == len(sliced_stack.segments)
+    assert mpact_builder.stack.get_axial_slice(stack, stack_mpact_specs, 8.0, 9.0) is None

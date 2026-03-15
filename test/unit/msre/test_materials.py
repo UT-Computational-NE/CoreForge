@@ -33,7 +33,7 @@ def test_salt(salt):
                 'U238': 9.891360788333172e-05}
     expected_material = mpactpy.material.Material(temperature                 = 900.,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Salt])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Salt])
 
     assert materials_are_close(material, expected_material)
 
@@ -44,7 +44,7 @@ def test_thimble_gas(thimble_gas):
                 'O17': 8.347923925535761e-10, 'O18': 4.406117947398875e-09}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[ThimbleGas])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[ThimbleGas])
 
     assert materials_are_close(material, expected_material)
 
@@ -54,7 +54,7 @@ def test_insulation(insulation):
     num_dens = {'Si' : 0.0016057278006239388, 'O16': 0.003210238459575004, 'O17': 1.2171416728729455e-06}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Insulation])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Insulation])
 
     assert materials_are_close(material, expected_material)
 
@@ -67,6 +67,6 @@ def test_control_rod_poison(control_rod_poison):
                 'Al27' : 0.02081514033711775}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[ControlRodPoison])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[ControlRodPoison])
 
     assert materials_are_close(material, expected_material)

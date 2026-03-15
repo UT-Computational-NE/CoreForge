@@ -6,13 +6,16 @@ from multiprocessing import cpu_count
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
+from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.utils import build_elements
+from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
+from coreforge.mpact_builder.infinite_medium import InfiniteMedium
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.Stack)
-class Stack:
+class Stack(Builder[geometry_elements.Stack]):
     """ An MPACT geometry builder class for Stack
 
     Parameters
@@ -57,7 +60,7 @@ class Stack:
             builder_specs:          Optional[BuilderSpecs] = None
 
             def __post_init__(self):
-                if not self.target_axial_thickness:
+                if self.target_axial_thickness is None:
                     self.target_axial_thickness = inf
 
                 assert self.target_axial_thickness > 0.0, \
@@ -132,34 +135,86 @@ class Stack:
         def __post_init__(self):
             assert self.num_procs > 0, f"num_procs must be > 0 (got {self.num_procs})"
             self.num_procs = min(self.num_procs, cpu_count())
+            self.segment_specs = {segment: (specs if specs is not None else Stack.Segment.Specs())
+                                            for segment, specs in self.segment_specs.items()}
 
+        def apply_material_specs(self,
+                                 stack: geometry_elements.Stack,
+                                 material_specs: Optional[MaterialSpecs]) -> None:
+            """Apply default material specs to stack segment builder specs.
+
+            Parameters
+            ----------
+            stack : geometry_elements.Stack
+                Stack whose segment specs should be updated.
+            material_specs : Optional[MaterialSpecs]
+                Material specs to apply as defaults.
+            """
+            if not material_specs:
+                return
+
+            for segment in stack.segments:
+                element = segment.element
+                assert isinstance(
+                    element,
+                    (geometry_elements.CylindricalPinCell, geometry_elements.InfiniteMedium),
+                ), "Stack segment elements must be CylindricalPinCell or InfiniteMedium."
+
+                segment_specs = self.segment_specs.get(segment)
+                if segment_specs is None:
+                    segment_specs = Stack.Segment.Specs()
+                    self.segment_specs[segment] = segment_specs
+
+                if isinstance(element, geometry_elements.CylindricalPinCell):
+                    builder_specs = segment_specs.builder_specs
+                    if builder_specs is None:
+                        builder_specs = CylindricalPinCell.Specs()
+                else:
+                    builder_specs = segment_specs.builder_specs
+                    if builder_specs is None:
+                        builder_specs = InfiniteMedium.Specs()
+
+                builder_specs.material_specs = material_specs | builder_specs.material_specs
+                segment_specs.builder_specs = builder_specs
+
+
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
 
     @property
-    def specs(self) -> Optional[Specs]:
+    def specs(self) -> Specs:
         return self._specs
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs if specs else Stack.Specs()
+        self._specs = specs if specs is not None else self.Specs()
 
 
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
-
-
-    def build(self, element: geometry_elements.Stack) -> mpactpy.Core:
+    def build(self, element: geometry_elements.Stack, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a Stack
 
         Parameters
         ----------
         element: geometry_elements.Stack
             The geometry element to be built
+        bounds: Optional[Bounds]
+            The spatial bounds for the geometry.
+            X and Y bounds are passed to child segments.
+            Z bounds, if provided, are applied to the final assembled stack to extract an axial slice.
 
         Returns
         -------
         mpactpy.Core
             A new MPACT geometry based on this geometry element
         """
+
+        segment_bounds = None
+        if bounds:
+            if bounds.X or bounds.Y:
+                segment_bounds = Bounds(X=bounds.X, Y=bounds.Y)
 
         # Find unique segments and their build specs
         segment_positions = {}
@@ -172,7 +227,8 @@ class Stack:
         results         = build_elements(unique_segments,
                                          _stack_chunk_worker,
                                          self.specs.num_procs,
-                                         self.specs.segment_specs)
+                                         self.specs.segment_specs,
+                                         segment_bounds)
 
         # Validate & pitch checks, build assembly mapping
         segment_lattices = {}
@@ -204,11 +260,17 @@ class Stack:
             lattices.extend(segment_lattices[segment])
 
         assembly = mpactpy.Assembly(lattices)
-        return mpactpy.Core([[assembly]], "360")
+        core     =  mpactpy.Core([[assembly]], "360")
+
+        if bounds and bounds.Z:
+            core = core.get_axial_slice(bounds.Z.min, bounds.Z.max)
+
+        return core
 
 
 def _stack_chunk_worker(chunk:         List[geometry_elements.Stack.Segment],
-                        segment_specs: Dict[geometry_elements.Stack.Segment, Stack.Segment.Specs]
+                        segment_specs: Dict[geometry_elements.Stack.Segment, Stack.Segment.Specs],
+                        bounds:        Optional[Bounds] = None
     ) -> List[Tuple[geometry_elements.Stack.Segment, mpactpy.Core]]:
     """ Top-level worker for a chunk of unique segments (for parallel build).
 
@@ -218,10 +280,55 @@ def _stack_chunk_worker(chunk:         List[geometry_elements.Stack.Segment],
         The unique stack segment entries to build in this chunk.
     segment_specs: Dict[geometry_elements.Stack.Segment, Stack.Segment.Specs]
         The segment specifications for each unique stack segment.
+    bounds: Optional[Bounds]
+        The spatial bounds to pass to child element builds (X and Y only, Z is not passed)
     """
     results = []
     for segment in chunk:
-        build_specs = segment_specs.get(segment).builder_specs if segment_specs and segment_specs.get(segment) else None
-        mpact_geometry = build(segment.element, build_specs)
+        build_specs    = segment_specs.get(segment).builder_specs if segment_specs and segment_specs.get(segment) else None
+        bounds_z       = AxisBounds(min=0.0, max=segment.length)
+        segment_bounds = Bounds(X=bounds.X, Y=bounds.Y, Z=bounds_z) if bounds else Bounds(Z=bounds_z)
+        mpact_geometry = build(segment.element, build_specs, segment_bounds)
         results.append((segment, mpact_geometry))
     return results
+
+
+def get_axial_slice(stack:       geometry_elements.Stack,
+                    stack_specs: Stack.Specs,
+                    start_pos:   float,
+                    stop_pos:    float,
+) -> Optional[Tuple[geometry_elements.Stack, Stack.Specs]]:
+    """Return a stack/specs pair from an axial slice of the stack.
+
+    Parameters
+    ----------
+    stack : geometry_elements.Stack
+        The stack to slice.
+    stack_specs : Stack.Specs
+        Builder specs corresponding to ``stack``.
+    start_pos : float
+        Starting axial position of the slice (cm), in the same coordinate system
+        as ``stack.bottom_pos``.  Snaps to the bottom of the stack if
+        ``start_pos`` is below the stack.
+    stop_pos : float
+        Stopping axial position of the slice (cm), in the same coordinate system
+        as ``stack.bottom_pos``.  Snaps to the top of the stack if
+        ``stop_pos`` is above the stack.
+
+    Returns
+    -------
+    Optional[Tuple[geometry_elements.Stack, Stack.Specs]]
+        The sliced stack and specs, or ``None`` if there is no overlap.
+    """
+    result = stack.get_axial_slice_with_origins(start_pos, stop_pos)
+    if result is None:
+        return None
+    sliced_stack, original_segments = result
+
+    segment_specs = {}
+    for sliced_segment, original_segment in zip(sliced_stack.segments, original_segments):
+        specs = stack_specs.segment_specs.get(original_segment) or Stack.Segment.Specs()
+        segment_specs[sliced_segment] = specs
+
+    sliced_specs = Stack.Specs(segment_specs=segment_specs, num_procs=stack_specs.num_procs)
+    return sliced_stack, sliced_specs

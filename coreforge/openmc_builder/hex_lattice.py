@@ -1,10 +1,11 @@
 import openmc
 
+from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder, build
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.HexLattice)
-class HexLattice:
+class HexLattice(Builder[geometry_elements.HexLattice]):
     """ An OpenMC geometry builder class for HexLattice
     """
 
@@ -12,19 +13,6 @@ class HexLattice:
         pass
 
     def build(self, element: geometry_elements.HexLattice) -> openmc.Universe:
-        """ Method for building an OpenMC geometry of a HexLattice
-
-        Parameters
-        ----------
-        element: HexLattice
-            The geometry element to be built
-
-        Returns
-        -------
-        openmc.Universe
-            A new OpenMC geometry based on this geometry element
-        """
-
         outer_universe = openmc.Universe(cells=[openmc.Cell(fill=element.outer_material.openmc_material)])
 
         universes = []

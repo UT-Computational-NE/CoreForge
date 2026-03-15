@@ -1,8 +1,8 @@
 from __future__ import annotations
-from typing import Any
+from typing import Any, List
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.materials import Material
+from coreforge.materials import Material, unique_materials
 
 class InfiniteMedium(GeometryElement):
     """ A class for infinite media regions
@@ -38,3 +38,6 @@ class InfiniteMedium(GeometryElement):
 
     def __hash__(self) -> int:
         return hash(self.material)
+
+    def get_materials(self) -> List[Material]:
+        return unique_materials([self.material])

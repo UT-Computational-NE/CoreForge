@@ -3,7 +3,7 @@ from math import isclose
 
 import mpactpy
 
-from coreforge.materials import Material, Graphite, Inconel, Air, SS304, SS316H, Water, Helium, INOR8, B4C
+from coreforge.materials import Material, Graphite, Inconel, Air, SS304, SS316H, Water, Helium, INOR8, B4C, Mo, Zr, UZrH, Al6061T6, unique_materials
 import coreforge.mpact_builder as mpact_builder
 
 @pytest.fixture
@@ -42,6 +42,22 @@ def inor8():
 def b4c():
     return B4C()
 
+@pytest.fixture
+def mo():
+    return Mo()
+
+@pytest.fixture
+def zr():
+    return Zr()
+
+@pytest.fixture
+def uzrh():
+    return UZrH()
+
+@pytest.fixture
+def al6061t6():
+    return Al6061T6()
+
 def materials_are_close(lhs: mpactpy.material.Material,
                         rhs: mpactpy.material.Material) -> bool:
     """ Helper function for making sure materials are close
@@ -75,19 +91,34 @@ def test_initialization(air):
                        air.number_densities[iso])
                        for iso in material.number_densities.keys())
 
-def test_equality(air, graphite):
+def test_equality_and_hash(air, graphite):
     material         = Material(air.openmc_material)
     equal_material   = Material(material.openmc_material)
     unequal_material = Material(graphite.openmc_material)
     assert material == equal_material
     assert material != unequal_material
-
-def test_hash(air, graphite):
-    material         = Material(air.openmc_material)
-    equal_material   = Material(material.openmc_material)
-    unequal_material = Material(graphite.openmc_material)
     assert hash(material) == hash(equal_material)
     assert hash(material) != hash(unequal_material)
+
+
+def test_unique_materials(air, water):
+    # Equal materials with different names remain distinct.
+    material_a = Material(air.openmc_material)
+    material_b = Material(air.openmc_material)
+    material_b.openmc_material.name = "Air Copy"
+    assert unique_materials([material_a, material_b]) == [material_a, material_b]
+
+    # Equal materials with the same name collapse to the first-seen material.
+    material_c = Material(air.openmc_material)
+    material_d = Material(air.openmc_material)
+    assert unique_materials([material_c, material_d]) == [material_c]
+
+    # Different materials with the same name are rejected.
+    material_e = Material(air.openmc_material)
+    material_f = Material(water.openmc_material)
+    material_f.openmc_material.name = material_e.name
+    with pytest.raises(ValueError, match="must be equal"):
+        unique_materials([material_e, material_f])
 
 def test_graphite(graphite):
     material = mpact_builder.build_material(graphite)
@@ -95,7 +126,7 @@ def test_graphite(graphite):
     num_dens = {'C'  : 0.0932567267810358, 'B10': 1.642700833205197e-08, 'B11': 6.645396206175213e-08}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Graphite])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Graphite])
 
     assert materials_are_close(material, expected_material)
 
@@ -115,7 +146,7 @@ def test_inconel(inconel):
                 'Ni64': 0.0003777207468009612, 'Nb93': 0.004568020683944462,    'P31': 1.2458238228939442e-05}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Inconel])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Inconel])
 
     assert materials_are_close(material, expected_material)
 
@@ -127,7 +158,7 @@ def test_air(air):
                 'Ar40': 4.7577493978213445e-07}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Air])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Air])
 
     assert materials_are_close(material, expected_material)
 
@@ -143,7 +174,7 @@ def test_ss304(ss304):
                 'Fe57': 0.001200362801448938,   'Fe58': 0.00015974625295356323}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[SS304])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[SS304])
 
     assert materials_are_close(material, expected_material)
 
@@ -161,7 +192,7 @@ def test_ss316h(ss316h):
                 'Fe58' : 0.00015101542652724343}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[SS316H])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[SS316H])
 
     assert materials_are_close(material, expected_material)
 
@@ -171,7 +202,7 @@ def test_water(water):
     num_dens = {'H'  : 0.06687084844887618, 'O16': 0.03342275219865702, 'O17': 1.2672025781062035e-05}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Water])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Water])
 
     assert materials_are_close(material, expected_material)
 
@@ -183,7 +214,7 @@ def test_helium(helium):
                 'He4': 2.4984619359508816e-05}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[Helium])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Helium])
 
     assert materials_are_close(material, expected_material)
 
@@ -205,7 +236,7 @@ def test_inor8(inor8):
                 'Co59' : 0.00014704733332743196}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[INOR8])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[INOR8])
 
     assert materials_are_close(material, expected_material)
 
@@ -215,6 +246,58 @@ def test_b4c(b4c):
     num_dens = {'C'  : 0.019180730627934073, 'B10': 0.015206483241826132, 'B11': 0.06151643926991015}
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_SPECS[B4C])
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[B4C])
+
+    assert materials_are_close(material, expected_material)
+
+def test_mo(mo):
+    material = mpact_builder.build_material(mo)
+
+    num_dens = {'Mo92': 0.009549482369139634, 'Mo94': 0.005967618298385837, 'Mo95': 0.010280079192235626,
+                'Mo96': 0.010784384963930204, 'Mo97': 0.0061809784325643135, 'Mo98': 0.015639944381143384,
+                'Mo100': 0.006252098477290471}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
+                                                  number_densities            = num_dens,
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Mo])
+
+    assert materials_are_close(material, expected_material)
+
+def test_zr(zr):
+    material = mpact_builder.build_material(zr)
+
+    num_dens = {'Zr90': 0.022077110297960726, 'Zr91': 0.004814483528534876, 'Zr92': 0.00735903676598691,
+                'Zr94': 0.007457729387338338, 'Zr96': 0.0012014753903652098}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
+                                                  number_densities            = num_dens,
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Zr])
+
+    assert materials_are_close(material, expected_material)
+
+def test_uzrh(uzrh):
+    material = mpact_builder.build_material(uzrh)
+
+    num_dens = {'Zr'  : 0.03236252669648184,    'H'   : 0.05017992823867929,    'Mn55': 9.161779589954229e-05,
+                'U235': 0.00022782770293680135, 'U238': 0.0009111657877251246,  'Cr50': 3.9958261676252606e-05,
+                'Cr52': 0.0007705553020924119,  'Cr53': 8.737478577355029e-05,  'Cr54': 2.174943357061851e-05,
+                'Fe54': 0.00018306448319297205, 'Fe56': 0.0028737208880903267,  'Fe57': 6.636674762804238e-05,
+                'Fe58': 8.83219576739403e-06,   'Ni58': 0.00027730385362067074, 'Ni60': 0.00010681694794974817,
+                'Ni61': 4.6432587668093355e-06, 'Ni62': 1.480474075617908e-05,  'Ni64': 3.7703310067187678e-06}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
+                                                  number_densities            = num_dens,
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[UZrH])
+
+    assert materials_are_close(material, expected_material)
+
+def test_al6061t6(al6061t6):
+    material = mpact_builder.build_material(al6061t6)
+
+    num_dens = {'Mg24': 0.0005351155852920017,  'Mg25': 6.503067876051443e-05, 'Mg26': 6.8851718642783e-05,
+                'Si28': 0.00032153335601827154, 'Si29': 1.577116461221087e-05, 'Si30': 1.0062105023655176e-05,
+                'B10' : 2.3945249929578925e-07, 'Al27': 0.05901561597803719,   'Cr50': 2.6872280480586553e-06,
+                'Cr52': 4.983052010820289e-05,  'Cr53': 5.543557861124277e-06, 'Cr54': 1.3544141367559698e-06,
+                'Cu63': 5.001752206004382e-05,  'Cu65': 2.1628225745539073e-05}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
+                                                  number_densities            = num_dens,
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Al6061T6])
 
     assert materials_are_close(material, expected_material)

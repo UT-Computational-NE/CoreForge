@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, List
 from math import isclose
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
@@ -6,6 +6,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.stack import Stack
 from coreforge.geometry_elements.msre.block import Block
+from coreforge.materials import Material
 
 
 
@@ -57,6 +58,9 @@ class Stringer(GeometryElement):
     def __hash__(self) -> int:
         return hash((self.block,
                      relative_round(self.length, TOL)))
+
+    def get_materials(self) -> List[Material]:
+        return self.block.get_materials()
 
 
     def as_stack(self, bottom_pos: float = 0.0) -> Stack:

@@ -7,6 +7,7 @@ from mpactpy import RectangularPinMesh, Pin
 
 from coreforge.shapes import Circle, Square, Rectangle
 from coreforge.geometry_elements import Block
+from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
@@ -30,16 +31,14 @@ def unequal_block(salt, graphite, circle_chan, rect_chan):
 
 @pytest.fixture
 def mpact_voxel_specs(salt, graphite):
-    mat_specs = mpact_builder.MaterialSpecs({
-        salt:     mpact_builder.DEFAULT_MPACT_SPECS[type(salt)],
-        graphite: mpact_builder.DEFAULT_MPACT_SPECS[type(graphite)],
-    })
+    mat_specs = {
+        salt:     mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(salt)],
+        graphite: mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(graphite)],
+    }
 
-    return mpact_builder.VoxelBuildSpecs(
-        xvals          = [2.5, 5.0],
-        yvals          = [2.5, 5.0],
-        zvals          = [1.0],
-        material_specs = mat_specs
+    return mpact_builder.VoxelBuilder.Specs(
+        target_thicknesses = {"X": 2.5, "Y": 2.5, "Z": 1.0},
+        material_specs     = mat_specs
     )
 
 def test_block_initialization(block, salt, graphite):
@@ -63,12 +62,11 @@ def test_block_initialization(block, salt, graphite):
     assert isclose(channel.distance_from_block_center, 5.0*0.5)
     assert isclose(channel.rotation_about_block_center, 90.0)
     assert channel.material == salt
+    assert geom_element.get_materials() == unique_materials([graphite, salt])
 
-def test_equality(block, unequal_block):
+def test_equality_and_hash(block, unequal_block):
     assert block == deepcopy(block)
     assert block != unequal_block
-
-def test_hash(block, unequal_block):
     assert hash(block) == hash(deepcopy(block))
     assert hash(block) != hash(unequal_block)
 
@@ -85,7 +83,10 @@ def test_openmc_builder(block):
 def test_block_mpact_builder(block, mpact_voxel_specs, salt, graphite):
     geom_element = block
     specs = mpact_voxel_specs
-    core = mpact_builder.build(geom_element, specs)
+    bounds = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=0.0, max=5.0),
+                                  Y=mpact_builder.AxisBounds(min=0.0, max=5.0),
+                                  Z=mpact_builder.AxisBounds(min=0.0, max=1.0))
+    core = mpact_builder.build(geom_element, specs, bounds)
     salt = mpact_builder.build_material(salt)
     graphite = mpact_builder.build_material(graphite)
 

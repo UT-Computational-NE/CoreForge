@@ -2,7 +2,7 @@ from abc import abstractmethod
 from typing import List
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.materials.material import Material
+from coreforge.materials import Material, unique_materials
 
 class Lattice(GeometryElement):
     """ An abstract class for 2D Lattice of geometry elements
@@ -38,3 +38,11 @@ class Lattice(GeometryElement):
     def __init__(self, name: str, outer_material: Material):
         self.outer_material = outer_material
         super().__init__(name)
+
+    def get_materials(self) -> List[Material]:
+        materials = [self.outer_material]
+        for row in self.elements:
+            for element in row:
+                if element is not None:
+                    materials.extend(element.get_materials())
+        return unique_materials(materials)

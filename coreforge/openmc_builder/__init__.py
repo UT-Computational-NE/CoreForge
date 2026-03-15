@@ -4,8 +4,10 @@ from .stack import Stack
 from .rect_lattice import RectLattice
 from .hex_lattice import HexLattice
 from .block import Block
+from .cone import OneSidedCone
 from . import msre
-from .openmc_builder import build
+from . import triga
+from .openmc_builder import build, get_builder, register_builder
 
 __all__ = [
     "PinCell",
@@ -14,6 +16,10 @@ __all__ = [
     "RectLattice",
     "HexLattice",
     "Block",
+    "OneSidedCone",
     "msre",
-    "build"
+    "triga",
+    "build",
+    "get_builder",
+    "register_builder"
 ]

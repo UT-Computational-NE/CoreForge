@@ -31,11 +31,9 @@ def test_stringer_initialization(stringer, block):
     assert geom_element.block == block
     assert isclose(geom_element.length, stringer.length)
 
-def test_equality(stringer, unequal_stringer):
+def test_equality_and_hash(stringer, unequal_stringer):
     assert stringer == deepcopy(stringer)
     assert stringer != unequal_stringer
-
-def test_hash(stringer, unequal_stringer):
     assert hash(stringer) == hash(deepcopy(stringer))
     assert hash(stringer) != hash(unequal_stringer)
 

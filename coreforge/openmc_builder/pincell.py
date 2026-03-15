@@ -1,10 +1,11 @@
 import openmc
 
+from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.PinCell)
-class PinCell:
+class PinCell(Builder[geometry_elements.PinCell]):
     """ An OpenMC geometry builder class for PinCell
     """
 
@@ -12,19 +13,6 @@ class PinCell:
         pass
 
     def build(self, element: geometry_elements.PinCell) -> openmc.Universe:
-        """ Method for building an OpenMC geometry of a PinCell
-
-        Parameters
-        ----------
-        element: PinCell
-            The geometry element to be built
-
-        Returns
-        -------
-        openmc.Universe
-            A new OpenMC geometry based on this geometry element
-        """
-
         cells = []
         previous_regions = []
         for zone in element.zones:

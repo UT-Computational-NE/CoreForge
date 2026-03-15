@@ -4,13 +4,13 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build_material
-from coreforge.mpact_builder.builder_specs import BuilderSpecs
-from coreforge.mpact_builder.material_specs import MaterialSpecs
+from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder, build_material
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.mpact_builder import register_builder
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.CylindricalPinCell)
-class CylindricalPinCell:
+class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
     """ An MPACT geometry builder class for CylindricalPinCell
 
     Parameters
@@ -34,12 +34,6 @@ class CylindricalPinCell:
             The target thickness of the cells in terms of 'radial' thickness
             and 'azimuthal' arc length (cm).
             Cells will be subdivided to limit cells to within these specifications.
-        bounds : Optional[Tuple[float, float, float, float]]
-                The bounds of the cylindrical pincell (order: x_min, x_max, y_min, y_max).
-                Defaults to bounds correponding to the outer most radius.
-        height : float
-            The height to build the extruded PinCell in the axial direction (cm).
-            Default value is 1.0
         divide_into_quadrants : bool
             An optional setting to divide the pincell into 4 separate MPACT Module quadrants.
             This will represent the pincell with 4 MPACT Modules rather than just one.
@@ -54,9 +48,7 @@ class CylindricalPinCell:
             radial:    float
             azimuthal: float
 
-        bounds:                  Optional[Tuple[float, float, float, float]] = None
         target_cell_thicknesses: Optional[Thicknesses] = None
-        height:                  float = 1.0
         divide_into_quadrants:   bool = False
         material_specs:          Optional[MaterialSpecs] = None
 
@@ -67,17 +59,18 @@ class CylindricalPinCell:
                 for dim in ["radial", "azimuthal"]:
                     self.target_cell_thicknesses.setdefault(dim, inf)
 
-            if not self.material_specs:
-                self.material_specs = MaterialSpecs()
+            if self.material_specs is None:
+                self.material_specs = {}
 
             assert all(thickness > 0. for thickness in self.target_cell_thicknesses.values()), \
                 f"target_cell_thicknesses = {self.target_cell_thicknesses}"
 
-            assert self.height > 0., f"height = {self.height}"
-            if self.bounds:
-                assert self.bounds[0] < self.bounds[1], f"xmin = {self.bounds[0]}, xmax = {self.bounds[1]}"
-                assert self.bounds[2] < self.bounds[3], f"ymin = {self.bounds[2]}, ymax = {self.bounds[3]}"
 
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
 
     @property
     def specs(self) -> Specs:
@@ -85,20 +78,20 @@ class CylindricalPinCell:
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs if specs else CylindricalPinCell.Specs()
+        self._specs = specs if specs is not None else self.Specs()
 
 
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
-
-
-    def build(self, element: geometry_elements.CylindricalPinCell) -> mpactpy.Core:
+    def build(self, element: geometry_elements.CylindricalPinCell, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a CylindricalPinCell
 
         Parameters
         ----------
         element: geometry_elements.CylindricalPinCell
             The geometry element to be built
+        bounds: Optional[Bounds]
+            The spatial bounds for the geometry.
+            X and Y define the radial bounds, Z defines the height.
+            Defaults to outer radius and height of 1.0 if not provided.
 
         Returns
         -------
@@ -117,21 +110,26 @@ class CylindricalPinCell:
 
         radii = [zone.shape.inner_radius for zone in element.zones]
         radial_thicknesses = [curr - prev for prev, curr in zip([0.0] + radii[:-1], radii)]
-        bounds = specs.bounds if specs.bounds else (-outer_radius, outer_radius,
-                                                    -outer_radius, outer_radius)
 
-        def build_module(bounds: Tuple[float, float, float, float]) -> mpactpy.Module:
-            pin = mpactpy.build_gcyl_pin(bounds                  = bounds,
+
+        bounds = bounds or Bounds()
+        bounds.X = bounds.X or AxisBounds(min=-outer_radius, max=outer_radius)
+        bounds.Y = bounds.Y or AxisBounds(min=-outer_radius, max=outer_radius)
+        bounds.Z = bounds.Z or AxisBounds(min=0.0,           max=1.0)
+
+        def build_module(module_bounds: Tuple[float, float, float, float]) -> mpactpy.Module:
+            z_thickness = bounds.Z.max - bounds.Z.min if bounds.Z else 1.0
+            pin = mpactpy.build_gcyl_pin(bounds                  = module_bounds,
                                          materials               = materials,
                                          target_cell_thicknesses = target_cell_thicknesses,
                                          thicknesses             = {"R": radial_thicknesses,
-                                                                    "Z": [specs.height]})
+                                                                    "Z": [z_thickness]})
             return mpactpy.Module(1, [[pin]])
 
-        (xmin, xmax, ymin, ymax) = bounds
+        (xmin, xmax, ymin, ymax) = (bounds.X.min, bounds.X.max, bounds.Y.min, bounds.Y.max)
         hp   = {"X": (xmax-xmin)*0.5, "Y": (ymax-ymin)*0.5} # half pitch
 
-        module_map = [[build_module(bounds)]] if not specs.divide_into_quadrants else \
+        module_map = [[build_module((xmin, xmax, ymin, ymax))]] if not specs.divide_into_quadrants else \
                      [[build_module((        xmin, xmin+hp["X"], ymin+hp["Y"],         ymax)),
                        build_module((xmin+hp["X"],         xmax, ymin+hp["Y"],         ymax))],
                       [build_module((        xmin, xmin+hp["X"],         ymin, ymin+hp["Y"])),

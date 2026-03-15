@@ -136,11 +136,9 @@ def test_block_initialization(block, salt, graphite):
         assert channel.material == salt
 
 
-def test_equality(block, unequal_block):
+def test_equality_and_hash(block, unequal_block):
     assert block == deepcopy(block)
     assert block != unequal_block
-
-def test_hash(block, unequal_block):
     assert hash(block) == hash(deepcopy(block))
     assert hash(block) != hash(unequal_block)
 

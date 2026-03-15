@@ -33,6 +33,14 @@ def build_elements(elements:        List[geometry_elements.GeometryElement],
     if not elements:
         return {}
 
+    # For serial processing (num_processes==1), call worker directly to preserve tracebacks
+    if num_processes == 1:
+        chunk_result = worker_function(elements, *worker_args)
+        results = {}
+        for item, result in chunk_result:
+            results[item] = result
+        return results
+
     # Determine the number of chunks and create them
     num_chunks    = min(num_processes, len(elements))
     chunk_indices = np.array_split(np.arange(len(elements)), num_chunks)

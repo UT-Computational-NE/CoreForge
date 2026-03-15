@@ -7,6 +7,7 @@ from mpactpy import RectangularPinMesh, Pin
 import mpactpy
 
 from coreforge.geometry_elements import InfiniteMedium
+from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import air, graphite
@@ -22,16 +23,16 @@ def unequal_infinite_medium(graphite):
 
 @pytest.fixture
 def infinite_medium_mpact_specs():
-    return mpact_builder.InfiniteMedium.Specs(thicknesses = {"X": 8.0, "Y": 8.0})
+    return mpact_builder.InfiniteMedium.Specs()
 
 @pytest.fixture
 def mpact_voxel_specs(salt, graphite, air):
     # Set up material specs mapping from OpenMC materials to MPACT specs
-    mat_specs = mpact_builder.MaterialSpecs({
-        salt:     mpact_builder.DEFAULT_MPACT_SPECS[type(salt)],
-        graphite: mpact_builder.DEFAULT_MPACT_SPECS[type(graphite)],
-        air:      mpact_builder.DEFAULT_MPACT_SPECS[type(air)]
-    })
+    mat_specs = {
+        salt:     mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(salt)],
+        graphite: mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(graphite)],
+        air:      mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(air)]
+    }
 
     overlay_policy = mpactpy.PinMesh.OverlayPolicy(
         method     = 'centroid',
@@ -39,32 +40,27 @@ def mpact_voxel_specs(salt, graphite, air):
         num_procs  = 1
     )
 
-    return mpact_builder.VoxelBuildSpecs(
-        xvals          = [4.0, 8.0],
-        yvals          = [4.0, 8.0],
-        zvals          = [1.0],
-        overlay_policy = overlay_policy,
-        material_specs = mat_specs
+    return mpact_builder.VoxelBuilder.Specs(
+        target_thicknesses = {"X": 4.0, "Y": 4.0, "Z": 1.0},
+        overlay_policy      = overlay_policy,
+        material_specs      = mat_specs
     )
 
 @pytest.fixture
 def mpact_voxel_thickness_specs():
-    return mpact_builder.VoxelBuildSpecs(
-        x_thicknesses = [4.0, 4.0],
-        y_thicknesses = [4.0, 4.0],
-        z_thicknesses = [1.0]
+    return mpact_builder.VoxelBuilder.Specs(
+        num_div = {"X": 2, "Y": 2, "Z": 1}
     )
 
 def test_initialization(infinite_medium):
     geom_element = infinite_medium
     assert geom_element.name == "infinite_medium"
     assert geom_element.material.name == "Air"
+    assert geom_element.get_materials() == unique_materials([geom_element.material])
 
-def test_equality(infinite_medium, unequal_infinite_medium):
+def test_equality_and_hash(infinite_medium, unequal_infinite_medium):
     assert infinite_medium == deepcopy(infinite_medium)
     assert infinite_medium != unequal_infinite_medium
-
-def test_hash(infinite_medium, unequal_infinite_medium):
     assert hash(infinite_medium) == hash(deepcopy(infinite_medium))
     assert hash(infinite_medium) != hash(unequal_infinite_medium)
 
@@ -81,7 +77,9 @@ def test_mpacts_builder(infinite_medium, infinite_medium_mpact_specs, air):
 
     geom_element = infinite_medium
     specs        = infinite_medium_mpact_specs
-    core         = mpact_builder.build(geom_element, specs)
+    bounds       = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=0.0, max=8.0),
+                                        Y=mpact_builder.AxisBounds(min=0.0, max=8.0))
+    core         = mpact_builder.build(geom_element, specs, bounds)
     air          = mpact_builder.build_material(air)
 
     assert len(core.materials) == 1
@@ -103,7 +101,7 @@ def test_mpacts_builder(infinite_medium, infinite_medium_mpact_specs, air):
     assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats)
 
     specs.divide_into_quadrants = True
-    core = mpact_builder.build(geom_element, specs)
+    core = mpact_builder.build(geom_element, specs, bounds)
 
     assert isclose(core.mod_dim['X'], 4.0)
     assert isclose(core.mod_dim['Y'], 4.0)
@@ -126,7 +124,10 @@ def test_mpacts_builder(infinite_medium, infinite_medium_mpact_specs, air):
 def test_mpact_voxel_builder(infinite_medium, mpact_voxel_specs, air):
     geom_element = infinite_medium
     specs = mpact_voxel_specs
-    core = mpact_builder.build(geom_element, specs)
+    bounds = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=0.0, max=8.0),
+                                  Y=mpact_builder.AxisBounds(min=0.0, max=8.0),
+                                  Z=mpact_builder.AxisBounds(min=0.0, max=1.0))
+    core = mpact_builder.build(geom_element, specs, bounds)
     air = mpact_builder.build_material(air)
 
     assert len(core.materials) == 1
@@ -147,10 +148,10 @@ def test_mpact_voxel_builder(infinite_medium, mpact_voxel_specs, air):
 
     assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1, 1], [1, 1], [1]), expected_mats)
 
-def test_voxel_specs_equivalence(mpact_voxel_specs, mpact_voxel_thickness_specs):
-    assert_allclose(mpact_voxel_specs.xvals, mpact_voxel_thickness_specs.xvals)
-    assert_allclose(mpact_voxel_specs.yvals, mpact_voxel_thickness_specs.yvals)
-    assert_allclose(mpact_voxel_specs.zvals, mpact_voxel_thickness_specs.zvals)
-    assert_allclose(mpact_voxel_specs.x_thicknesses, mpact_voxel_thickness_specs.x_thicknesses)
-    assert_allclose(mpact_voxel_specs.y_thicknesses, mpact_voxel_thickness_specs.y_thicknesses)
-    assert_allclose(mpact_voxel_specs.z_thicknesses, mpact_voxel_thickness_specs.z_thicknesses)
+def test_voxel_specs_equivalence(infinite_medium, mpact_voxel_specs, mpact_voxel_thickness_specs):
+    bounds = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=0.0, max=8.0),
+                                  Y=mpact_builder.AxisBounds(min=0.0, max=8.0),
+                                  Z=mpact_builder.AxisBounds(min=0.0, max=1.0))
+    core_target = mpact_builder.build(infinite_medium, mpact_voxel_specs, bounds)
+    core_ndiv = mpact_builder.build(infinite_medium, mpact_voxel_thickness_specs, bounds)
+    assert core_target.pins[0] == core_ndiv.pins[0]

@@ -4,14 +4,15 @@ from math import inf
 
 import mpactpy
 
-from coreforge.mpact_builder.mpact_builder import register_builder, build
+from coreforge.mpact_builder.builder import Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs
-from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
+from coreforge.mpact_builder.stack import Stack
+from coreforge.mpact_builder.mpact_builder import build, register_builder
 import coreforge.geometry_elements.msre as geometry_elements_msre
 
 @register_builder(geometry_elements_msre.ControlChannel)
-class ControlChannel:
+class ControlChannel(Builder[geometry_elements_msre.ControlChannel]):
     """ An MPACT geometry builder class for an MSRE ControlChannel
 
     Parameters
@@ -53,26 +54,31 @@ class ControlChannel:
                 self.pincell_specs = CylindricalPinCell.Specs()
 
 
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
+
     @property
     def specs(self) -> Specs:
         return self._specs
 
     @specs.setter
     def specs(self, specs: Optional[Specs]) -> None:
-        self._specs = specs if specs else ControlChannel.Specs()
+        self._specs = specs if specs is not None else self.Specs()
 
 
-    def __init__(self, specs: Optional[Specs] = None):
-        self.specs = specs
-
-
-    def build(self, element: geometry_elements_msre.ControlChannel) -> mpactpy.Core:
+    def build(self, element: geometry_elements_msre.ControlChannel, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of an MSRE ControlChannel
 
         Parameters
         ----------
         element: geometry_elements_msre.ControlChannel
             The geometry element to be built
+        bounds: Optional[Bounds]
+            The spatial bounds for the geometry. Bounds are passed through to the child
+            elements (cylindrical pincells) via the stack builder.
 
         Returns
         -------
@@ -85,4 +91,4 @@ class ControlChannel:
                                             self.specs.pincell_specs)
         stack_specs = Stack.Specs({segment: segment_specs for segment in stack.segments})
 
-        return build(element.as_stack(), stack_specs)
+        return build(stack, stack_specs, bounds)

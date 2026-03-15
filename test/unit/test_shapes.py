@@ -2,7 +2,9 @@ import pytest
 from math import isclose, pi, sqrt, asin
 
 from coreforge.shapes import Circle, Rectangle, Square, Stadium, Hexagon, \
-                            Torispherical_Dome, ASME_Flanged_Dished_Dome
+                            Torispherical_Dome, ASME_Flanged_Dished_Dome, \
+                            Cone, OneSidedCone
+from coreforge.shapes.utils import is_convex, convex_contains_point
 from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE
 
 TOL = ROUNDING_RELATIVE_TOLERANCE * 1E-2
@@ -22,6 +24,9 @@ def test_circle():
     assert hash(circle) == hash(equal_circle)
     assert hash(circle) != hash(not_equal_circle)
 
+    region = circle.make_region()
+    assert region is not None
+
 
 
 def test_rectangle():
@@ -40,6 +45,65 @@ def test_rectangle():
     assert hash(rectangle) == hash(equal_rectangle)
     assert hash(rectangle) != hash(not_equal_rectangle)
 
+    region = rectangle.make_region()
+    assert region is not None
+
+
+def test_contains_point_circle():
+    circle = Circle(r=1.0)
+    assert circle.contains_point((0.5, 0.0))
+    assert circle.contains_point((1.0, 0.0))
+    assert circle.contains_point((0.5, 0.0), rotation=45.0)
+    assert not circle.contains_point((1.1, 0.0))
+
+
+def test_contains_point_rectangle_rotation():
+    rectangle = Rectangle(w=2.0, h=1.0)
+    assert rectangle.contains_point((0.9, 0.0))
+    assert not rectangle.contains_point((0.9, 0.0), rotation=90.0)
+    assert rectangle.contains_point((0.0, 0.4), rotation=90.0)
+
+
+def test_contains_point_hexagon():
+    hexagon = Hexagon(inner_radius=1.0, orientation='y')
+    assert hexagon.contains_point((0.0, 0.0))
+    assert not hexagon.contains_point((2.0, 0.0))
+
+
+def test_contains_point_stadium():
+    stadium = Stadium(r=0.5, a=2.0)
+    assert stadium.contains_point((0.0, 0.4))
+    assert not stadium.contains_point((0.0, 0.6))
+
+
+def test_convex_utils():
+    square = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+    concave = [(-1.0, -1.0), (1.0, -1.0), (0.0, 0.0), (1.0, 1.0), (-1.0, 1.0)]
+
+    assert is_convex(square)
+    assert not is_convex(concave)
+    assert convex_contains_point(square, (0.0, 0.0))
+    assert not convex_contains_point(square, (2.0, 0.0))
+
+    with pytest.raises(AssertionError):
+        convex_contains_point(concave, (0.0, 0.0))
+
+
+def test_circle_rectangle_intersection():
+    rectangle = Rectangle(w=2.0, h=1.0)
+    circle = Circle(r=0.4)
+
+    assert rectangle.intersects(circle)
+    assert circle.intersects(rectangle)
+
+    outside_circle = Circle(r=0.4)
+    assert not rectangle.intersects(outside_circle, other_center=(2.0, 0.0))
+    assert not outside_circle.intersects(rectangle, self_center=(2.0, 0.0))
+
+    touching_circle = Circle(r=0.4)
+    assert rectangle.intersects(touching_circle, other_center=(1.4, 0.0))
+    assert touching_circle.intersects(rectangle, self_center=(1.4, 0.0))
+
 
 
 def test_square():
@@ -48,6 +112,9 @@ def test_square():
     assert(isclose(square.inner_radius,  a*0.5))
     assert(isclose(square.outer_radius,  0.5*sqrt(2*a*a)))
     assert(isclose(square.area, a*a))
+
+    region = square.make_region()
+    assert region is not None
 
 
 def test_stadium():
@@ -66,6 +133,9 @@ def test_stadium():
     assert hash(stadium) == hash(equal_stadium)
     assert hash(stadium) != hash(not_equal_stadium)
 
+    region = stadium.make_region()
+    assert region is not None
+
 
 
 def test_hexagon():
@@ -82,6 +152,9 @@ def test_hexagon():
     assert hexagon != not_equal_hexagon
     assert hash(hexagon) == hash(equal_hexagon)
     assert hash(hexagon) != hash(not_equal_hexagon)
+
+    region = hexagon.make_region()
+    assert region is not None
 
 
 
@@ -112,7 +185,61 @@ def test_cap():
     assert hash(cap) == hash(equal_cap)
     assert hash(cap) != hash(not_equal_cap)
 
+    # Test that the region is created properly
+    region = cap.make_region()
+    assert region is not None
+
     cap = ASME_Flanged_Dished_Dome(D)
     assert(isclose(cap.R, R))
     assert(isclose(cap.a, a))
     assert(isclose(cap.c, c))
+
+    # Test that the region is created properly
+    region = cap.make_region()
+    assert region is not None
+
+
+def test_cone():
+    r = 5.0
+    h = 10.0
+    cone = Cone(r=r, h=h)
+
+    assert isclose(cone.r, r)
+    assert isclose(cone.h, h)
+    assert isclose(cone.inner_radius, 0.0)
+    assert isclose(cone.outer_radius, sqrt(r*r + h*h))
+    assert isclose(cone.volume, (2.0 / 3.0) * pi * r*r*h)
+
+    equal_cone = Cone(r=r * (1 + TOL), h=h * (1 + TOL))
+    not_equal_cone = Cone(r=r * 2, h=h * 2)
+
+    assert cone == equal_cone
+    assert cone != not_equal_cone
+    assert hash(cone) == hash(equal_cone)
+    assert hash(cone) != hash(not_equal_cone)
+
+    region = cone.make_region()
+    assert region is not None
+
+
+def test_onesided_cone():
+    r = 5.0
+    h = 10.0
+    cone = OneSidedCone(r=r, h=h)
+
+    assert isclose(cone.r, r)
+    assert isclose(cone.h, h)
+    assert isclose(cone.inner_radius, (r*h) / (sqrt(r*r + h*h) + r))
+    assert isclose(cone.outer_radius, (r*r + h*h) / (2*h))
+    assert isclose(cone.volume, (1.0 / 3.0) * pi * r*r*h)
+
+    equal_cone = OneSidedCone(r=r * (1 + TOL), h=h * (1 + TOL))
+    not_equal_cone = OneSidedCone(r=r * 2, h=h * 2)
+
+    assert cone == equal_cone
+    assert cone != not_equal_cone
+    assert hash(cone) == hash(equal_cone)
+    assert hash(cone) != hash(not_equal_cone)
+
+    region = cone.make_region()
+    assert region is not None

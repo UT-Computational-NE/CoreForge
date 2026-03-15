@@ -7,7 +7,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.stack import Stack
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.materials import Material
+from coreforge.materials import Material, unique_materials
 
 class ControlChannel(GeometryElement):
     """ A class for MSRE-like Control Channels
@@ -256,6 +256,14 @@ class ControlChannel(GeometryElement):
         return hash((self.thimble,
                      self.control_rod,
                      relative_round(self.length, TOL)))
+
+    def get_materials(self) -> List[Material]:
+        materials = [
+            self.fill_material,
+            self.thimble.wall_material,
+            self.thimble.fill_material,
+        ] + self.control_rod.materials
+        return unique_materials(materials)
 
     def as_stack(self, bottom_pos: float = 0.0) -> Stack:
         """ A method for getting a copy of the ControlChannel as a Stack

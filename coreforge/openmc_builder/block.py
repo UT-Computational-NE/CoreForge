@@ -1,10 +1,11 @@
 import openmc
 
+from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.Block)
-class Block:
+class Block(Builder[geometry_elements.Block]):
     """ An OpenMC geometry builder class for Block
     """
 
@@ -33,19 +34,6 @@ class Block:
         return cell
 
     def build(self, element: geometry_elements.Block) -> openmc.Universe:
-        """ Method for building an OpenMC geometry of a Block
-
-        Parameters
-        ----------
-        element: Block
-            The geometry element to be built
-
-        Returns
-        -------
-        openmc.Universe
-            A new OpenMC geometry based on this geometry element
-        """
-
         channel_cells = []
         for channel in element.channels:
             if channel is None:

@@ -8,6 +8,7 @@ import mpactpy
 
 from coreforge.shapes import Circle, Square, Hexagon, Stadium
 from coreforge.geometry_elements import PinCell, CylindricalPinCell
+from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
@@ -34,20 +35,18 @@ def cylindrical_pincell(salt, graphite):
 
 @pytest.fixture
 def cylindrical_pincell_mpact_specs():
-    return mpact_builder.CylindricalPinCell.Specs(bounds = (-4.0, 4.0, -4.0, 4.0))
+    return mpact_builder.CylindricalPinCell.Specs()
 
 @pytest.fixture
 def mpact_voxel_specs(salt, graphite):
-    mat_specs = mpact_builder.MaterialSpecs({
-        salt:     mpact_builder.DEFAULT_MPACT_SPECS[type(salt)],
-        graphite: mpact_builder.DEFAULT_MPACT_SPECS[type(graphite)],
-    })
+    mat_specs = {
+        salt:     mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(salt)],
+        graphite: mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[type(graphite)],
+    }
 
-    return mpact_builder.VoxelBuildSpecs(
-        xvals          = [16.0, 32.0],
-        yvals          = [16.0, 32.0],
-        zvals          = [1.0],
-        material_specs = mat_specs
+    return mpact_builder.VoxelBuilder.Specs(
+        target_thicknesses = {"X": 16.0, "Y": 16.0, "Z": 1.0},
+        material_specs     = mat_specs
     )
 
 
@@ -70,12 +69,12 @@ def test_pincell_initialization(pincell):
     assert geom_element.outer_material.name == "Salt"
     assert isclose(geom_element.x0, 1.0)
     assert isclose(geom_element.y0, -2.0)
+    expected = unique_materials([zone.material for zone in geom_element.zones] + [geom_element.outer_material])
+    assert geom_element.get_materials() == expected
 
-def test_equality(pincell, unequal_pincell):
+def test_equality_and_hash(pincell, unequal_pincell):
     assert pincell == deepcopy(pincell)
     assert pincell != unequal_pincell
-
-def test_hash(pincell, unequal_pincell):
     assert hash(pincell) == hash(deepcopy(pincell))
     assert hash(pincell) != hash(unequal_pincell)
 
@@ -93,7 +92,10 @@ def test_openmc_builder(pincell):
 def test_pincell_mpact_builder(pincell, mpact_voxel_specs, salt, graphite):
     geom_element = pincell
     specs = mpact_voxel_specs
-    core = mpact_builder.build(geom_element, specs)
+    bounds = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=0.0, max=32.0),
+                                  Y=mpact_builder.AxisBounds(min=0.0, max=32.0),
+                                  Z=mpact_builder.AxisBounds(min=0.0, max=1.0))
+    core = mpact_builder.build(geom_element, specs, bounds)
     salt = mpact_builder.build_material(salt)
     graphite = mpact_builder.build_material(graphite)
 
@@ -133,12 +135,16 @@ def test_cylindrical_pincell_initialization(cylindrical_pincell):
     assert geom_element.outer_material.name == "Graphite"
     assert isclose(geom_element.x0, 0.0)
     assert isclose(geom_element.y0, 0.0)
+    expected = unique_materials([zone.material for zone in geom_element.zones] + [geom_element.outer_material])
+    assert geom_element.get_materials() == expected
 
 def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pincell_mpact_specs, salt, graphite):
 
     geom_element = cylindrical_pincell
     specs        = cylindrical_pincell_mpact_specs
-    core         = mpact_builder.build(geom_element, specs)
+    bounds       = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=-4.0, max=4.0),
+                                        Y=mpact_builder.AxisBounds(min=-4.0, max=4.0))
+    core         = mpact_builder.build(geom_element, specs, bounds)
     salt         = mpact_builder.build_material(salt)
     graphite     = mpact_builder.build_material(graphite)
 
@@ -161,7 +167,7 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
     assert core.pins[0] == Pin(GeneralCylindricalPinMesh(expected_radii, -4.0, 4.0, -4.0, 4.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
 
     specs.divide_into_quadrants = True
-    core = mpact_builder.build(geom_element, specs)
+    core = mpact_builder.build(geom_element, specs, bounds)
 
     assert isclose(core.mod_dim['X'], 4.0)
     assert isclose(core.mod_dim['Y'], 4.0)
@@ -178,3 +184,13 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
     assert pin["SW"] == Pin(GeneralCylindricalPinMesh(expected_radii, -4.0, 0.0, -4.0, 0.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
     assert pin["SE"] == Pin(GeneralCylindricalPinMesh(expected_radii,  0.0, 4.0, -4.0, 0.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats)
 
+
+def test_cylindrical_pincell_min_zone_thickness(salt, graphite):
+    radii = [1.0, 1.001, 3.0]  # tiny gap between 1.0 and 1.001
+    materials = [salt, graphite, salt, graphite]
+    pin = CylindricalPinCell(radii=radii, materials=materials, min_zone_thickness=0.01)
+
+    # The tiny graphite zone should be removed; remaining radii/materials collapse accordingly.
+    assert [zone.shape.outer_radius for zone in pin.zones] == pytest.approx([1.0, 3.0])
+    assert [zone.material for zone in pin.zones] == [salt, salt]
+    assert pin.outer_material == graphite
