@@ -234,8 +234,8 @@ class HexLattice(Builder[geometry_elements.HexLattice]):
             Mapping from geometry elements to built MPACT assemblies for each quadrant ('NE', 'NW', 'SE', 'SW')
         """
 
-        hex_height  = element.pitch if element.orientation == 'x' else element.pitch * sqrt(3.0) / 2.0
-        hex_width   = element.pitch if element.orientation == 'y' else element.pitch * sqrt(3.0) / 2.0
+        hex_height  = element.pitch if element.orientation == 'y' else element.pitch * sqrt(3.0) / 2.0
+        hex_width   = element.pitch if element.orientation == 'x' else element.pitch * sqrt(3.0) / 2.0
         half_height = hex_height * 0.5
         half_width  = hex_width * 0.5
 

@@ -212,8 +212,8 @@ def test_hex_lattice_openmc_builder(hex_x_lattice, hex_y_lattice):
 def test_hex_lattice_mpact_builder_x_oriented(hex_x_lattice, hex_lattice_mpact_specs, stack):
     geom_element = hex_x_lattice
     core = mpact_builder.build(geom_element, hex_lattice_mpact_specs)
-    hex_width  = geom_element.pitch * sqrt(3.0) / 2.0
-    hex_height = geom_element.pitch
+    hex_width  = geom_element.pitch
+    hex_height = geom_element.pitch * sqrt(3.0) / 2.0
     assert isclose(core.mod_dim['X'], hex_width/2)
     assert isclose(core.mod_dim['Y'], hex_height/2)
     assert_allclose(core.mod_dim['Z'], [1.0, 3.0, 4.0])
@@ -237,8 +237,8 @@ def test_hex_lattice_mpact_builder_x_oriented(hex_x_lattice, hex_lattice_mpact_s
 def test_hex_lattice_mpact_builder_y_oriented(hex_y_lattice, hex_lattice_mpact_specs, stack):
     geom_element = hex_y_lattice
     core = mpact_builder.build(geom_element, hex_lattice_mpact_specs)
-    hex_width  = geom_element.pitch
-    hex_height = geom_element.pitch * sqrt(3.0) / 2.0
+    hex_width  = geom_element.pitch * sqrt(3.0) / 2.0
+    hex_height = geom_element.pitch
     assert isclose(core.mod_dim['X'], hex_width/2)
     assert isclose(core.mod_dim['Y'], hex_height/2)
     assert_allclose(core.mod_dim['Z'], [1.0, 3.0, 4.0])
