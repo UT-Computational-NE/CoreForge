@@ -103,7 +103,7 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
 
         outer_radius = element.zones[-1].shape.outer_radius
         materials    = [zone.material for zone in element.zones] + [element.outer_material]
-        materials    = [build_material(material) for material in materials]
+        materials    = [build_material(material, specs.material_specs) for material in materials]
 
         target_cell_thicknesses = {"R": specs.target_cell_thicknesses["radial"],
                                    "S": specs.target_cell_thicknesses["azimuthal"]}

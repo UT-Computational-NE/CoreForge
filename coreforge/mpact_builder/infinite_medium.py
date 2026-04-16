@@ -99,7 +99,7 @@ class InfiniteMedium(Builder[geometry_elements.InfiniteMedium]):
         """
 
         specs = self.specs
-        materials = [build_material(element.material)]
+        materials = [build_material(element.material, specs.material_specs)]
 
         thicknesses = {"X": 1.0, "Y": 1.0, "Z": 1.0}
         if bounds:
