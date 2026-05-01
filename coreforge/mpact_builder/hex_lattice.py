@@ -94,21 +94,14 @@ class HexLattice(Builder[geometry_elements.HexLattice]):
 
         entries = self._build_unique_entries(element, bounds)
 
-        axial_positions = self._ring_to_axial(element)
-        offset_positions = [self._axial_to_offset(axial, element.orientation) for axial in axial_positions]
+        offset_positions = self._ring_to_offset_positions(element)
 
         placements = []
         min_r = min_c = float("inf")
         max_r = max_c = float("-inf")
-        for elem, (r, c) in zip(self._flatten_rings(element.elements), offset_positions):
+        for elem, (base_r, base_c) in zip(self._flatten_rings(element.elements), offset_positions):
             if elem and elem in entries:
                 quads = entries[elem]
-                base_r = r * 2
-                base_c = c * 2
-                if element.orientation == 'y' and (c % 2):
-                    base_r += 1  # stagger down on odd columns for pointy-top
-                if element.orientation == 'x' and (r % 2):
-                    base_c += 1  # stagger right on odd rows for flat-top
                 placements.append((base_r, base_c, quads))
 
                 # Track min/max index values for grid sizing
@@ -156,8 +149,8 @@ class HexLattice(Builder[geometry_elements.HexLattice]):
             entries.extend(ring)
         return entries
 
-    def _ring_to_axial(self, element: geometry_elements.HexLattice) -> List[Tuple[int, int]]:
-        """Convert ring-based ordering to axial (q, r) coordinates on a distance-constant ring.
+    def _ring_to_offset_positions(self, element: geometry_elements.HexLattice) -> List[Tuple[int, int]]:
+        """Convert ring-based ordering to doubled offset map positions.
 
         Parameters
         ----------
@@ -167,52 +160,47 @@ class HexLattice(Builder[geometry_elements.HexLattice]):
         Returns
         -------
         List[Tuple[int, int]]
-            Axial coordinates corresponding to each lattice entry, ordered to match `element.elements`.
-
-        References
-        ----------
-        - Red Blob Games: Hexagonal Grids
-          https://www.redblobgames.com/grids/hexagons/#coordinates-axial
+            Top-left row and column positions for each 2x2 quadrant block,
+            ordered to match ``element.elements``.
         """
-        coords: List[Tuple[int, int]] = []
+        positions: List[Tuple[int, int]] = []
         num_rings = element.num_rings
-        for ring_index, ring in enumerate(element.elements):
+
+        if element.orientation == "y":
+            face_steps = [( 1,  2),  # NE face
+                          ( 2,  0),  # E face
+                          ( 1, -2),  # SE face
+                          (-1, -2),  # SW face
+                          (-2,  0),  # W face
+                          (-1,  2)]  # NW face
+        else:
+            face_steps = [( 2, -2),  # SE face
+                          ( 0, -2),  # S face
+                          (-2,  0),  # SW face
+                          (-2,  0),  # NW face
+                          ( 0,  2),  # N face
+                          ( 2,  2)]  # NE face
+
+        for ring_index, _ in enumerate(element.elements):
             radius = num_rings - ring_index - 1
             if radius == 0:
-                coords.append((0, 0))
+                center = 2 * (num_rings - 1)
+                positions.append((center, center))
                 continue
-            q, r = radius, -radius  # start at (radius, -radius) to stay on ring
-            directions = [(0, 1), (-1, 1), (-1, 0), (0, -1), (1, -1), (1, 0)]
-            for direction in directions:
+
+            if element.orientation == "y":
+                row = 2 * ring_index
+                col = 2 * (num_rings - 1)
+            else:
+                row = 2 * (num_rings - 1)
+                col = 4 * (num_rings - 1) - 2 * ring_index
+
+            for row_step, col_step in face_steps:
                 for _ in range(radius):
-                    coords.append((q, r))
-                    q += direction[0]
-                    r += direction[1]
-        return coords
-
-    def _axial_to_offset(self, axial: Tuple[int, int], orientation: str) -> Tuple[int, int]:
-        """Convert axial (q, r) to offset (row, col) using even-q (y) or even-r (x).
-
-        Parameters
-        ----------
-        axial : Tuple[int, int]
-            Axial coordinates (q, r).
-        orientation : str
-            Lattice orientation: 'y' for pointy-top, 'x' for flat-top.
-
-        Returns
-        -------
-        Tuple[int, int]
-            Offset coordinates (row, col) in the staggered grid.
-        """
-        q, r = axial
-        if orientation == 'y':  # pointy-top
-            row = r + (q - (q & 1)) // 2
-            col = q
-        else:  # 'x' flat-top
-            row = r
-            col = q + (r - (r & 1)) // 2
-        return row, col
+                    positions.append((row, col))
+                    row += row_step
+                    col += col_step
+        return positions
 
 
     def _build_unique_entries(self,

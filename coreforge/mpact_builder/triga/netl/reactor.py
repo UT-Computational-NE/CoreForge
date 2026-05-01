@@ -451,12 +451,18 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                     lattice = cached_lattice
                     break
             if lattice is None:
+                def thicknesses(side_length: float) -> List[float]:
+                    num_regions = max(1, ceil(side_length / target_thickness))
+                    return [side_length / num_regions] * num_regions
+
+                x_thicknesses = thicknesses(side_lengths[0])
+                y_thicknesses = thicknesses(side_lengths[1])
+
                 pin = mpactpy.build_rec_pin(
-                    thicknesses={"X": [side_lengths[0]],
-                                 "Y": [side_lengths[1]],
+                    thicknesses={"X": x_thicknesses,
+                                 "Y": y_thicknesses,
                                  "Z": [length]},
-                    materials=[material],
-                    target_cell_thicknesses={"X": target_thickness, "Y": target_thickness},
+                    materials=[material] * (len(x_thicknesses) * len(y_thicknesses)),
                 )
                 module = mpactpy.Module(1, [[pin]])
                 lattice = mpactpy.Lattice([[module]])
