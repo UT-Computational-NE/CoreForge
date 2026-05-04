@@ -209,6 +209,16 @@ def test_hex_lattice_openmc_builder(hex_x_lattice, hex_y_lattice):
     assert lattice.num_rings == 2
     assert isclose(lattice.pitch[0], 6.0)
 
+def test_hex_lattice_mpact_ring_positions(hex_x_lattice, hex_y_lattice):
+    builder = mpact_builder.HexLattice()
+
+    assert builder._ring_to_offset_positions(hex_y_lattice) == [
+        (0, 2), (1, 4), (3, 4), (4, 2), (3, 0), (1, 0), (2, 2)
+    ]
+    assert builder._ring_to_offset_positions(hex_x_lattice) == [
+        (2, 4), (4, 2), (4, 0), (2, 0), (0, 0), (0, 2), (2, 2)
+    ]
+
 def test_hex_lattice_mpact_builder_x_oriented(hex_x_lattice, hex_lattice_mpact_specs, stack):
     geom_element = hex_x_lattice
     core = mpact_builder.build(geom_element, hex_lattice_mpact_specs)

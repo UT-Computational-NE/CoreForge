@@ -7,7 +7,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Material, unique_materials
-from coreforge.shapes import Circle, Rectangle
+from coreforge.shapes import Circle, Hexagon, Rectangle
 from coreforge.geometry_elements.triga import FuelElement as FuelElementGeometry, GraphiteElement as GraphiteElementGeometry
 from .beam_port import BeamPort as BeamPortGeometry
 from .core import Core as CoreGeometry
@@ -575,7 +575,7 @@ class Reactor(GeometryElement):
     def shroud_inner_contains(self,
                               cell: Rectangle,
                               center: Tuple[float, float] = (0.0, 0.0)) -> bool:
-        """Check whether a cell is fully inside the inner shroud radius.
+        """Check whether a cell is fully inside the inner shroud aperture.
 
         Parameters
         ----------
@@ -587,18 +587,20 @@ class Reactor(GeometryElement):
         Returns
         -------
         bool
-            True if the cell is fully inside the inner shroud circle.
+            True if all cell corners are inside both inner shroud hexagons.
         """
-        inner_radius = min(self.shroud.primary_hex_inner_radius,
-                           self.shroud.rotated_hex_inner_radius)
-        circle = Circle(inner_radius)
+
+        primary_hex = Hexagon(inner_radius=self.shroud.primary_hex_inner_radius, orientation='y')
+        rotated_hex = Hexagon(inner_radius=self.shroud.rotated_hex_inner_radius, orientation='y')
         half_w = 0.5 * cell.w
         half_h = 0.5 * cell.h
         corners = [(center[0] - half_w, center[1] - half_h),
                    (center[0] + half_w, center[1] - half_h),
                    (center[0] - half_w, center[1] + half_h),
                    (center[0] + half_w, center[1] + half_h)]
-        return all(circle.contains_point(corner) for corner in corners)
+        return all(primary_hex.contains_point(corner) and
+                   rotated_hex.contains_point(corner, rotation=30.0)
+                   for corner in corners)
 
     def pool_intersects(self,
                         cell: Rectangle,
