@@ -76,6 +76,49 @@ def test_contains_point_stadium():
     assert not stadium.contains_point((0.0, 0.6))
 
 
+def test_contains_rectangle_in_circle():
+    circle = Circle(r=1.0)
+    rectangle = Rectangle(w=1.0, h=1.0)
+
+    assert circle.contains(rectangle)
+    assert circle.contains(rectangle, other_center=(0.2, 0.0))
+    assert not circle.contains(rectangle, other_center=(0.5, 0.0))
+
+
+def test_contains_rectangle_in_rectangle():
+    outer = Rectangle(w=2.0, h=1.0)
+    inner = Rectangle(w=0.5, h=0.5)
+
+    assert outer.contains(inner)
+    assert not outer.contains(inner, other_center=(0.0, 0.6))
+    assert outer.contains(inner, other_center=(0.0, 0.6), self_rotation=90.0)
+
+
+def test_contains_rotated_rectangle():
+    outer = Rectangle(w=2.0, h=2.0)
+    inner = Rectangle(w=1.0, h=1.0)
+    larger_inner = Rectangle(w=1.6, h=1.6)
+
+    assert outer.contains(inner, other_rotation=45.0)
+    assert not outer.contains(larger_inner, other_rotation=45.0)
+
+
+def test_contains_rectangle_in_rotated_hexagon():
+    hexagon = Hexagon(inner_radius=1.0, orientation='y')
+    rectangle = Rectangle(w=0.1, h=0.1)
+
+    assert hexagon.contains(rectangle)
+    assert not hexagon.contains(rectangle, other_center=(1.0, 0.0))
+    assert hexagon.contains(rectangle, other_center=(0.0, 0.9), self_rotation=30.0)
+
+
+def test_contains_unsupported_boundary_points():
+    rectangle = Rectangle(w=2.0, h=2.0)
+    circle = Circle(r=0.5)
+
+    assert rectangle.contains(circle) is NotImplemented
+
+
 def test_convex_utils():
     square = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
     concave = [(-1.0, -1.0), (1.0, -1.0), (0.0, 0.0), (1.0, 1.0), (-1.0, 1.0)]
