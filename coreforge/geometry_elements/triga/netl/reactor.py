@@ -592,15 +592,8 @@ class Reactor(GeometryElement):
 
         primary_hex = Hexagon(inner_radius=self.shroud.primary_hex_inner_radius, orientation='y')
         rotated_hex = Hexagon(inner_radius=self.shroud.rotated_hex_inner_radius, orientation='y')
-        half_w = 0.5 * cell.w
-        half_h = 0.5 * cell.h
-        corners = [(center[0] - half_w, center[1] - half_h),
-                   (center[0] + half_w, center[1] - half_h),
-                   (center[0] - half_w, center[1] + half_h),
-                   (center[0] + half_w, center[1] + half_h)]
-        return all(primary_hex.contains_point(corner) and
-                   rotated_hex.contains_point(corner, rotation=30.0)
-                   for corner in corners)
+        return (primary_hex.contains(cell, other_center=center) and
+                rotated_hex.contains(cell, other_center=center, self_rotation=30.0))
 
     def pool_intersects(self,
                         cell: Rectangle,
@@ -649,14 +642,7 @@ class Reactor(GeometryElement):
         """
         if axial_bounds is not None and not self._axial_bounds_contain(self.pool_axial_bounds, axial_bounds):
             return False
-        pool_circle = Circle(self.pool.radius)
-        half_w = 0.5 * cell.w
-        half_h = 0.5 * cell.h
-        corners = [(center[0] - half_w, center[1] - half_h),
-                   (center[0] + half_w, center[1] - half_h),
-                   (center[0] - half_w, center[1] + half_h),
-                   (center[0] + half_w, center[1] + half_h)]
-        return all(pool_circle.contains_point(corner) for corner in corners)
+        return Circle(self.pool.radius).contains(cell, other_center=center)
 
     def rsr_intersects(self,
                        cell: Rectangle,

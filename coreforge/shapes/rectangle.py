@@ -1,5 +1,5 @@
-from math import sqrt, isclose
-from typing import Any, Tuple
+from math import sqrt, isclose, cos, sin, radians
+from typing import Any, List, Tuple
 
 import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
@@ -84,6 +84,39 @@ class Rectangle(Shape_2D):
         inside_x = (abs(x_local) < half_w or isclose(abs(x_local), half_w, rel_tol=TOL))
         inside_y = (abs(y_local) < half_h or isclose(abs(y_local), half_h, rel_tol=TOL))
         return inside_x and inside_y
+
+    def boundary_points(self,
+                        center: Tuple[float, float] = (0.0, 0.0),
+                        rotation: float = 0.0) -> List[Tuple[float, float]]:
+        """Return the rectangle corners.
+
+        Parameters
+        ----------
+        center : Tuple[float, float]
+            The (x, y) center of the rectangle.
+        rotation : float
+            Rotation angle in degrees about the rectangle center.
+
+        Returns
+        -------
+        List[Tuple[float, float]]
+            The four rectangle corners in global coordinates.
+        """
+        half_w = 0.5 * self.w
+        half_h = 0.5 * self.h
+        corners = [(-half_w, -half_h),
+                   ( half_w, -half_h),
+                   (-half_w,  half_h),
+                   ( half_w,  half_h)]
+        if not rotation:
+            return [(center[0] + x, center[1] + y) for x, y in corners]
+
+        theta = radians(rotation)
+        cos_t = cos(theta)
+        sin_t = sin(theta)
+        return [(center[0] + x * cos_t - y * sin_t,
+                 center[1] + x * sin_t + y * cos_t)
+                for x, y in corners]
 
     def _intersects_with_circle(self,
                                 circle: Circle,
