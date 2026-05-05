@@ -1,14 +1,13 @@
+from __future__ import annotations
 from math import sqrt, isclose, cos, sin, radians
 from typing import Any, List, Tuple
 
 import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
-from coreforge.shapes.circle import Circle
-from coreforge.shapes.shape import Shape_2D
-from coreforge.shapes.utils import to_local
+from coreforge.shapes.convex_polygon import ConvexPolygon
 
-class Rectangle(Shape_2D):
+class Rectangle(ConvexPolygon):
     """ A concrete rectangle channel shape class
 
     Parameters
@@ -57,34 +56,6 @@ class Rectangle(Shape_2D):
     def make_region(self) -> openmc.Region:
         return -openmc.model.RectangularPrism(width=self.w, height=self.h)
 
-    def contains_point(self,
-                       point: Tuple[float, float],
-                       center: Tuple[float, float] = (0.0, 0.0),
-                       rotation: float = 0.0) -> bool:
-        """Check whether a point lies inside the rectangle.
-
-        Parameters
-        ----------
-        point : Tuple[float, float]
-            The (x, y) point to test.
-        center : Tuple[float, float]
-            The (x, y) center of the rectangle.
-        rotation : float
-            Rotation angle in degrees about the shape center.
-
-        Returns
-        -------
-        bool
-            True if the point lies inside or on the boundary.
-        """
-        x_local, y_local = to_local(point, center, rotation)
-
-        half_w = 0.5 * self.w
-        half_h = 0.5 * self.h
-        inside_x = (abs(x_local) < half_w or isclose(abs(x_local), half_w, rel_tol=TOL))
-        inside_y = (abs(y_local) < half_h or isclose(abs(y_local), half_h, rel_tol=TOL))
-        return inside_x and inside_y
-
     def boundary_points(self,
                         center: Tuple[float, float] = (0.0, 0.0),
                         rotation: float = 0.0) -> List[Tuple[float, float]]:
@@ -106,8 +77,8 @@ class Rectangle(Shape_2D):
         half_h = 0.5 * self.h
         corners = [(-half_w, -half_h),
                    ( half_w, -half_h),
-                   (-half_w,  half_h),
-                   ( half_w,  half_h)]
+                   ( half_w,  half_h),
+                   (-half_w,  half_h)]
         if not rotation:
             return [(center[0] + x, center[1] + y) for x, y in corners]
 
@@ -117,39 +88,6 @@ class Rectangle(Shape_2D):
         return [(center[0] + x * cos_t - y * sin_t,
                  center[1] + x * sin_t + y * cos_t)
                 for x, y in corners]
-
-    def _intersects_with_circle(self,
-                                circle: Circle,
-                                rect_center: Tuple[float, float] = (0.0, 0.0),
-                                circle_center: Tuple[float, float] = (0.0, 0.0)):
-        """Check intersection between this rectangle and a circle.
-
-        Parameters
-        ----------
-        circle : Circle
-            The circle to test.
-        rect_center : Tuple[float, float]
-            (x, y) center of this rectangle.
-        circle_center : Tuple[float, float]
-            (x, y) center of the circle.
-
-        Returns
-        -------
-        bool
-            True if the shapes intersect, False otherwise.
-        """
-        half_w = 0.5 * self.w
-        half_h = 0.5 * self.h
-        dx = abs(circle_center[0] - rect_center[0]) - half_w
-        dy = abs(circle_center[1] - rect_center[1]) - half_h
-
-        dx = max(dx, 0.0)
-        dy = max(dy, 0.0)
-
-        dist_sq = dx * dx + dy * dy
-        radius_sq = circle.r * circle.r
-        return dist_sq < radius_sq or isclose(dist_sq, radius_sq, rel_tol=TOL)
-
 
 class Square(Rectangle):
     """ A concrete square block shape class

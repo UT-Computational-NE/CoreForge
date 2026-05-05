@@ -171,12 +171,10 @@ def test_axial_intersection_filters(reactor):
     assert reactor.pool_contains(rect, cell_center, reactor.pool_axial_bounds)
     assert not reactor.pool_contains(rect, cell_center, out_pool)
 
-    inner_radius = min(reactor.shroud.primary_hex_inner_radius,
-                       reactor.shroud.rotated_hex_inner_radius)
     thickness = reactor.shroud.thickness
     cell_side = thickness * 0.1
     shroud_rect = Rectangle(w=cell_side, h=cell_side)
-    cell_center = (inner_radius + 0.75 * thickness, 0.0)
+    cell_center = (reactor.shroud.primary_hex_inner_radius + 0.25 * cell_side, 0.0)
     out_shroud = (reactor.shroud_axial_bounds[1] + 1.0,
                   reactor.shroud_axial_bounds[1] + 2.0)
     assert reactor.shroud_intersects(shroud_rect, cell_center, reactor.shroud_axial_bounds)

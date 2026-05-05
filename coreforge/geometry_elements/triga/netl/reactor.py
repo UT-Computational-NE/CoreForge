@@ -536,6 +536,7 @@ class Reactor(GeometryElement):
                     isclose(inner_bounds[1], outer_bounds[1], rel_tol=TOL))
         return lower_ok and upper_ok
 
+
     def shroud_intersects(self,
                           cell: Rectangle,
                           center: Tuple[float, float] = (0.0, 0.0),
@@ -548,7 +549,6 @@ class Reactor(GeometryElement):
             Rectangle representing the cell footprint.
         center : Tuple[float, float]
             (x, y) center of the cell.
-
         axial_bounds : Optional[Tuple[float, float]]
             Lower and upper axial bounds (cm) for the cell.
 
@@ -559,18 +559,25 @@ class Reactor(GeometryElement):
         """
         if axial_bounds is not None and not self._axial_bounds_intersect(axial_bounds, self.shroud_axial_bounds):
             return False
-        inner_radius = min(self.shroud.primary_hex_inner_radius,
-                           self.shroud.rotated_hex_inner_radius)
-        outer_radius = min(self.shroud.primary_hex_inner_radius + self.shroud.thickness,
-                           self.shroud.rotated_hex_inner_radius + self.shroud.thickness)
-        inner = Circle(inner_radius)
-        outer = Circle(outer_radius)
 
-        intersects_outer = cell.intersects(outer, center, (0.0, 0.0))
-        intersects_inner = cell.intersects(inner, center, (0.0, 0.0))
-        if intersects_outer and not intersects_inner:
-            return True
-        return False
+        primary_inner_radius = self.shroud.primary_hex_inner_radius
+        rotated_inner_radius = self.shroud.rotated_hex_inner_radius
+        primary_outer_radius = self.shroud.primary_hex_inner_radius + self.shroud.thickness
+        rotated_outer_radius = self.shroud.rotated_hex_inner_radius + self.shroud.thickness
+
+        primary_inner = Hexagon(inner_radius=primary_inner_radius, orientation="y")
+        rotated_inner = Hexagon(inner_radius=rotated_inner_radius, orientation="y")
+        primary_outer = Hexagon(inner_radius=primary_outer_radius, orientation="y")
+        rotated_outer = Hexagon(inner_radius=rotated_outer_radius, orientation="y")
+
+        intersects_outer = (primary_outer.intersects(cell, other_center=center) and
+                            rotated_outer.intersects(cell, other_center=center, self_rotation=30.0))
+
+        inside_inner = (primary_inner.contains(cell, other_center=center) and
+                        rotated_inner.contains(cell, other_center=center, self_rotation=30.0))
+
+        return intersects_outer and not inside_inner
+
 
     def shroud_inner_contains(self,
                               cell: Rectangle,
@@ -594,29 +601,6 @@ class Reactor(GeometryElement):
         rotated_hex = Hexagon(inner_radius=self.shroud.rotated_hex_inner_radius, orientation='y')
         return (primary_hex.contains(cell, other_center=center) and
                 rotated_hex.contains(cell, other_center=center, self_rotation=30.0))
-
-    def pool_intersects(self,
-                        cell: Rectangle,
-                        center: Tuple[float, float] = (0.0, 0.0),
-                        axial_bounds: Optional[Tuple[float, float]] = None) -> bool:
-        """Check whether a cell intersects the pool boundary.
-
-        Parameters
-        ----------
-        cell : Rectangle
-            Rectangle representing the cell footprint.
-        center : Tuple[float, float]
-            (x, y) center of the cell.
-
-        axial_bounds : Optional[Tuple[float, float]]
-            Lower and upper axial bounds (cm) for the cell.
-
-        Returns
-        -------
-        bool
-            True if any part of the cell is outside the pool boundary.
-        """
-        return not self.pool_contains(cell, center, axial_bounds)
 
 
     def pool_contains(self,
@@ -732,16 +716,10 @@ class Reactor(GeometryElement):
         beam_center = (beamport.translation[0], beamport.translation[1])
         beam_rotation = beamport.rotation
 
-        half_w = 0.5 * cell.w
-        half_h = 0.5 * cell.h
-        cell_corners = [(center[0] - half_w, center[1] - half_h),
-                        (center[0] + half_w, center[1] - half_h),
-                        (center[0] - half_w, center[1] + half_h),
-                        (center[0] + half_w, center[1] + half_h)]
-        if any(beam_rect.contains_point(corner, beam_center, beam_rotation)
-               for corner in cell_corners):
-            return True
-        return False
+        return bool(cell.intersects(beam_rect,
+                                    self_center=center,
+                                    other_center=beam_center,
+                                    other_rotation=beam_rotation))
 
 
     def _beamport_geometry(self, beamport_id: int) -> BeamPort:
