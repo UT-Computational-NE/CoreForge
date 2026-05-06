@@ -1,5 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
+import re
 from typing import Any, Callable, Tuple, TypeVar, cast
 
 import openmc
@@ -9,6 +10,19 @@ T = TypeVar('T', bound='Shape')
 
 def _call_intersection(method: Callable[..., bool], *args: Any) -> bool:
     return method(*args)
+
+
+def _method_suffix(cls: type) -> str:
+    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', cls.__name__)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', name).lower()
+
+
+def _intersection_method_names(shape: Shape):
+    for cls in shape.__class__.mro():
+        if cls is object:
+            continue
+        yield f"_intersects_with_{_method_suffix(cls)}"
+
 
 class Shape(ABC):
     """ An abstract class for channel shapes
@@ -37,9 +51,11 @@ class Shape(ABC):
         self._outer_radius = outer_radius
 
     def intersects(self,
-                   other: "Shape",
+                   other: Shape,
                    self_center: Tuple[float, float] = (0.0, 0.0),
-                   other_center: Tuple[float, float] = (0.0, 0.0)):
+                   other_center: Tuple[float, float] = (0.0, 0.0),
+                   self_rotation: float = 0.0,
+                   other_rotation: float = 0.0):
         """Check whether two shapes intersect using double dispatch.
 
         Parameters
@@ -50,6 +66,10 @@ class Shape(ABC):
             The (x, y) center of this shape.
         other_center : Tuple[float, float]
             The (x, y) center of the other shape.
+        self_rotation : float
+            Rotation angle in degrees for this shape.
+        other_rotation : float
+            Rotation angle in degrees for the other shape.
 
         Returns
         -------
@@ -57,21 +77,25 @@ class Shape(ABC):
             True if an implemented routine reports an intersection.
             NotImplemented when no routine exists for the pair.
         """
-        method_name = f"_intersects_with_{other.__class__.__name__.lower()}"
-        method = getattr(self, method_name, None)
-        if callable(method):
-            return _call_intersection(cast(Callable[..., bool], method),
-                                      other,
-                                      self_center,
-                                      other_center)
+        for method_name in _intersection_method_names(other):
+            method = getattr(self, method_name, None)
+            if callable(method):
+                return _call_intersection(cast(Callable[..., bool], method),
+                                          other,
+                                          self_center,
+                                          other_center,
+                                          self_rotation,
+                                          other_rotation)
 
-        reverse_name = f"_intersects_with_{self.__class__.__name__.lower()}"
-        reverse_method = getattr(other, reverse_name, None)
-        if callable(reverse_method):
-            return _call_intersection(cast(Callable[..., bool], reverse_method),
-                                      self,
-                                      other_center,
-                                      self_center)
+        for reverse_name in _intersection_method_names(self):
+            reverse_method = getattr(other, reverse_name, None)
+            if callable(reverse_method):
+                return _call_intersection(cast(Callable[..., bool], reverse_method),
+                                          self,
+                                          other_center,
+                                          self_center,
+                                          other_rotation,
+                                          self_rotation)
 
         return NotImplemented
 

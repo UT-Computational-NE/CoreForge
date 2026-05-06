@@ -12,7 +12,7 @@ import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 from coreforge.materials import Material
 from coreforge.shapes import Rectangle
 from coreforge import openmc_builder
-from coreforge.mpact_builder.builder import Bounds, Builder
+from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs, DEFAULT_MPACT_MATERIAL_SPECS
 from coreforge.mpact_builder.hex_lattice import HexLattice
 from coreforge.mpact_builder.infinite_medium import InfiniteMedium
@@ -340,7 +340,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         total_width_y = padded_rows * row_pitch
 
         for row_index, row in enumerate(padded_map):
-            y_center = (row_index + 0.5) * row_pitch - total_width_y * 0.5
+            y_center = total_width_y * 0.5 - (row_index + 0.5) * row_pitch
             for col_index, assembly in enumerate(row):
                 x_center = (col_index + 0.5) * col_pitch - total_width_x * 0.5
                 row[col_index] = self._set_cell(assembly,
@@ -417,13 +417,8 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         if not reactor.pool_contains(rect, radial_location):
             return None
 
-        def thicknesses(side_length: float) -> List[float]:
-            num_regions = max(1, ceil(side_length / target_thickness))
-            return [side_length / num_regions] * num_regions
-
         voxel_specs = self.specs.voxelation_specs
-        material = mpactpy.Material(temperature=300.0,
-                                    number_densities={"H1": 1.0})
+        voxel_material = geometry_elements.InfiniteMedium(reactor.pool.material, name="excore_voxel")
 
         lattice_cache: Dict[Tuple[float, float], mpactpy.Lattice] = {}
         lattice_map: List[mpactpy.Lattice] = []
@@ -455,17 +450,18 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                     lattice = cached_lattice
                     break
             if lattice is None:
-                x_thicknesses = thicknesses(side_lengths[0])
-                y_thicknesses = thicknesses(side_lengths[1])
-
-                pin = mpactpy.build_rec_pin(
-                    thicknesses={"X": x_thicknesses,
-                                 "Y": y_thicknesses,
-                                 "Z": [length]},
-                    materials=[material] * (len(x_thicknesses) * len(y_thicknesses)),
+                voxel_build_specs = InfiniteMedium.Specs(
+                    target_cell_thicknesses = {"X": target_thickness,
+                                               "Y": target_thickness},
+                    divide_materials        = True,
+                    material_specs          = self.specs.material_specs,
                 )
-                module = mpactpy.Module(1, [[pin]])
-                lattice = mpactpy.Lattice([[module]])
+                voxel_bounds = Bounds(
+                    X = AxisBounds(min=0.0, max=side_lengths[0]),
+                    Y = AxisBounds(min=0.0, max=side_lengths[1]),
+                    Z = AxisBounds(min=0.0, max=length),
+                )
+                lattice = build(voxel_material, voxel_build_specs, voxel_bounds).lattices[0]
                 lattice_cache[(length, target_thickness)] = lattice
             lattice_map.append(lattice)
 

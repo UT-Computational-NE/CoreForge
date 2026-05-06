@@ -1,6 +1,6 @@
-from typing import TypedDict, Optional, Dict
+from typing import TypedDict, Optional, Dict, List
 from dataclasses import dataclass
-from math import inf
+from math import ceil, inf, isinf
 
 import mpactpy
 
@@ -37,6 +37,11 @@ class InfiniteMedium(Builder[geometry_elements.InfiniteMedium]):
             An optional setting to divide the pincell into 4 separate MPACT Module quadrants.
             This will represent the pincell with 4 MPACT Modules rather than just one.
             Default value is False
+        divide_materials : bool
+            Whether to use ``target_cell_thicknesses`` to create separate material
+            regions instead of only flat-source subdivisions. This is useful when
+            overlaying another geometry onto the infinite medium because overlay
+            operates on material regions.
         material_specs : MaterialSpecs
             Specifications for how materials should be treated in MPACT
         """
@@ -50,6 +55,7 @@ class InfiniteMedium(Builder[geometry_elements.InfiniteMedium]):
 
         target_cell_thicknesses: Optional[Thicknesses] = None
         divide_into_quadrants:   bool = False
+        divide_materials:        bool = False
         material_specs:          Optional[MaterialSpecs] = None
 
         def __post_init__(self):
@@ -99,7 +105,7 @@ class InfiniteMedium(Builder[geometry_elements.InfiniteMedium]):
         """
 
         specs = self.specs
-        materials = [build_material(element.material, specs.material_specs)]
+        material = build_material(element.material, specs.material_specs)
 
         thicknesses = {"X": 1.0, "Y": 1.0, "Z": 1.0}
         if bounds:
@@ -107,12 +113,27 @@ class InfiniteMedium(Builder[geometry_elements.InfiniteMedium]):
             thicknesses["Y"] = bounds.Y.max - bounds.Y.min if bounds.Y else thicknesses["Y"]
             thicknesses["Z"] = bounds.Z.max - bounds.Z.min if bounds.Z else thicknesses["Z"]
 
+        def divide_length(length: float, target: float) -> List[float]:
+            num_regions = 1 if isinf(target) else max(1, ceil(length / target))
+            return [length / num_regions] * num_regions
+
         def build_module(module_thicknesses: Dict[str, float]) -> mpactpy.Module:
-            pin = mpactpy.build_rec_pin(thicknesses             = {"X": [module_thicknesses["X"]],
-                                                                   "Y": [module_thicknesses["Y"]],
-                                                                   "Z": [module_thicknesses["Z"]]},
+            if specs.divide_materials:
+                pin_thicknesses = {dim: divide_length(module_thicknesses[dim],
+                                                      specs.target_cell_thicknesses[dim])
+                                   for dim in ["X", "Y", "Z"]}
+                materials = [material] * (len(pin_thicknesses["X"]) *
+                                          len(pin_thicknesses["Y"]) *
+                                          len(pin_thicknesses["Z"]))
+                target_cell_thicknesses = {}
+            else:
+                pin_thicknesses = {dim: [module_thicknesses[dim]] for dim in ["X", "Y", "Z"]}
+                materials = [material]
+                target_cell_thicknesses = dict(specs.target_cell_thicknesses)
+
+            pin = mpactpy.build_rec_pin(thicknesses             = pin_thicknesses,
                                         materials               = materials,
-                                        target_cell_thicknesses = specs.target_cell_thicknesses)
+                                        target_cell_thicknesses = target_cell_thicknesses)
             return mpactpy.Module(1, [[pin]])
 
         # half radial thicknesses

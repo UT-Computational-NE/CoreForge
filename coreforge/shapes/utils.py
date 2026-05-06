@@ -67,38 +67,3 @@ def is_convex(vertices: List[Tuple[float, float]]) -> bool:
         elif curr != sign:
             return False
     return True
-
-
-def convex_contains_point(vertices: List[Tuple[float, float]],
-                          point: Tuple[float, float]) -> bool:
-    """Check whether a point lies inside a convex polygon.
-
-    Parameters
-    ----------
-    vertices : List[Tuple[float, float]]
-        Ordered (x, y) vertices for the convex polygon.
-    point : Tuple[float, float]
-        The (x, y) point to test.
-
-    Returns
-    -------
-    bool
-        True if the point lies inside or on the boundary.
-    """
-    assert is_convex(vertices), "Vertices must define a convex polygon."
-
-    sign = 0
-    n = len(vertices)
-    for i in range(n):
-        v0 = vertices[i]
-        v1 = vertices[(i + 1) % n]
-        cross = ((v1[0] - v0[0]) * (point[1] - v0[1]) -
-                 (v1[1] - v0[1]) * (point[0] - v0[0]))
-        if isclose(cross, 0.0, rel_tol=TOL):
-            continue
-        curr = 1 if cross > 0.0 else -1
-        if sign == 0:
-            sign = curr
-        elif curr != sign:
-            return False
-    return True

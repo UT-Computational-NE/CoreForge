@@ -1,4 +1,5 @@
 from .shape import Shape, Shape_2D, Shape_3D
+from .convex_polygon import ConvexPolygon
 from .circle import Circle
 from .rectangle import Rectangle, Square
 from .stadium import Stadium
@@ -7,7 +8,7 @@ from .cap import Torispherical_Dome, ASME_Flanged_Dished_Dome
 from .cone import Cone, OneSidedCone
 
 __all__ = [
-    "Shape", "Shape_2D", "Shape_3D",
+    "Shape", "Shape_2D", "Shape_3D", "ConvexPolygon",
     "Circle",
     "Rectangle", "Square",
     "Stadium",

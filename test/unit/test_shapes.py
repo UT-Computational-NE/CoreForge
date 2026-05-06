@@ -1,10 +1,9 @@
-import pytest
 from math import isclose, pi, sqrt, asin
 
 from coreforge.shapes import Circle, Rectangle, Square, Stadium, Hexagon, \
                             Torispherical_Dome, ASME_Flanged_Dished_Dome, \
                             Cone, OneSidedCone
-from coreforge.shapes.utils import is_convex, convex_contains_point
+from coreforge.shapes.utils import is_convex
 from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE
 
 TOL = ROUNDING_RELATIVE_TOLERANCE * 1E-2
@@ -67,6 +66,7 @@ def test_contains_point_rectangle_rotation():
 def test_contains_point_hexagon():
     hexagon = Hexagon(inner_radius=1.0, orientation='y')
     assert hexagon.contains_point((0.0, 0.0))
+    assert all(hexagon.contains_point(point) for point in hexagon.boundary_points())
     assert not hexagon.contains_point((2.0, 0.0))
 
 
@@ -125,11 +125,6 @@ def test_convex_utils():
 
     assert is_convex(square)
     assert not is_convex(concave)
-    assert convex_contains_point(square, (0.0, 0.0))
-    assert not convex_contains_point(square, (2.0, 0.0))
-
-    with pytest.raises(AssertionError):
-        convex_contains_point(concave, (0.0, 0.0))
 
 
 def test_circle_rectangle_intersection():
@@ -147,6 +142,70 @@ def test_circle_rectangle_intersection():
     assert rectangle.intersects(touching_circle, other_center=(1.4, 0.0))
     assert touching_circle.intersects(rectangle, self_center=(1.4, 0.0))
 
+    small_circle = Circle(r=0.1)
+    assert not rectangle.intersects(small_circle, other_center=(0.0, 0.9))
+    assert rectangle.intersects(small_circle, other_center=(0.0, 0.9), self_rotation=90.0)
+    assert small_circle.intersects(rectangle, self_center=(0.0, 0.9), other_rotation=90.0)
+
+
+def test_circle_hexagon_intersection():
+    hexagon = Hexagon(inner_radius=1.0, orientation='y')
+    circle = Circle(r=0.2)
+
+    assert hexagon.intersects(circle)
+    assert circle.intersects(hexagon)
+    assert not hexagon.intersects(circle, other_center=(2.0, 0.0))
+    assert not circle.intersects(hexagon, self_center=(2.0, 0.0))
+
+    touching_circle = Circle(r=0.2)
+    assert hexagon.intersects(touching_circle, other_center=(1.2, 0.0))
+    assert touching_circle.intersects(hexagon, self_center=(1.2, 0.0))
+    assert hexagon.intersects(touching_circle, other_center=(0.0, 1.2), self_rotation=30.0)
+
+
+def test_rectangle_rectangle_intersection():
+    rectangle = Rectangle(w=2.0, h=1.0)
+    small_rectangle = Rectangle(w=0.5, h=0.5)
+
+    assert rectangle.intersects(small_rectangle)
+    assert small_rectangle.intersects(rectangle)
+    assert not rectangle.intersects(small_rectangle, other_center=(2.0, 0.0))
+
+    assert rectangle.intersects(small_rectangle, other_center=(1.25, 0.0))
+
+    horizontal = Rectangle(w=2.0, h=0.2)
+    vertical = Rectangle(w=0.2, h=2.0)
+    assert horizontal.intersects(vertical)
+
+    bar = Rectangle(w=2.0, h=0.2)
+    assert bar.intersects(bar, other_rotation=90.0)
+    assert bar.intersects(bar, other_center=(0.0, 0.9), other_rotation=90.0)
+    assert not bar.intersects(bar, other_center=(0.0, 1.2), other_rotation=90.0)
+
+
+def test_hexagon_rectangle_intersection():
+    hexagon = Hexagon(inner_radius=1.0, orientation='y')
+    rectangle = Rectangle(w=0.5, h=0.5)
+
+    assert hexagon.intersects(rectangle)
+    assert rectangle.intersects(hexagon)
+    assert not hexagon.intersects(rectangle, other_center=(2.0, 0.0))
+    assert not rectangle.intersects(hexagon, self_center=(2.0, 0.0))
+
+    bar = Rectangle(w=2.0, h=0.2)
+    assert hexagon.intersects(bar, other_center=(0.0, 1.0), other_rotation=30.0)
+    assert not hexagon.intersects(bar, other_center=(0.0, 2.0), other_rotation=30.0)
+
+
+def test_hexagon_hexagon_intersection():
+    hexagon = Hexagon(inner_radius=1.0, orientation='y')
+    small_hexagon = Hexagon(inner_radius=0.5, orientation='x')
+
+    assert hexagon.intersects(small_hexagon)
+    assert small_hexagon.intersects(hexagon)
+    assert hexagon.intersects(small_hexagon, other_center=(1.0, 0.0))
+    assert not hexagon.intersects(small_hexagon, other_center=(3.0, 0.0))
+    assert hexagon.intersects(small_hexagon, other_center=(0.0, 1.0), other_rotation=30.0)
 
 
 def test_square():

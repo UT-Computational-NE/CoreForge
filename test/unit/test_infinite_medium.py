@@ -121,6 +121,19 @@ def test_mpacts_builder(infinite_medium, infinite_medium_mpact_specs, air):
     assert pin["SW"] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats)
     assert pin["SE"] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats)
 
+    specs = mpact_builder.InfiniteMedium.Specs(
+        target_cell_thicknesses = {"X": 3.0, "Y": 4.0},
+        divide_materials        = True,
+    )
+    core = mpact_builder.build(geom_element, specs, bounds)
+
+    expected_xvals = [8.0 / 3.0, 16.0 / 3.0, 8.0]
+    expected_yvals = [4.0, 8.0]
+    expected_mats  = [air] * 6
+
+    assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0],
+                                                  [1, 1, 1], [1, 1], [1]), expected_mats)
+
 def test_mpact_voxel_builder(infinite_medium, mpact_voxel_specs, air):
     geom_element = infinite_medium
     specs = mpact_voxel_specs

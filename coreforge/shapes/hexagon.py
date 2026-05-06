@@ -1,14 +1,14 @@
+from __future__ import annotations
 from math import sqrt, isclose, cos, sin, radians
 from typing import Any, Tuple, List
 
 import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
-from coreforge.shapes.shape import Shape_2D
-from coreforge.shapes.utils import to_local, convex_contains_point
+from coreforge.shapes.convex_polygon import ConvexPolygon
 
 
-class Hexagon(Shape_2D):
+class Hexagon(ConvexPolygon):
     """ A concrete hexagon block shape class
 
     Parameters
@@ -57,33 +57,27 @@ class Hexagon(Shape_2D):
     def make_region(self) -> openmc.Region:
         return -openmc.model.HexagonalPrism(edge_length=self._outer_radius, orientation=self.orientation)
 
-    def contains_point(self,
-                       point: Tuple[float, float],
-                       center: Tuple[float, float] = (0.0, 0.0),
-                       rotation: float = 0.0) -> bool:
-        """Check whether a point lies inside the hexagon.
+    def boundary_points(self,
+                        center: Tuple[float, float] = (0.0, 0.0),
+                        rotation: float = 0.0) -> List[Tuple[float, float]]:
+        """Return the hexagon corners.
 
         Parameters
         ----------
-        point : Tuple[float, float]
-            The (x, y) point to test.
         center : Tuple[float, float]
             The (x, y) center of the hexagon.
         rotation : float
-            Rotation angle in degrees about the shape center.
+            Rotation angle in degrees about the hexagon center.
 
         Returns
         -------
-        bool
-            True if the point lies inside or on the boundary.
+        List[Tuple[float, float]]
+            The six hexagon corners in global coordinates.
         """
-        x_local, y_local = to_local(point, center, rotation)
-
         base_angle = 30.0 if self.orientation == 'y' else 0.0
         vertices: List[Tuple[float, float]] = []
         for i in range(6):
-            angle = radians(base_angle + i * 60.0)
-            vertices.append((self.outer_radius * cos(angle),
-                             self.outer_radius * sin(angle)))
-
-        return convex_contains_point(vertices, (x_local, y_local))
+            angle = radians(base_angle + rotation + i * 60.0)
+            vertices.append((center[0] + self.outer_radius * cos(angle),
+                             center[1] + self.outer_radius * sin(angle)))
+        return vertices
