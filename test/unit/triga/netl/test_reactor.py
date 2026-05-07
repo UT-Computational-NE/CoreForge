@@ -153,13 +153,19 @@ def test_axial_intersection_filters(reactor):
 
     out_reflector = (reactor.reflector_axial_bounds[1] + 1.0,
                      reactor.reflector_axial_bounds[1] + 2.0)
-    assert reactor.reflector_intersects(rect, cell_center, reactor.reflector_axial_bounds)
+    shroud_outer_x = reactor.shroud.primary_hex_inner_radius + reactor.shroud.thickness
+    rsr_center = ((shroud_outer_x + reactor.rotary_specimen_rack_cavity.outer_radius) * 0.5, 0.0)
+    reflector_center = ((reactor.rotary_specimen_rack_cavity.outer_radius +
+                         reactor.reflector.geometry.radius) * 0.5, 0.0)
+    assert not reactor.reflector_intersects(rect, cell_center, reactor.reflector_axial_bounds)
+    assert reactor.reflector_intersects(rect, reflector_center, reactor.reflector_axial_bounds)
     assert not reactor.reflector_intersects(rect, cell_center, out_reflector)
 
     out_rsr = (reactor.rsr_axial_bounds[1] + 1.0,
                reactor.rsr_axial_bounds[1] + 2.0)
-    assert reactor.rsr_intersects(rect, cell_center, reactor.rsr_axial_bounds)
-    assert not reactor.rsr_intersects(rect, cell_center, out_rsr)
+    assert not reactor.rsr_intersects(rect, cell_center, reactor.rsr_axial_bounds)
+    assert reactor.rsr_intersects(rect, rsr_center, reactor.rsr_axial_bounds)
+    assert not reactor.rsr_intersects(rect, rsr_center, out_rsr)
 
     cell_center = (reactor.beam_port_1_5.translation[0], reactor.beam_port_1_5.translation[1])
     out_beamport = (reactor.beamport_axial_bounds[1][1] + 1.0,

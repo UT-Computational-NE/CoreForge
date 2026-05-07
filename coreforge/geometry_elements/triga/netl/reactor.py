@@ -628,11 +628,12 @@ class Reactor(GeometryElement):
             return False
         return Circle(self.pool.radius).contains(cell, other_center=center)
 
+
     def rsr_intersects(self,
                        cell: Rectangle,
                        center: Tuple[float, float] = (0.0, 0.0),
                        axial_bounds: Optional[Tuple[float, float]] = None) -> bool:
-        """Check whether a cell intersects the RSR cavity radial region.
+        """Check whether a cell intersects the RSR cavity region.
 
         Parameters
         ----------
@@ -647,18 +648,21 @@ class Reactor(GeometryElement):
         Returns
         -------
         bool
-            True if the cell intersects the RSR cavity radius.
+            True if the cell intersects the RSR region.
         """
         if axial_bounds is not None and not self._axial_bounds_intersect(axial_bounds, self.rsr_axial_bounds):
             return False
         rsr_circle = Circle(self.rotary_specimen_rack_cavity.outer_radius)
-        return bool(cell.intersects(rsr_circle, center, (0.0, 0.0)))
+        return (cell.intersects(rsr_circle, center, (0.0, 0.0)) and
+                not self.shroud_intersects(cell, center, axial_bounds) and
+                not self.shroud_inner_contains(cell, center))
+
 
     def reflector_intersects(self,
                              cell: Rectangle,
                              center: Tuple[float, float] = (0.0, 0.0),
                              axial_bounds: Optional[Tuple[float, float]] = None) -> bool:
-        """Check whether a cell intersects the reflector radial region.
+        """Check whether a cell intersects the reflector region.
 
         Parameters
         ----------
@@ -673,20 +677,24 @@ class Reactor(GeometryElement):
         Returns
         -------
         bool
-            True if the cell intersects the reflector radius.
+            True if the cell intersects the reflector region.
         """
         if axial_bounds is not None and not self._axial_bounds_intersect(axial_bounds,
                                                                         self.reflector_axial_bounds):
             return False
         reflector_circle = Circle(self.reflector.geometry.radius)
-        return bool(cell.intersects(reflector_circle, center, (0.0, 0.0)))
+        return (cell.intersects(reflector_circle, center, (0.0, 0.0)) and
+                not self.shroud_intersects(cell, center, axial_bounds) and
+                not self.shroud_inner_contains(cell, center) and
+                not self.rsr_intersects(cell, center, axial_bounds))
+
 
     def beamport_intersects(self,
                             cell: Rectangle,
                             center: Tuple[float, float],
                             beamport_id: int,
                             axial_bounds: Optional[Tuple[float, float]] = None) -> bool:
-        """Check whether a cell intersects a beam port radial region.
+        """Check whether a cell intersects a beam port region.
 
         Parameters
         ----------
@@ -704,7 +712,7 @@ class Reactor(GeometryElement):
         Returns
         -------
         bool
-            True if the cell intersects the beam port rectangle.
+            True if the cell intersects the beam port region.
         """
         beamport = self._beamport_geometry(beamport_id)
         if axial_bounds is not None and not self._axial_bounds_intersect(
