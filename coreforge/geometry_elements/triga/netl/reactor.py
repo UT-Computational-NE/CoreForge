@@ -685,6 +685,7 @@ class Reactor(GeometryElement):
         reflector_circle = Circle(self.reflector.geometry.radius)
         return (cell.intersects(reflector_circle, center, (0.0, 0.0)) and
                 not self.shroud_intersects(cell, center, axial_bounds) and
+                not self.shroud_inner_contains(cell, center) and
                 not self.rsr_intersects(cell, center, axial_bounds))
 
 
