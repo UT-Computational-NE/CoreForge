@@ -1,9 +1,10 @@
+import pytest
 from math import isclose, pi, sqrt, asin
 
 from coreforge.shapes import Circle, Rectangle, Square, Stadium, Hexagon, \
                             Torispherical_Dome, ASME_Flanged_Dished_Dome, \
                             Cone, OneSidedCone
-from coreforge.shapes.utils import is_convex
+from coreforge.shapes.utils import is_convex, equal_volume_ring_radii
 from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE
 
 TOL = ROUNDING_RELATIVE_TOLERANCE * 1E-2
@@ -125,6 +126,36 @@ def test_convex_utils():
 
     assert is_convex(square)
     assert not is_convex(concave)
+
+
+def test_equal_volume_ring_radii():
+    # Test Disk
+    radii = equal_volume_ring_radii(outer_radius=2.0, num_regions=4)
+    expected = [1.0, sqrt(2.0), sqrt(3.0), 2.0]
+
+    assert len(radii) == len(expected)
+    assert all(isclose(radii[i], expected[i]) for i in range(len(expected)))
+
+    # Test Annulus
+    radii = equal_volume_ring_radii(outer_radius=3.0, num_regions=2, inner_radius=1.0)
+    expected = [sqrt(5.0), 3.0]
+
+    assert len(radii) == len(expected)
+    assert all(isclose(radii[i], expected[i]) for i in range(len(expected)))
+
+    ring_area_1 = radii[0] * radii[0] - 1.0
+    ring_area_2 = radii[1] * radii[1] - radii[0] * radii[0]
+    assert isclose(ring_area_1, ring_area_2)
+
+    # Invalid Inputs
+    with pytest.raises(AssertionError):
+        equal_volume_ring_radii(outer_radius=1.0, num_regions=1, inner_radius=-1.0)
+
+    with pytest.raises(AssertionError):
+        equal_volume_ring_radii(outer_radius=1.0, num_regions=1, inner_radius=1.0)
+
+    with pytest.raises(AssertionError):
+        equal_volume_ring_radii(outer_radius=1.0, num_regions=0)
 
 
 def test_circle_rectangle_intersection():

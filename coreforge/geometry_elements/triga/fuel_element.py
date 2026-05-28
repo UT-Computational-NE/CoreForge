@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Union
 from math import isclose, sqrt
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
@@ -11,6 +12,7 @@ from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Graphite, Material, Mo, SS304, UZrH, Water, Zr, unique_materials
+from coreforge.shapes.utils import equal_volume_ring_radii
 
 
 # pylint: disable=too-many-public-methods
@@ -122,7 +124,6 @@ class FuelElement(GeometryElement):
         def __hash__(self) -> int:
             return hash((relative_round(self.radius, TOL), self.material))
 
-    @dataclass(frozen=True)
     class FuelMeat:
         """Fuel meat specification.
 
@@ -134,20 +135,86 @@ class FuelElement(GeometryElement):
             Outer radius of the fuel meat [cm].
         length : float
             Axial length of the fuel meat [cm].
-        material : Material
-            Fuel material (defaults to ``UZrH``).
+        material : Material or Sequence[Material]
+            User-facing fuel material specification for this fuel meat. Pass a
+            single ``Material`` for homogeneous fuel meat, or pass one material
+            per region for regioned fuel meat. Regioned material sequences use
+            axial-major order: top-to-bottom axial levels, with radial regions
+            ordered inner-to-outer within each axial level. The ``material``
+            property is a convenience/compatibility view; it returns the single
+            material for one-region fuel meat and a copy of the region list for
+            multi-region fuel meat.
+        num_radial_regions : int
+            Number of equal-volume radial fuel material regions. Defaults to 1.
+        num_axial_regions : int
+            Number of equal-length axial fuel material regions. Defaults to 1.
+        material_regions : List[Material]
+            Normalized material-region list in axial-major order. Use this in
+            geometry builders, meshing code, and any logic that needs explicit
+            per-region materials; its length is always
+            ``num_axial_regions * num_radial_regions``.
         """
-        inner_radius: float
-        outer_radius: float
-        length: float
-        material: Material = field(default_factory=UZrH)
 
-        def __post_init__(self) -> None:
-            assert self.inner_radius > 0.0, "Fuel Meat inner radius must be positive."
-            assert self.outer_radius > self.inner_radius, (
-                "Fuel Meat outer radius must exceed inner radius."
-            )
-            assert self.length > 0.0, "Fuel Meat length must be positive."
+        @property
+        def inner_radius(self) -> float:
+            return self._inner_radius
+
+        @property
+        def outer_radius(self) -> float:
+            return self._outer_radius
+
+        @property
+        def length(self) -> float:
+            return self._length
+
+        @property
+        def material(self) -> Union[Material, List[Material]]:
+            if len(self._material_regions) == 1:
+                return self._material_regions[0]
+            return list(self._material_regions)
+
+        @property
+        def material_regions(self) -> List[Material]:
+            return list(self._material_regions)
+
+        @property
+        def num_radial_regions(self) -> int:
+            return self._num_radial_regions
+
+        @property
+        def num_axial_regions(self) -> int:
+            return self._num_axial_regions
+
+        def __init__(self,
+                     inner_radius: float,
+                     outer_radius: float,
+                     length: float,
+                     material: Optional[Union[Material, Sequence[Material]]] = None,
+                     num_radial_regions: int = 1,
+                     num_axial_regions: int = 1):
+            assert inner_radius > 0.0, "Fuel Meat inner radius must be positive."
+            assert outer_radius > inner_radius, "Fuel Meat outer radius must exceed inner radius."
+            assert length > 0.0, "Fuel Meat length must be positive."
+            assert num_radial_regions > 0, "Fuel Meat num_radial_regions must be positive."
+            assert num_axial_regions > 0, "Fuel Meat num_axial_regions must be positive."
+
+            self._inner_radius       = inner_radius
+            self._outer_radius       = outer_radius
+            self._length             = length
+            self._num_radial_regions = num_radial_regions
+            self._num_axial_regions  = num_axial_regions
+
+            material = material if material is not None else UZrH()
+            num_material_regions = num_axial_regions * num_radial_regions
+            if isinstance(material, Material):
+                material = [material for _ in range(num_material_regions)]
+            else:
+                assert len(material) == num_material_regions, (
+                    f"Fuel Meat material sequence length must equal "
+                    f"num_axial_regions * num_radial_regions ({num_material_regions}); "
+                    f"got {len(material)}."
+                )
+            self._material_regions = list(material)
 
         def __eq__(self, other: object) -> bool:
             if self is other:
@@ -156,13 +223,17 @@ class FuelElement(GeometryElement):
                     isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
                     isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
                     isclose(self.length, other.length, rel_tol=TOL) and
-                    self.material == other.material)
+                    self.num_radial_regions == other.num_radial_regions and
+                    self.num_axial_regions == other.num_axial_regions and
+                    self._material_regions == other._material_regions)
 
         def __hash__(self) -> int:
             return hash((relative_round(self.inner_radius, TOL),
                          relative_round(self.outer_radius, TOL),
                          relative_round(self.length, TOL),
-                         self.material))
+                         self.num_radial_regions,
+                         self.num_axial_regions,
+                         tuple(self._material_regions)))
 
     @dataclass(frozen=True)
     class Cladding:
@@ -418,7 +489,15 @@ class FuelElement(GeometryElement):
 
     @property
     def fuel_pincell(self) -> CylindricalPinCell:
-        return self._fuel_pincell
+        assert len(self._fuel_pincells) == 1, (
+            "FuelElement.fuel_pincell is only available for fuel meat with one "
+            "axial region. Use FuelElement.fuel_pincells for regioned fuel meat."
+        )
+        return self._fuel_pincells[0]
+
+    @property
+    def fuel_pincells(self) -> List[CylindricalPinCell]:
+        return list(self._fuel_pincells)
 
     @property
     def moly_disc_pincell(self) -> CylindricalPinCell:
@@ -474,7 +553,7 @@ class FuelElement(GeometryElement):
                         + self._upper_end_fitting.length
                         + self._lower_end_fitting.length)
 
-        self._fuel_pincell = self.build_fuel_meat_pincell(
+        self._fuel_pincells = self.build_fuel_meat_pincells(
             cladding       = self.cladding,
             fuel_meat      = self.fuel_meat,
             zr_fill_rod    = self.zr_fill_rod,
@@ -561,7 +640,7 @@ class FuelElement(GeometryElement):
             self.upper_end_fitting.material,
             self.upper_graphite_reflector.material,
             self.zr_fill_rod.material,
-            self.fuel_meat.material,
+            *self.fuel_meat.material_regions,
             self.moly_disc.material,
             self.lower_graphite_reflector.material,
             self.lower_end_fitting.material,
@@ -613,10 +692,14 @@ class FuelElement(GeometryElement):
             direction     = self.upper_end_fitting.direction,
         )
 
+        fuel_region_thickness = self.fuel_meat.length / self.fuel_meat.num_axial_regions
+        fuel_segments         = [Stack.Segment(pincell, fuel_region_thickness)
+                                 for pincell in reversed(self.fuel_pincells)]
+
         mid_stack = Stack(segments=[
             Stack.Segment(self.lower_reflector_pincell, self.lower_graphite_reflector.thickness),
             Stack.Segment(self.moly_disc_pincell, self.moly_disc.thickness),
-            Stack.Segment(self.fuel_pincell, self.fuel_meat.length),
+            *fuel_segments,
             Stack.Segment(self.upper_reflector_pincell, self.upper_graphite_reflector.thickness),
             Stack.Segment(self.air_gap_pincell, self.upper_air_gap.thickness),
         ])
@@ -633,7 +716,8 @@ class FuelElement(GeometryElement):
                                 fill_gas:       Optional[Material] = None,
                                 outer_material: Optional[Material] = None,
                                 gap_tolerance:  float = 1.0e-8,
-                                name:           str = "fuel_meat_pincell") -> CylindricalPinCell:
+                                name:           str = "fuel_meat_pincell",
+                                axial_level:    int = 0) -> CylindricalPinCell:
         """Build a pincell for the fuel meat region.
 
         Parameters
@@ -652,6 +736,8 @@ class FuelElement(GeometryElement):
             Minimum thickness to retain a zone; thinner zones are removed. Defaults to 1e-8.
         name : str, optional
             Name for the pincell.
+        axial_level : int, optional
+            Fuel meat axial level to build, indexed from top to bottom. Defaults to 0.
 
         Returns
         -------
@@ -665,22 +751,86 @@ class FuelElement(GeometryElement):
             "Zr fill rod must fit inside fuel meat inner radius.")
         assert fuel_meat.outer_radius <= cladding.inner_radius, (
             "Fuel meat must fit inside cladding.")
+        assert 0 <= axial_level < fuel_meat.num_axial_regions, (
+            f"axial_level = {axial_level}, "
+            f"fuel_meat.num_axial_regions = {fuel_meat.num_axial_regions}"
+        )
+
+        fuel_radii = equal_volume_ring_radii(
+            inner_radius = fuel_meat.inner_radius,
+            outer_radius = fuel_meat.outer_radius,
+            num_regions  = fuel_meat.num_radial_regions,
+        )
+        material_start = axial_level * fuel_meat.num_radial_regions
+        material_stop  = material_start + fuel_meat.num_radial_regions
+        fuel_materials = fuel_meat.material_regions[material_start:material_stop]
 
         radii = [zr_fill_rod.radius,
                  fuel_meat.inner_radius,
-                 fuel_meat.outer_radius,
+                 *fuel_radii,
                  cladding.inner_radius,
                  cladding.outer_radius]
 
         materials = [zr_fill_rod.material,
                      fill_gas,
-                     fuel_meat.material,
+                     *fuel_materials,
                      fill_gas,
                      cladding.material,
                      outer_material]
 
         return CylindricalPinCell(radii=radii, materials=materials, name=name,
                                   min_zone_thickness=gap_tolerance)
+
+
+    @staticmethod
+    def build_fuel_meat_pincells(cladding:       Cladding,
+                                 fuel_meat:      FuelMeat,
+                                 zr_fill_rod:    ZrFillRod,
+                                 fill_gas:       Optional[Material] = None,
+                                 outer_material: Optional[Material] = None,
+                                 gap_tolerance:  float = 1.0e-8,
+                                 name:           str = "fuel_meat_pincell") -> List[CylindricalPinCell]:
+        """Build fuel meat pincells for each axial material level.
+
+        Parameters
+        ----------
+        cladding : FuelElement.Cladding
+            Cladding definition with thickness, outer radius, and material.
+        fuel_meat : FuelElement.FuelMeat
+            Fuel meat definition with inner/outer radii, region counts, and
+            material region specification.
+        zr_fill_rod : FuelElement.ZrFillRod
+            Zirconium fill rod definition.
+        fill_gas : Material, optional
+            Gap fill material; defaults to ``Air``.
+        outer_material : Material, optional
+            Exterior/coolant material; defaults to ``Water``.
+        gap_tolerance : float, optional
+            Minimum thickness to retain a zone; thinner zones are removed. Defaults to 1e-8.
+        name : str, optional
+            Base name for the pincells. For multiple axial regions, the axial
+            level index is appended to this name.
+
+        Returns
+        -------
+        List[CylindricalPinCell]
+            Fuel meat pincells ordered from top to bottom, matching
+            ``FuelMeat.material_regions`` axial-major ordering.
+        """
+        pincells = []
+        for axial_level in range(fuel_meat.num_axial_regions):
+            pincell_name = name
+            if fuel_meat.num_axial_regions > 1:
+                pincell_name = f"{name}_axial_{axial_level}"
+            pincells.append(FuelElement.build_fuel_meat_pincell(cladding       = cladding,
+                                                                fuel_meat      = fuel_meat,
+                                                                zr_fill_rod    = zr_fill_rod,
+                                                                fill_gas       = fill_gas,
+                                                                outer_material = outer_material,
+                                                                gap_tolerance  = gap_tolerance,
+                                                                name           = pincell_name,
+                                                                axial_level    = axial_level))
+        return pincells
 
 
     @staticmethod

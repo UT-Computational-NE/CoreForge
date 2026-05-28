@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from math import isclose
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
@@ -10,6 +11,7 @@ from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, B4C, Material, SS304, UZrH, Water, Zr, unique_materials
+from coreforge.shapes.utils import equal_volume_ring_radii
 
 
 # pylint: disable=too-many-public-methods
@@ -181,7 +183,6 @@ class FuelFollowerControlRod(GeometryElement):
                          relative_round(self.length, TOL),
                          self.material))
 
-    @dataclass(frozen=True)
     class FuelFollower:
         """Fuel follower specification.
 
@@ -193,20 +194,83 @@ class FuelFollowerControlRod(GeometryElement):
             Inner radius of the fuel follower [cm].
         outer_radius : float
             Outer radius of the fuel follower [cm].
-        material : Material, optional
-            Fuel material. Defaults to ``UZrH``.
+        material : Material or Sequence[Material], optional
+            User-facing fuel material specification for this fuel follower. Pass a
+            single ``Material`` for homogeneous fuel, or pass one material per
+            region for regioned fuel. Regioned material sequences use axial-major
+            order: top-to-bottom axial levels, with radial regions ordered
+            inner-to-outer within each axial level. Defaults to ``UZrH``.
+        num_radial_regions : int
+            Number of equal-volume radial fuel material regions. Defaults to 1.
+        num_axial_regions : int
+            Number of equal-length axial fuel material regions. Defaults to 1.
+        material_regions : List[Material]
+            Normalized material-region list in axial-major order. Use this in
+            geometry builders, meshing code, and any logic that needs explicit
+            per-region materials; its length is always
+            ``num_axial_regions * num_radial_regions``.
         """
-        length: float
-        inner_radius: float
-        outer_radius: float
-        material: Material = field(default_factory=UZrH)
 
-        def __post_init__(self) -> None:
-            assert self.length > 0.0, "Fuel follower length must be positive."
-            assert self.inner_radius > 0.0, "Fuel follower inner radius must be positive."
-            assert self.outer_radius > self.inner_radius, (
-                "Fuel follower outer radius must exceed inner radius."
-            )
+        @property
+        def length(self) -> float:
+            return self._length
+
+        @property
+        def inner_radius(self) -> float:
+            return self._inner_radius
+
+        @property
+        def outer_radius(self) -> float:
+            return self._outer_radius
+
+        @property
+        def material(self) -> Union[Material, List[Material]]:
+            if len(self._material_regions) == 1:
+                return self._material_regions[0]
+            return list(self._material_regions)
+
+        @property
+        def material_regions(self) -> List[Material]:
+            return list(self._material_regions)
+
+        @property
+        def num_radial_regions(self) -> int:
+            return self._num_radial_regions
+
+        @property
+        def num_axial_regions(self) -> int:
+            return self._num_axial_regions
+
+        def __init__(self,
+                     length: float,
+                     inner_radius: float,
+                     outer_radius: float,
+                     material: Optional[Union[Material, Sequence[Material]]] = None,
+                     num_radial_regions: int = 1,
+                     num_axial_regions: int = 1):
+            assert length > 0.0, "Fuel follower length must be positive."
+            assert inner_radius > 0.0, "Fuel follower inner radius must be positive."
+            assert outer_radius > inner_radius, "Fuel follower outer radius must exceed inner radius."
+            assert num_radial_regions > 0, "Fuel follower num_radial_regions must be positive."
+            assert num_axial_regions > 0, "Fuel follower num_axial_regions must be positive."
+
+            self._length             = length
+            self._inner_radius       = inner_radius
+            self._outer_radius       = outer_radius
+            self._num_radial_regions = num_radial_regions
+            self._num_axial_regions  = num_axial_regions
+
+            material = material if material is not None else UZrH()
+            num_material_regions = num_axial_regions * num_radial_regions
+            if isinstance(material, Material):
+                material = [material for _ in range(num_material_regions)]
+            else:
+                assert len(material) == num_material_regions, (
+                    f"Fuel follower material sequence length must equal "
+                    f"num_axial_regions * num_radial_regions ({num_material_regions}); "
+                    f"got {len(material)}."
+                )
+            self._material_regions = list(material)
 
         def __eq__(self, other: object) -> bool:
             if self is other:
@@ -215,13 +279,17 @@ class FuelFollowerControlRod(GeometryElement):
                     isclose(self.length, other.length, rel_tol=TOL) and
                     isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
                     isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
-                    self.material == other.material)
+                    self.num_radial_regions == other.num_radial_regions and
+                    self.num_axial_regions == other.num_axial_regions and
+                    self._material_regions == other._material_regions)
 
         def __hash__(self) -> int:
             return hash((relative_round(self.length, TOL),
                          relative_round(self.inner_radius, TOL),
                          relative_round(self.outer_radius, TOL),
-                         self.material))
+                         self.num_radial_regions,
+                         self.num_axial_regions,
+                         tuple(self._material_regions)))
 
     @dataclass(frozen=True)
     class ZrFillRod:
@@ -401,7 +469,16 @@ class FuelFollowerControlRod(GeometryElement):
 
     @property
     def fuel_follower_pincell(self) -> CylindricalPinCell:
-        return self._fuel_follower_pincell
+        assert len(self._fuel_follower_pincells) == 1, (
+            "FuelFollowerControlRod.fuel_follower_pincell is only available for "
+            "fuel followers with one axial region. Use "
+            "FuelFollowerControlRod.fuel_follower_pincells for regioned fuel."
+        )
+        return self._fuel_follower_pincells[0]
+
+    @property
+    def fuel_follower_pincells(self) -> List[CylindricalPinCell]:
+        return list(self._fuel_follower_pincells)
 
     @property
     def air_gap_pincell(self) -> CylindricalPinCell:
@@ -483,7 +560,7 @@ class FuelFollowerControlRod(GeometryElement):
             gap_tolerance=self.gap_tolerance,
             name=self.name + "_absorber_pincell",
         )
-        self._fuel_follower_pincell = self.build_fuel_follower_pincell(
+        self._fuel_follower_pincells = self.build_fuel_follower_pincells(
             cladding=self.cladding,
             fuel_follower=self.fuel_follower,
             zr_fill_rod=self.zr_fill_rod,
@@ -579,7 +656,7 @@ class FuelFollowerControlRod(GeometryElement):
         materials = [
             self.cladding.material,
             self.absorber.material,
-            self.fuel_follower.material,
+            *self.fuel_follower.material_regions,
             self.zr_fill_rod.material,
             self.upper_element_plug.material,
             self.lower_element_plug.material,
@@ -605,13 +682,17 @@ class FuelFollowerControlRod(GeometryElement):
             The Fuel Follower Control Rod as a Stack
         """
 
+        fuel_region_thickness = self.fuel_follower.length / self.fuel_follower.num_axial_regions
+        fuel_segments = [Stack.Segment(pincell, fuel_region_thickness)
+                         for pincell in reversed(self.fuel_follower_pincells)]
+
         return Stack( name       = self.name,
                       bottom_pos = bottom_pos,
                       segments   = [
             Stack.Segment(self.lower_element_plug_pincell, self.lower_element_plug.thickness),
             Stack.Segment(self.air_gap_pincell, self.lower_air_gap.thickness),
             Stack.Segment(self.lower_magneform_fitting_pincell, self.lower_magneform_fitting.thickness),
-            Stack.Segment(self.fuel_follower_pincell, self.fuel_follower.length),
+            *fuel_segments,
             Stack.Segment(self.air_gap_pincell, self.above_fuel_follower_air_gap.thickness),
             Stack.Segment(self.middle_magneform_fitting_pincell, self.middle_magneform_fitting.thickness),
             Stack.Segment(self.absorber_pincell, self.absorber.length),
@@ -667,7 +748,8 @@ class FuelFollowerControlRod(GeometryElement):
                                     fill_gas:       Optional[Material] = None,
                                     outer_material: Optional[Material] = None,
                                     gap_tolerance:  Optional[float] = None,
-                                    name:           str = "fuel_follower_control_rod_follower") -> CylindricalPinCell:
+                                    name:           str = "fuel_follower_control_rod_follower",
+                                    axial_level:    int = 0) -> CylindricalPinCell:
         """Build a pincell for the fuel-follower region with Zr fill rod.
 
         Parameters
@@ -686,6 +768,8 @@ class FuelFollowerControlRod(GeometryElement):
             Minimum zone thickness to retain (defaults to ``None`` for no filtering).
         name : str, optional
             Name for the pincell.
+        axial_level : int, optional
+            Fuel follower axial level to build, indexed from top to bottom. Defaults to 0.
 
         Returns
         -------
@@ -694,18 +778,31 @@ class FuelFollowerControlRod(GeometryElement):
         """
         fill_gas = fill_gas or Air()
         outer_material = outer_material or Water()
+        assert 0 <= axial_level < fuel_follower.num_axial_regions, (
+            f"axial_level = {axial_level}, "
+            f"fuel_follower.num_axial_regions = {fuel_follower.num_axial_regions}"
+        )
+
+        fuel_radii = equal_volume_ring_radii(
+            inner_radius = fuel_follower.inner_radius,
+            outer_radius = fuel_follower.outer_radius,
+            num_regions  = fuel_follower.num_radial_regions,
+        )
+        material_start = axial_level * fuel_follower.num_radial_regions
+        material_stop  = material_start + fuel_follower.num_radial_regions
+        fuel_materials = fuel_follower.material_regions[material_start:material_stop]
 
         radii = [
             zr_fill_rod.radius,
             fuel_follower.inner_radius,
-            fuel_follower.outer_radius,
+            *fuel_radii,
             cladding.inner_radius,
             cladding.outer_radius,
         ]
         materials = [
             zr_fill_rod.material,
             fill_gas,
-            fuel_follower.material,
+            *fuel_materials,
             fill_gas,
             cladding.material,
             outer_material,
@@ -713,6 +810,59 @@ class FuelFollowerControlRod(GeometryElement):
 
         return CylindricalPinCell(radii=radii, materials=materials, name=name,
                                   min_zone_thickness=gap_tolerance or 0.0)
+
+    @staticmethod
+    def build_fuel_follower_pincells(cladding:       Cladding,
+                                     fuel_follower:  FuelFollower,
+                                     zr_fill_rod:    ZrFillRod,
+                                     fill_gas:       Optional[Material] = None,
+                                     outer_material: Optional[Material] = None,
+                                     gap_tolerance:  Optional[float] = None,
+                                     name:           str = "fuel_follower_control_rod_follower") -> List[CylindricalPinCell]:
+        """Build fuel follower pincells for each axial material level.
+
+        Parameters
+        ----------
+        cladding : FuelFollowerControlRod.Cladding
+            Cladding definition with inner/outer radii and material.
+        fuel_follower : FuelFollowerControlRod.FuelFollower
+            Fuel follower definition with inner/outer radii, region counts, and
+            material region specification.
+        zr_fill_rod : FuelFollowerControlRod.ZrFillRod
+            Zr fill rod definition.
+        fill_gas : Material, optional
+            Gap fill material between Zr rod and follower, and follower and cladding.
+            Defaults to ``Air``.
+        outer_material : Material, optional
+            Exterior/coolant material; defaults to ``Water``.
+        gap_tolerance : float, optional
+            Minimum zone thickness to retain (defaults to ``None`` for no filtering).
+        name : str, optional
+            Base name for the pincells. For multiple axial regions, the axial
+            level index is appended to this name.
+
+        Returns
+        -------
+        List[CylindricalPinCell]
+            Fuel follower pincells ordered from top to bottom, matching
+            ``FuelFollower.material_regions`` axial-major ordering.
+        """
+        pincells = []
+        for axial_level in range(fuel_follower.num_axial_regions):
+            pincell_name = name
+            if fuel_follower.num_axial_regions > 1:
+                pincell_name = f"{name}_axial_{axial_level}"
+            pincells.append(FuelFollowerControlRod.build_fuel_follower_pincell(
+                cladding       = cladding,
+                fuel_follower  = fuel_follower,
+                zr_fill_rod    = zr_fill_rod,
+                fill_gas       = fill_gas,
+                outer_material = outer_material,
+                gap_tolerance  = gap_tolerance,
+                name           = pincell_name,
+                axial_level    = axial_level,
+            ))
+        return pincells
 
     @staticmethod
     def build_element_plug_pincell(cladding:       Cladding,

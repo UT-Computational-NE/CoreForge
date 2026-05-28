@@ -54,40 +54,42 @@ def control_rod():
 
 
 @pytest.fixture
-def unequal_control_rod():
-    clad = FuelFollowerControlRod.Cladding(thickness=0.03, outer_radius=0.70)
-    absorber = FuelFollowerControlRod.Absorber(radius=0.50, length=12.0)
+def multi_region_control_rod(control_rod):
+    base = control_rod
+    fuel_materials = [
+        UZrH(name=f"U-ZrH follower region {i}", density=5.80 + 0.01 * i)
+        for i in range(4)
+    ]
     follower = FuelFollowerControlRod.FuelFollower(
-        length=18.0,
-        inner_radius=0.20,
-        outer_radius=clad.inner_radius,
+        length=base.fuel_follower.length,
+        inner_radius=base.fuel_follower.inner_radius,
+        outer_radius=base.fuel_follower.outer_radius,
+        material=fuel_materials,
+        num_radial_regions=2,
+        num_axial_regions=2,
     )
-    zr_fill = FuelFollowerControlRod.ZrFillRod(radius=0.10)
-    plug = FuelFollowerControlRod.ElementPlug(thickness=0.8)
-    mag = FuelFollowerControlRod.MagneformFitting(thickness=0.4)
-    air_gap = FuelFollowerControlRod.AirGap(thickness=0.8)
 
     return FuelFollowerControlRod(
-        cladding=clad,
-        absorber=absorber,
+        cladding=base.cladding,
+        absorber=base.absorber,
         fuel_follower=follower,
-        zr_fill_rod=zr_fill,
-        upper_element_plug=plug,
-        upper_air_gap=air_gap,
-        upper_magneform_fitting=mag,
-        above_absorber_air_gap=air_gap,
-        middle_magneform_fitting=mag,
-        above_fuel_follower_air_gap=air_gap,
-        lower_magneform_fitting=mag,
-        lower_air_gap=air_gap,
-        lower_element_plug=plug,
-        fill_gas=Air(),
-        outer_material=Water(),
-        gap_tolerance=1e-8,
+        zr_fill_rod=base.zr_fill_rod,
+        upper_element_plug=base.upper_element_plug,
+        upper_air_gap=base.upper_air_gap,
+        upper_magneform_fitting=base.upper_magneform_fitting,
+        above_absorber_air_gap=base.above_absorber_air_gap,
+        middle_magneform_fitting=base.middle_magneform_fitting,
+        above_fuel_follower_air_gap=base.above_fuel_follower_air_gap,
+        lower_magneform_fitting=base.lower_magneform_fitting,
+        lower_air_gap=base.lower_air_gap,
+        lower_element_plug=base.lower_element_plug,
+        fill_gas=base.fill_gas,
+        outer_material=base.outer_material,
+        gap_tolerance=base.gap_tolerance,
     )
 
 
-def test_initialization(control_rod):
+def test_initialization(control_rod, multi_region_control_rod):
     abs_pin = control_rod.absorber_pincell
     abs_radii = [z.shape.outer_radius for z in abs_pin.zones]
     abs_mats = [z.material for z in abs_pin.zones]
@@ -171,19 +173,38 @@ def test_initialization(control_rod):
     )
     assert isclose(control_rod.length, expected_length)
 
+    multi_follower = multi_region_control_rod.fuel_follower
+    assert multi_follower.material == multi_follower.material_regions
+    assert len(multi_region_control_rod.fuel_follower_pincells) == multi_follower.num_axial_regions
+    with pytest.raises(AssertionError):
+        _ = multi_region_control_rod.fuel_follower_pincell
 
-def test_equality_and_hash(control_rod, unequal_control_rod):
+    top_pin = multi_region_control_rod.fuel_follower_pincells[0]
+    bottom_pin = multi_region_control_rod.fuel_follower_pincells[1]
+    top_materials = [zone.material for zone in top_pin.zones]
+    bottom_materials = [zone.material for zone in bottom_pin.zones]
+    assert top_materials[1:3] == multi_follower.material_regions[:2]
+    assert bottom_materials[1:3] == multi_follower.material_regions[2:]
+
+
+def test_equality_and_hash(control_rod, multi_region_control_rod):
     assert control_rod == deepcopy(control_rod)
-    assert control_rod != unequal_control_rod
+    assert control_rod != multi_region_control_rod
     assert hash(control_rod) == hash(deepcopy(control_rod))
-    assert hash(control_rod) != hash(unequal_control_rod)
+    assert hash(control_rod) != hash(multi_region_control_rod)
 
 
-def test_as_stack(control_rod):
+def test_as_stack(control_rod, multi_region_control_rod):
     stack = control_rod.as_stack()
     assert len(stack.segments) == 11
     assert isclose(stack.length, control_rod.length)
     assert isclose(stack.bottom_pos, 0.0)
+
+    multi_stack = multi_region_control_rod.as_stack()
+    assert len(multi_stack.segments) == 12
+    assert isclose(multi_stack.length, multi_region_control_rod.length)
+    assert multi_stack.segments[3].element == multi_region_control_rod.fuel_follower_pincells[1]
+    assert multi_stack.segments[4].element == multi_region_control_rod.fuel_follower_pincells[0]
 
 
 def test_openmc_builder(control_rod):
@@ -193,7 +214,7 @@ def test_openmc_builder(control_rod):
     assert len(universe.cells) == 11
 
 
-def test_mpact_builder(control_rod):
+def test_mpact_builder(control_rod, multi_region_control_rod):
     geom_element = control_rod
     core = mpact_builder.build(geom_element)
 
@@ -226,3 +247,23 @@ def test_mpact_builder(control_rod):
     assert len(core.modules)    == expected_unique_segments
     assert len(core.lattices)   == expected_unique_segments
     assert len(core.assemblies) == 1
+
+    multi_core = mpact_builder.build(multi_region_control_rod)
+    expected_multi_axial_lengths = [
+        multi_region_control_rod.lower_element_plug.thickness,
+        multi_region_control_rod.lower_air_gap.thickness,
+        multi_region_control_rod.lower_magneform_fitting.thickness,
+        multi_region_control_rod.fuel_follower.length * 0.5,
+        multi_region_control_rod.fuel_follower.length * 0.5,
+        multi_region_control_rod.above_fuel_follower_air_gap.thickness,
+        multi_region_control_rod.middle_magneform_fitting.thickness,
+        multi_region_control_rod.absorber.length,
+        multi_region_control_rod.above_absorber_air_gap.thickness,
+        multi_region_control_rod.upper_magneform_fitting.thickness,
+        multi_region_control_rod.upper_air_gap.thickness,
+        multi_region_control_rod.upper_element_plug.thickness,
+    ]
+    expected_multi_mod_dim_z = sorted(set(expected_multi_axial_lengths))
+
+    assert multi_core.mod_dim['Z'] == expected_multi_mod_dim_z
+    assert multi_core.nz == len(expected_multi_axial_lengths)
