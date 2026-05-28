@@ -102,4 +102,3 @@ def equal_volume_ring_radii(outer_radius: float,
 
     return [sqrt(inner_radius_squared + i * radial_area_increment)
             for i in range(1, num_regions + 1)]
-
