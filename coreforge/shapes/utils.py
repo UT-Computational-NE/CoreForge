@@ -1,4 +1,4 @@
-from math import cos, sin, radians, isclose
+from math import cos, sin, radians, isclose, sqrt
 from typing import List, Tuple
 
 from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE as TOL
@@ -67,3 +67,38 @@ def is_convex(vertices: List[Tuple[float, float]]) -> bool:
         elif curr != sign:
             return False
     return True
+
+
+def equal_volume_ring_radii(outer_radius: float,
+                            num_regions: int,
+                            inner_radius: float = 0.0) -> List[float]:
+    """Return ring outer radii that divide an annulus into equal areas.
+
+    Parameters
+    ----------
+    outer_radius : float
+        Outer radius of the full annulus.
+    num_regions : int
+        Number of equal-area radial regions.
+    inner_radius : float, optional
+        Inner radius of the full annulus. Defaults to 0.0.
+
+    Returns
+    -------
+    List[float]
+        Outer radii for each equal-area ring, ordered from inner to outer.
+    """
+    assert inner_radius >= 0.0, f"inner_radius = {inner_radius}"
+    assert outer_radius > inner_radius, (
+        f"outer_radius = {outer_radius}, inner_radius = {inner_radius}"
+    )
+    assert isinstance(num_regions, int), f"num_regions = {num_regions}"
+    assert num_regions > 0, f"num_regions = {num_regions}"
+
+    inner_radius_squared = inner_radius * inner_radius
+    radial_area_increment = (
+        (outer_radius * outer_radius - inner_radius_squared) / num_regions
+    )
+
+    return [sqrt(inner_radius_squared + i * radial_area_increment)
+            for i in range(1, num_regions + 1)]

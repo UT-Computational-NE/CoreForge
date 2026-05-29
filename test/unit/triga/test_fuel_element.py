@@ -57,25 +57,37 @@ def fuel_element():
 
 
 @pytest.fixture
-def unequal_fuel_element(fuel_element):
+def multi_region_fuel_element(fuel_element):
     base = fuel_element
+    fuel_materials = [
+        UZrH(name=f"U-ZrH region {i}", density=5.80 + 0.01 * i)
+        for i in range(4)
+    ]
+    fuel = FuelElement.FuelMeat(
+        inner_radius=base.fuel_meat.inner_radius,
+        outer_radius=base.fuel_meat.outer_radius,
+        length=base.fuel_meat.length,
+        material=fuel_materials,
+        num_radial_regions=2,
+        num_axial_regions=2,
+    )
     return FuelElement(
         cladding=base.cladding,
         fill_gas=base.fill_gas,
         outer_material=base.outer_material,
-        gap_tolerance=0.05,
+        gap_tolerance=base.gap_tolerance,
         upper_end_fitting=base.upper_end_fitting,
         upper_air_gap=base.upper_air_gap,
         upper_graphite_reflector=base.upper_graphite_reflector,
         zr_fill_rod=base.zr_fill_rod,
-        fuel_meat=base.fuel_meat,
+        fuel_meat=fuel,
         moly_disc=base.moly_disc,
         lower_graphite_reflector=base.lower_graphite_reflector,
         lower_end_fitting=base.lower_end_fitting,
     )
 
 
-def test_initialization(fuel_element):
+def test_initialization(fuel_element, multi_region_fuel_element):
     pin = fuel_element.fuel_pincell
     radii = [zone.shape.outer_radius for zone in pin.zones]
     materials = [zone.material for zone in pin.zones]
@@ -125,11 +137,24 @@ def test_initialization(fuel_element):
     ])
     assert fuel_element.get_materials() == expected
 
-def test_equality_and_hash(fuel_element, unequal_fuel_element):
+    multi_fuel = multi_region_fuel_element.fuel_meat
+    assert multi_fuel.material == multi_fuel.material_regions
+    assert len(multi_region_fuel_element.fuel_pincells) == multi_fuel.num_axial_regions
+    with pytest.raises(AssertionError):
+        _ = multi_region_fuel_element.fuel_pincell
+
+    top_pin = multi_region_fuel_element.fuel_pincells[0]
+    bottom_pin = multi_region_fuel_element.fuel_pincells[1]
+    top_materials = [zone.material for zone in top_pin.zones]
+    bottom_materials = [zone.material for zone in bottom_pin.zones]
+    assert top_materials[1:3] == multi_fuel.material_regions[:2]
+    assert bottom_materials[1:3] == multi_fuel.material_regions[2:]
+
+def test_equality_and_hash(fuel_element, multi_region_fuel_element):
     assert fuel_element == deepcopy(fuel_element)
-    assert fuel_element != unequal_fuel_element
+    assert fuel_element != multi_region_fuel_element
     assert hash(fuel_element) == hash(deepcopy(fuel_element))
-    assert hash(fuel_element) != hash(unequal_fuel_element)
+    assert hash(fuel_element) != hash(multi_region_fuel_element)
 
 def test_openmc_builder(fuel_element):
     geom_element = fuel_element
@@ -137,7 +162,7 @@ def test_openmc_builder(fuel_element):
     assert universe.name == "fuel_element"
     assert len(universe.cells) == 9
 
-def test_mpact_builder(fuel_element):
+def test_mpact_builder(fuel_element, multi_region_fuel_element):
     geom_element = fuel_element
     core = mpact_builder.build(geom_element)
 
@@ -162,3 +187,16 @@ def test_mpact_builder(fuel_element):
     assert len(core.modules)    == expected_nz
     assert len(core.lattices)   == expected_nz
     assert len(core.assemblies) == 1
+
+    multi_core = mpact_builder.build(multi_region_fuel_element)
+    expected_multi_axial_lengths = [multi_region_fuel_element.lower_end_fitting.length,
+                                    multi_region_fuel_element.lower_graphite_reflector.thickness,
+                                    multi_region_fuel_element.moly_disc.thickness,
+                                    multi_region_fuel_element.fuel_meat.length * 0.5,
+                                    multi_region_fuel_element.fuel_meat.length * 0.5,
+                                    multi_region_fuel_element.upper_graphite_reflector.thickness,
+                                    multi_region_fuel_element.upper_air_gap.thickness,
+                                    multi_region_fuel_element.upper_end_fitting.length]
+    expected_multi_z = sorted(set(expected_multi_axial_lengths))
+    assert_allclose(multi_core.mod_dim['Z'], expected_multi_z)
+    assert multi_core.nz == len(expected_multi_axial_lengths)
