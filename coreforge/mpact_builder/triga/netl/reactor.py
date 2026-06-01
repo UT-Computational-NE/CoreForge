@@ -297,7 +297,9 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         overlay_policy.mat_specs = {material: material_specs[material.name]
                                     for material in openmc_materials if material.name in material_specs}
 
-        offset = self.specs.offset or (-core.width['X'] * 0.5, -core.width['Y'] * 0.5, 0.0)
+        offset = self.specs.offset or (-core.width['X'] * 0.5,
+                                       -core.width['Y'] * 0.5,
+                                       reactor.pool_axial_bounds[0])
 
         return core.overlay(openmc.Geometry(openmc_universe), offset, include_only, overlay_policy)
 
