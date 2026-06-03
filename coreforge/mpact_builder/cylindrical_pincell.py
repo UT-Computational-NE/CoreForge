@@ -1,12 +1,14 @@
-from typing import TypedDict, Tuple, Optional
+from __future__ import annotations
+from typing import Literal, Tuple, Optional, List
 from dataclasses import dataclass
-from math import inf
+from math import hypot
 
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder, build_material
 from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
 from coreforge.mpact_builder.mpact_builder import register_builder
+from coreforge.shapes.utils import equal_volume_ring_radii
 from coreforge import geometry_elements
 
 @register_builder(geometry_elements.CylindricalPinCell)
@@ -25,15 +27,77 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
     """
 
     @dataclass
-    class Specs(BuilderSpecs):
-        """ Building specifications for CylindricalPinCells
+    class ZoneSpecs:
+        """Mesh specifications for a cylindrical pin-cell zone or outer region.
+
+        ``ndivr_mat`` subdivides a zone into additional material regions by adding
+        radial interfaces and copying the zone material into each new region.
+        Each copied material region inherits the same ``ndivr_fsr`` and
+        ``ndiva`` from this ``ZoneSpecs``.
+
+        The outer-region spec applies to the material outside the outermost
+        cylindrical zone. Its material subdivision radii are computed using an
+        artificial circle centered on the pin-cell center and large enough to
+        enclose the rectangular module boundary. That artificial final radius is
+        used only for subdivision placement and is not written to the
+        ``GeneralCylindricalPinMesh``.
 
         Attributes
         ----------
-        target_cell_thicknesses : Thicknesses
-            The target thickness of the cells in terms of 'radial' thickness
-            and 'azimuthal' arc length (cm).
-            Cells will be subdivided to limit cells to within these specifications.
+        ndivr_fsr : int
+            Number of equal-volume radial FSR subdivisions to use for each
+            material region created from this logical zone. This maps directly
+            to ``GeneralCylindricalPinMesh.ndivr``.
+        ndiva : int
+            Number of equal-angle azimuthal FSR subdivisions to use for each
+            radial FSR created from this logical zone. This maps directly to
+            ``GeneralCylindricalPinMesh.ndiva``.
+        ndivr_mat : int
+            Number of radial material-region subdivisions to create from this
+            logical zone. New material regions receive copies of the logical
+            zone's material.
+        ndivr_mat_type : Literal["equal_thickness", "equal_volume"]
+            Method used to place radial material-region subdivision boundaries.
+            ``"equal_thickness"`` spaces boundaries uniformly in radius.
+            ``"equal_volume"`` spaces boundaries uniformly in annular area.
+        """
+
+        ndivr_fsr:      int = 1
+        ndiva:          int = 1
+        ndivr_mat:      int = 1
+        ndivr_mat_type: Literal["equal_thickness", "equal_volume"] = "equal_thickness"
+
+        def __post_init__(self) -> None:
+            assert self.ndivr_fsr > 0, f"ndivr_fsr = {self.ndivr_fsr}"
+            assert self.ndiva     > 0, f"ndiva = {self.ndiva}"
+            assert self.ndivr_mat > 0, f"ndivr_mat = {self.ndivr_mat}"
+            assert self.ndivr_mat_type in ("equal_thickness", "equal_volume"), \
+                f"ndivr_mat_type = {self.ndivr_mat_type}"
+
+    class Specs(BuilderSpecs):
+        """Building specifications for CylindricalPinCells.
+
+        Parameters
+        ----------
+        zone_specs : Optional[ZoneSpecs | List[ZoneSpecs]]
+            Mesh specifications for the pin cell. A single ``ZoneSpecs``
+            applies to all cylindrical zones and the outer region. A list
+            specifies regions individually and must have one entry for each
+            cylindrical zone plus one final entry for the outer region.
+        divide_into_quadrants : bool
+            An optional setting to divide the pincell into 4 separate MPACT
+            Module quadrants. This will represent the pincell with 4 MPACT
+            Modules rather than just one. Default value is False.
+        material_specs : Optional[MaterialSpecs]
+            Specifications for how materials should be treated in MPACT.
+
+        Attributes
+        ----------
+        zone_specs : Optional[ZoneSpecs | List[ZoneSpecs]]
+            Mesh specifications for the pin cell. A single ``ZoneSpecs``
+            applies to all cylindrical zones and the outer region. A list
+            specifies regions individually and must have one entry for each
+            cylindrical zone plus one final entry for the outer region.
         divide_into_quadrants : bool
             An optional setting to divide the pincell into 4 separate MPACT Module quadrants.
             This will represent the pincell with 4 MPACT Modules rather than just one.
@@ -42,28 +106,21 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
             Specifications for how materials should be treated in MPACT
         """
 
-        class Thicknesses(TypedDict):
-            """ Class specifying the keys for target cell thickness
-            """
-            radial:    float
-            azimuthal: float
+        zone_specs:            Optional[CylindricalPinCell.ZoneSpecs | List[CylindricalPinCell.ZoneSpecs]]
+        divide_into_quadrants: bool
+        material_specs:        MaterialSpecs
 
-        target_cell_thicknesses: Optional[Thicknesses] = None
-        divide_into_quadrants:   bool = False
-        material_specs:          Optional[MaterialSpecs] = None
+        def __init__(self,
+                     zone_specs:            Optional[CylindricalPinCell.ZoneSpecs |
+                                            List[CylindricalPinCell.ZoneSpecs]] = None,
+                     divide_into_quadrants: bool = False,
+                     material_specs:        Optional[MaterialSpecs] = None,
+        ) -> None:
+            zone_specs = zone_specs if zone_specs is not None else CylindricalPinCell.ZoneSpecs()
 
-        def __post_init__(self):
-            if not self.target_cell_thicknesses:
-                self.target_cell_thicknesses = {}
-
-                for dim in ["radial", "azimuthal"]:
-                    self.target_cell_thicknesses.setdefault(dim, inf)
-
-            if self.material_specs is None:
-                self.material_specs = {}
-
-            assert all(thickness > 0. for thickness in self.target_cell_thicknesses.values()), \
-                f"target_cell_thicknesses = {self.target_cell_thicknesses}"
+            self.zone_specs            = zone_specs
+            self.divide_into_quadrants = divide_into_quadrants
+            self.material_specs        = material_specs if material_specs is not None else {}
 
 
     def __init__(self, specs: Optional[Specs] = None):
@@ -101,29 +158,25 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
 
         specs = self.specs
 
-        outer_radius = element.zones[-1].shape.outer_radius
-        materials    = [zone.material for zone in element.zones] + [element.outer_material]
-        materials    = [build_material(material, specs.material_specs) for material in materials]
-
-        target_cell_thicknesses = {"R": specs.target_cell_thicknesses["radial"],
-                                   "S": specs.target_cell_thicknesses["azimuthal"]}
-
-        radii = [zone.shape.inner_radius for zone in element.zones]
-        radial_thicknesses = [curr - prev for prev, curr in zip([0.0] + radii[:-1], radii)]
-
-
-        bounds = bounds or Bounds()
+        outer_radius   = element.zones[-1].shape.outer_radius
+        bounds   = bounds or Bounds()
         bounds.X = bounds.X or AxisBounds(min=-outer_radius, max=outer_radius)
         bounds.Y = bounds.Y or AxisBounds(min=-outer_radius, max=outer_radius)
         bounds.Z = bounds.Z or AxisBounds(min=0.0,           max=1.0)
 
         def build_module(module_bounds: Tuple[float, float, float, float]) -> mpactpy.Module:
+            radii, ndivr, ndiva, materials = self._build_pin_parameters(element, module_bounds)
             z_thickness = bounds.Z.max - bounds.Z.min if bounds.Z else 1.0
-            pin = mpactpy.build_gcyl_pin(bounds                  = module_bounds,
-                                         materials               = materials,
-                                         target_cell_thicknesses = target_cell_thicknesses,
-                                         thicknesses             = {"R": radial_thicknesses,
-                                                                    "Z": [z_thickness]})
+            pinmesh = mpactpy.GeneralCylindricalPinMesh(radii,
+                                                        module_bounds[0],
+                                                        module_bounds[1],
+                                                        module_bounds[2],
+                                                        module_bounds[3],
+                                                        [z_thickness],
+                                                        ndivr,
+                                                        ndiva,
+                                                        [1])
+            pin = mpactpy.Pin(pinmesh, materials)
             return mpactpy.Module(1, [[pin]])
 
         (xmin, xmax, ymin, ymax) = (bounds.X.min, bounds.X.max, bounds.Y.min, bounds.Y.max)
@@ -140,3 +193,74 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         core     = mpactpy.Core([[assembly]])
 
         return core
+
+
+    def _build_pin_parameters(self,
+                              element:       geometry_elements.CylindricalPinCell,
+                              module_bounds: Tuple[float, float, float, float],
+    ) -> Tuple[List[float], List[int], List[int], List[mpactpy.Material]]:
+        """Build radial mesh and material parameters for an MPACT pin.
+
+        Parameters
+        ----------
+        element : geometry_elements.CylindricalPinCell
+            Cylindrical pin-cell geometry to translate into MPACT pin inputs.
+        module_bounds : Tuple[float, float, float, float]
+            Radial module bounds in ``(x_min, x_max, y_min, y_max)`` order.
+
+        Returns
+        -------
+        Tuple[List[float], List[int], List[int], List[mpactpy.Material]]
+            ``radii``, ``ndivr``, ``ndiva``, and ``materials`` for constructing
+            a ``GeneralCylindricalPinMesh`` and corresponding ``Pin``.
+        """
+        specs          = self.specs
+        outer_radius   = element.zones[-1].shape.outer_radius
+        zone_radii     = [0.0] + [zone.shape.outer_radius for zone in element.zones]
+        zone_materials = [build_material(zone.material, specs.material_specs) for zone in element.zones]
+        outer_material = build_material(element.outer_material, specs.material_specs)
+
+        zone_specs = specs.zone_specs if specs.zone_specs is not None else CylindricalPinCell.ZoneSpecs()
+        if isinstance(zone_specs, CylindricalPinCell.ZoneSpecs):
+            zone_specs = [zone_specs] * (len(element.zones) + 1)
+
+        assert len(zone_specs) == len(element.zones) + 1, \
+            f"len(zone_specs) = {len(zone_specs)}, len(element.zones) + 1 = {len(element.zones) + 1}"
+
+        def material_subdivision_radii(inner_radius: float, outer_radius: float,
+                                       zone_spec: CylindricalPinCell.ZoneSpecs) -> list[float]:
+            if zone_spec.ndivr_mat_type == "equal_thickness":
+                thickness = outer_radius - inner_radius
+                return [inner_radius + thickness * i / zone_spec.ndivr_mat
+                        for i in range(1, zone_spec.ndivr_mat + 1)]
+            return equal_volume_ring_radii(outer_radius, zone_spec.ndivr_mat, inner_radius)
+
+        xmin, xmax, ymin, ymax         = module_bounds
+        bounding_radius                = max(hypot(x, y) for x in (xmin, xmax) for y in (ymin, ymax))
+        radii, ndivr, ndiva, materials = [], [], [], []
+
+        def append_material_region(radius:   float,
+                                   spec:     CylindricalPinCell.ZoneSpecs,
+                                   material: mpactpy.Material) -> None:
+            radii.append(radius)
+            ndivr.append(spec.ndivr_fsr)
+            ndiva.extend([spec.ndiva] * spec.ndivr_fsr)
+            materials.append(material)
+
+        for r1, r2, spec, material in zip(
+            zone_radii[:-1], zone_radii[1:], zone_specs[:-1], zone_materials):
+
+            subdivision_radii = material_subdivision_radii(r1, r2, spec)
+            for radius in subdivision_radii:
+                append_material_region(radius, spec, material)
+
+        outer_spec = zone_specs[-1]
+        if bounding_radius > outer_radius:
+            subdivision_radii = material_subdivision_radii(zone_radii[-1], bounding_radius, outer_spec)
+            for radius in subdivision_radii[:-1]:
+                append_material_region(radius, outer_spec, outer_material)
+
+        materials.append(outer_material)
+        ndiva.append(outer_spec.ndiva)
+
+        return radii, ndivr, ndiva, materials

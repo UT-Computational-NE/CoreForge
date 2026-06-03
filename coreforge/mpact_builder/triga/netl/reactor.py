@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Dict, List, Optional, Tuple, TypeAlias
 from dataclasses import dataclass, field
-from math import ceil, inf, isclose
+from math import ceil, inf, isclose, isinf
 
 import openmc
 import mpactpy
@@ -105,34 +105,57 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
     @dataclass
     class VoxelationSpecs:
-        """ Specifications for voxelation of non-core regions
+        """Target voxel thicknesses for an excore feature region.
 
         Attributes
         ----------
-        shroud_target_thicknesses : float
-            Target radial thickness (cm) for shroud region voxelation.
-        rsr_target_thicknesses : float
-            Target radial thickness (cm) for RSR region voxelation.
-        reflector_target_thicknesses : float
-            Target radial thickness (cm) for reflector region voxelation.
-        beamport_target_thicknesses : float
-            Target radial thickness (cm) for beamport region voxelation.
-        pool_target_thicknesses : float
-            Target radial thickness (cm) for pool region voxelation.
+        radial : float
+            Target transverse thickness (cm) used for X/Y voxelation.
+        axial : float
+            Target axial thickness (cm) used to add global axial mesh points.
         """
 
-        shroud_target_thicknesses:    float = inf
-        rsr_target_thicknesses:       float = inf
-        reflector_target_thicknesses: float = inf
-        beamport_target_thicknesses:  float = inf
-        pool_target_thicknesses:      float = inf
+        radial: float = inf
+        axial:  float = inf
 
         def __post_init__(self) -> None:
-            assert self.shroud_target_thicknesses > 0.0, "shroud_target_thicknesses must be > 0.0 cm"
-            assert self.rsr_target_thicknesses > 0.0, "rsr_target_thicknesses must be > 0.0 cm"
-            assert self.reflector_target_thicknesses > 0.0, "reflector_target_thicknesses must be > 0.0 cm"
-            assert self.beamport_target_thicknesses > 0.0, "beamport_target_thicknesses must be > 0.0 cm"
-            assert self.pool_target_thicknesses > 0.0, "pool_target_thicknesses must be > 0.0 cm"
+            assert self.radial > 0.0, "VoxelationSpecs.radial must be > 0.0 cm"
+            assert self.axial > 0.0, "VoxelationSpecs.axial must be > 0.0 cm"
+
+    @dataclass
+    class ExcoreSpecs:
+        """Specifications for excore region construction.
+
+        Attributes
+        ----------
+        shroud : Reactor.VoxelationSpecs
+            Voxelation specifications for the shroud region.
+        rsr : Reactor.VoxelationSpecs
+            Voxelation specifications for the RSR region.
+        reflector : Reactor.VoxelationSpecs
+            Voxelation specifications for the reflector region.
+        beamport : Reactor.VoxelationSpecs
+            Voxelation specifications for beamport regions.
+        pool : Reactor.VoxelationSpecs
+            Voxelation specifications for the pool region.
+        """
+
+        shroud: Reactor.VoxelationSpecs = field(
+            default_factory=lambda: Reactor.VoxelationSpecs()
+        )
+        rsr: Reactor.VoxelationSpecs = field(
+            default_factory=lambda: Reactor.VoxelationSpecs()
+        )
+        reflector: Reactor.VoxelationSpecs = field(
+            default_factory=lambda: Reactor.VoxelationSpecs()
+        )
+        beamport: Reactor.VoxelationSpecs = field(
+            default_factory=lambda: Reactor.VoxelationSpecs()
+        )
+        pool: Reactor.VoxelationSpecs = field(
+            default_factory=lambda: Reactor.VoxelationSpecs()
+        )
+
 
     @dataclass
     class Specs(BuilderSpecs):
@@ -142,8 +165,8 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         ----------
         core_specs : Dict[str, Reactor.CoreCellSpecs]
             Per-location overrides for core element specs.
-        voxelation_specs : Reactor.VoxelationSpecs
-            Specifications for voxelation of non-core regions.
+        excore_specs : Reactor.ExcoreSpecs
+            Specifications for excore region construction.
         min_thickness : float
             The minimum allowed thickness (cm) for axial mesh unionization.
             See HexLattice.Specs.min_thickness for details.
@@ -165,14 +188,14 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             is not centered at the origin.  Otherwise, will be determined automatically.
         """
 
-        core_specs:       Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
-        voxelation_specs: Reactor.VoxelationSpecs = field(default_factory=lambda: Reactor.VoxelationSpecs())  # pylint: disable=unnecessary-lambda
-        min_thickness:    float = 0.0
-        material_specs:   MaterialSpecs = field(default_factory=dict)
-        openmc_universe:  Optional[openmc.Universe] = None
-        num_procs:        int = 1
-        exclude_excore:   bool = False
-        offset:           Optional[Tuple[float, float, float]] = None
+        core_specs:      Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
+        excore_specs:    Reactor.ExcoreSpecs = field(default_factory=lambda: Reactor.ExcoreSpecs())  # pylint: disable=unnecessary-lambda
+        min_thickness:   float = 0.0
+        material_specs:  MaterialSpecs = field(default_factory=dict)
+        openmc_universe: Optional[openmc.Universe] = None
+        num_procs:       int = 1
+        exclude_excore:  bool = False
+        offset:          Optional[Tuple[float, float, float]] = None
 
         def __post_init__(self) -> None:
             valid_locations = {loc for ring in geometry_elements_triga_netl.Core.RING_MAP for loc in ring}
@@ -364,6 +387,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         pool_bottom, pool_top = reactor.pool_axial_bounds
         reflector_bottom, reflector_top = reactor.reflector_axial_bounds
         rsr_bottom, _ = reactor.rsr_axial_bounds
+        excore_specs = self.specs.excore_specs
 
         points = [pool_bottom,
                   pool_top,
@@ -373,6 +397,38 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         for beamport_id in (1, 2, 3, 4):
             points.extend(reactor.beamport_axial_bounds[beamport_id])
+
+        def add_subdivision_points(
+            bounds: tuple[float, float],
+            specs: Reactor.VoxelationSpecs,
+        ) -> None:
+            target = specs.axial
+            if isinf(target):
+                return
+
+            lower = max(bounds[0], pool_bottom)
+            upper = min(bounds[1], pool_top)
+            length = upper - lower
+            if isclose(length, 0.0, rel_tol=TOL, abs_tol=TOL):
+                return
+            if length < 0.0:
+                return
+
+            num_subdivisions = max(1, ceil(length / target))
+            subd_length = length / num_subdivisions
+            points.extend(lower + i * subd_length for i in range(num_subdivisions + 1))
+
+        add_subdivision_points(reactor.pool_axial_bounds,
+                               excore_specs.pool)
+        add_subdivision_points(reactor.shroud_axial_bounds,
+                               excore_specs.shroud)
+        add_subdivision_points(reactor.rsr_axial_bounds,
+                               excore_specs.rsr)
+        add_subdivision_points(reactor.reflector_axial_bounds,
+                               excore_specs.reflector)
+        for beamport_id in (1, 2, 3, 4):
+            add_subdivision_points(reactor.beamport_axial_bounds[beamport_id],
+                                   excore_specs.beamport)
 
         def within_pool(z: float) -> bool:
             return ((z > pool_bottom or isclose(z, pool_bottom, rel_tol=TOL, abs_tol=TOL)) and
@@ -419,7 +475,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         if not reactor.pool_contains(rect, radial_location):
             return None
 
-        voxel_specs = self.specs.voxelation_specs
+        excore_specs = self.specs.excore_specs
         voxel_material = geometry_elements.InfiniteMedium(reactor.pool.material, name="excore_voxel")
 
         lattice_cache: Dict[Tuple[float, float], mpactpy.Lattice] = {}
@@ -432,16 +488,16 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
             target_thicknesses: List[float] = []
             if reactor.shroud_intersects(rect, radial_location, axial_bounds):
-                target_thicknesses.append(voxel_specs.shroud_target_thicknesses)
+                target_thicknesses.append(excore_specs.shroud.radial)
             if reactor.rsr_intersects(rect, radial_location, axial_bounds):
-                target_thicknesses.append(voxel_specs.rsr_target_thicknesses)
+                target_thicknesses.append(excore_specs.rsr.radial)
             if reactor.reflector_intersects(rect, radial_location, axial_bounds):
-                target_thicknesses.append(voxel_specs.reflector_target_thicknesses)
+                target_thicknesses.append(excore_specs.reflector.radial)
             if reactor.any_beamport_intersects(rect, radial_location, axial_bounds):
-                target_thicknesses.append(voxel_specs.beamport_target_thicknesses)
+                target_thicknesses.append(excore_specs.beamport.radial)
 
             if not target_thicknesses:
-                target_thicknesses.append(voxel_specs.pool_target_thicknesses)
+                target_thicknesses.append(excore_specs.pool.radial)
 
             target_thickness = min(target_thicknesses)
 
