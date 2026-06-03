@@ -28,6 +28,13 @@ from .source_holder import SourceHolder
 from .transient_rod import TransientRod
 
 
+def _default_voxelation_specs() -> "Reactor.VoxelationSpecs":
+    return Reactor.VoxelationSpecs()
+
+
+def _default_excore_specs() -> "Reactor.ExcoreSpecs":
+    return Reactor.ExcoreSpecs()
+
 
 @register_builder(geometry_elements_triga_netl.Reactor)
 class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
@@ -140,21 +147,11 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             Voxelation specifications for the pool region.
         """
 
-        shroud: Reactor.VoxelationSpecs = field(
-            default_factory=lambda: Reactor.VoxelationSpecs()
-        )
-        rsr: Reactor.VoxelationSpecs = field(
-            default_factory=lambda: Reactor.VoxelationSpecs()
-        )
-        reflector: Reactor.VoxelationSpecs = field(
-            default_factory=lambda: Reactor.VoxelationSpecs()
-        )
-        beamport: Reactor.VoxelationSpecs = field(
-            default_factory=lambda: Reactor.VoxelationSpecs()
-        )
-        pool: Reactor.VoxelationSpecs = field(
-            default_factory=lambda: Reactor.VoxelationSpecs()
-        )
+        shroud:    Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        rsr:       Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        reflector: Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        beamport:  Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        pool:      Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
 
 
     @dataclass
@@ -189,7 +186,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         """
 
         core_specs:      Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
-        excore_specs:    Reactor.ExcoreSpecs = field(default_factory=lambda: Reactor.ExcoreSpecs())  # pylint: disable=unnecessary-lambda
+        excore_specs:    Reactor.ExcoreSpecs = field(default_factory=_default_excore_specs)
         min_thickness:   float = 0.0
         material_specs:  MaterialSpecs = field(default_factory=dict)
         openmc_universe: Optional[openmc.Universe] = None
