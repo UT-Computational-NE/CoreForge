@@ -1,8 +1,9 @@
-from typing import TypedDict, Optional, Dict, List
+from typing import TypedDict, Optional
 from dataclasses import dataclass
-from math import ceil, inf, isinf
+from math import inf
 
 import mpactpy
+from mpactpy.utils import equal_thickness_ndivs
 
 from coreforge.mpact_builder.builder import Bounds, Builder, build_material
 from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
@@ -113,37 +114,24 @@ class InfiniteMedium(Builder[geometry_elements.InfiniteMedium]):
             thicknesses["Y"] = bounds.Y.max - bounds.Y.min if bounds.Y else thicknesses["Y"]
             thicknesses["Z"] = bounds.Z.max - bounds.Z.min if bounds.Z else thicknesses["Z"]
 
-        def divide_length(length: float, target: float) -> List[float]:
-            num_regions = 1 if isinf(target) else max(1, ceil(length / target))
-            return [length / num_regions] * num_regions
+        pin = mpactpy.build_rec_pin(thicknesses             = {dim: [thicknesses[dim]] for dim in ["X", "Y", "Z"]},
+                                    materials               = [material],
+                                    target_cell_thicknesses = {} if specs.divide_materials else specs.target_cell_thicknesses)
 
-        def build_module(module_thicknesses: Dict[str, float]) -> mpactpy.Module:
-            if specs.divide_materials:
-                pin_thicknesses = {dim: divide_length(module_thicknesses[dim],
-                                                      specs.target_cell_thicknesses[dim])
-                                   for dim in ["X", "Y", "Z"]}
-                materials = [material] * (len(pin_thicknesses["X"]) *
-                                          len(pin_thicknesses["Y"]) *
-                                          len(pin_thicknesses["Z"]))
-                target_cell_thicknesses = {}
-            else:
-                pin_thicknesses = {dim: [module_thicknesses[dim]] for dim in ["X", "Y", "Z"]}
-                materials = [material]
-                target_cell_thicknesses = dict(specs.target_cell_thicknesses)
+        if specs.divide_materials:
+            subdivisions = mpactpy.RectangularPinMesh.Subdivisions(
+                subd_x = equal_thickness_ndivs([thicknesses["X"]], specs.target_cell_thicknesses["X"]),
+                subd_y = equal_thickness_ndivs([thicknesses["Y"]], specs.target_cell_thicknesses["Y"]),
+                subd_z = equal_thickness_ndivs([thicknesses["Z"]], specs.target_cell_thicknesses["Z"]),
+            )
+            pin = pin.subdivide(subdivisions)
 
-            pin = mpactpy.build_rec_pin(thicknesses             = pin_thicknesses,
-                                        materials               = materials,
-                                        target_cell_thicknesses = target_cell_thicknesses)
+        def build_module(pin: mpactpy.Pin) -> mpactpy.Module:
             return mpactpy.Module(1, [[pin]])
 
-        # half radial thicknesses
-        ht   = {"X": thicknesses["X"]*0.5,
-                "Y": thicknesses["Y"]*0.5,
-                "Z": thicknesses["Z"]}
-
-        module_map = [[build_module(thicknesses)]] if not specs.divide_into_quadrants else \
-                     [[build_module(ht),build_module(ht)],
-                      [build_module(ht),build_module(ht)],]
+        module_map = [[build_module(pin)]] if not specs.divide_into_quadrants else \
+                     [[build_module(quadrant_pin) for quadrant_pin in row]
+                      for row in pin.divide_into_quadrants()]
 
         lattice  = mpactpy.Lattice(module_map)
         assembly = mpactpy.Assembly([lattice])

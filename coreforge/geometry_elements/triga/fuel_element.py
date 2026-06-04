@@ -5,14 +5,13 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Literal, Union
 from math import isclose, sqrt
 
-from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
+from mpactpy.utils import equal_volume_ring_radii, relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Graphite, Material, Mo, SS304, UZrH, Water, Zr, unique_materials
-from coreforge.shapes.utils import equal_volume_ring_radii
 
 
 # pylint: disable=too-many-public-methods
@@ -759,7 +758,7 @@ class FuelElement(GeometryElement):
         fuel_radii = equal_volume_ring_radii(
             inner_radius = fuel_meat.inner_radius,
             outer_radius = fuel_meat.outer_radius,
-            num_regions  = fuel_meat.num_radial_regions,
+            num_div      = fuel_meat.num_radial_regions,
         )
         material_start = axial_level * fuel_meat.num_radial_regions
         material_stop  = material_start + fuel_meat.num_radial_regions

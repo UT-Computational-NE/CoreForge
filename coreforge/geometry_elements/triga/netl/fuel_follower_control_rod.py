@@ -5,13 +5,12 @@ from dataclasses import dataclass, field
 from math import isclose
 from typing import List, Optional, Union
 
-from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
+from mpactpy.utils import equal_volume_ring_radii, relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, B4C, Material, SS304, UZrH, Water, Zr, unique_materials
-from coreforge.shapes.utils import equal_volume_ring_radii
 
 
 # pylint: disable=too-many-public-methods
@@ -786,7 +785,7 @@ class FuelFollowerControlRod(GeometryElement):
         fuel_radii = equal_volume_ring_radii(
             inner_radius = fuel_follower.inner_radius,
             outer_radius = fuel_follower.outer_radius,
-            num_regions  = fuel_follower.num_radial_regions,
+            num_div      = fuel_follower.num_radial_regions,
         )
         material_start = axial_level * fuel_follower.num_radial_regions
         material_stop  = material_start + fuel_follower.num_radial_regions
