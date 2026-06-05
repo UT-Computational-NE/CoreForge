@@ -73,6 +73,49 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
             assert self.ndivr_mat_type in ("equal_thickness", "equal_volume"), \
                 f"ndivr_mat_type = {self.ndivr_mat_type}"
 
+
+    @staticmethod
+    def meshing(
+            ndivr_fsr:      int | List[int] = 1,
+            ndivr_mat:      int | List[int] = 1,
+            ndiva:          int | List[int] = 1,
+            ndivr_mat_type: RadialDivisionType | List[RadialDivisionType] = "equal_thickness",
+    ) -> List[ZoneSpecs]:
+        """Create one or more zone meshing specifications.
+
+        Each argument may be a single value or a list.  If any argument is a
+        list, all list arguments must have the same length and single-value
+        arguments are broadcast to that length.
+        """
+        list_lengths = [
+            len(specs)
+            for specs in [ndivr_fsr, ndivr_mat, ndiva, ndivr_mat_type]
+            if isinstance(specs, list)
+        ]
+
+        num_specs = list_lengths[0] if list_lengths else 1
+        assert num_specs > 0, "Pin-cell mesh parameter lists must not be empty."
+        assert all(length == num_specs for length in list_lengths), \
+            f"Pin-cell mesh parameter list lengths are inconsistent: {list_lengths}"
+
+        ndivr_fsrs      = ndivr_fsr if isinstance(ndivr_fsr, list) else [ndivr_fsr] * num_specs
+        ndivr_mats      = ndivr_mat if isinstance(ndivr_mat, list) else [ndivr_mat] * num_specs
+        ndivas          = ndiva if isinstance(ndiva, list) else [ndiva] * num_specs
+        ndivr_mat_types = ndivr_mat_type if isinstance(ndivr_mat_type, list) else \
+            [ndivr_mat_type] * num_specs
+
+        return [
+            CylindricalPinCell.ZoneSpecs(
+                ndivr_fsr      = zone_ndivr_fsr,
+                ndivr_mat      = zone_ndivr_mat,
+                ndiva          = zone_ndiva,
+                ndivr_mat_type = zone_ndivr_mat_type,
+            )
+            for zone_ndivr_fsr, zone_ndivr_mat, zone_ndiva, zone_ndivr_mat_type
+            in zip(ndivr_fsrs, ndivr_mats, ndivas, ndivr_mat_types)
+        ]
+
+
     class Specs(BuilderSpecs):
         """Building specifications for CylindricalPinCells.
 
@@ -80,9 +123,10 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         ----------
         zone_specs : Optional[ZoneSpecs | List[ZoneSpecs]]
             Mesh specifications for the pin cell. A single ``ZoneSpecs``
-            applies to all cylindrical zones and the outer region. A list
-            specifies regions individually and must have one entry for each
-            cylindrical zone plus one final entry for the outer region.
+            applies to all cylindrical zones and the outer region. A one-entry
+            list is treated the same way. Longer lists specify regions
+            individually and must have one entry for each cylindrical zone plus
+            one final entry for the outer region.
         divide_into_quadrants : bool
             An optional setting to divide the pincell into 4 separate MPACT
             Module quadrants. This will represent the pincell with 4 MPACT
@@ -94,9 +138,10 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         ----------
         zone_specs : Optional[ZoneSpecs | List[ZoneSpecs]]
             Mesh specifications for the pin cell. A single ``ZoneSpecs``
-            applies to all cylindrical zones and the outer region. A list
-            specifies regions individually and must have one entry for each
-            cylindrical zone plus one final entry for the outer region.
+            applies to all cylindrical zones and the outer region. A one-entry
+            list is treated the same way. Longer lists specify regions
+            individually and must have one entry for each cylindrical zone plus
+            one final entry for the outer region.
         divide_into_quadrants : bool
             An optional setting to divide the pincell into 4 separate MPACT Module quadrants.
             This will represent the pincell with 4 MPACT Modules rather than just one.
@@ -105,7 +150,9 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
             Specifications for how materials should be treated in MPACT
         """
 
-        zone_specs:            Optional[CylindricalPinCell.ZoneSpecs | List[CylindricalPinCell.ZoneSpecs]]
+        zone_specs:            Optional[
+            CylindricalPinCell.ZoneSpecs | List[CylindricalPinCell.ZoneSpecs]
+        ]
         divide_into_quadrants: bool
         material_specs:        MaterialSpecs
 
@@ -137,7 +184,9 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def build(self, element: geometry_elements.CylindricalPinCell, bounds: Optional[Bounds] = None) -> mpactpy.Core:
+    def build(self,
+              element: geometry_elements.CylindricalPinCell,
+              bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a CylindricalPinCell
 
         Parameters
@@ -166,19 +215,25 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         def build_module(pin: mpactpy.Pin) -> mpactpy.Module:
             return mpactpy.Module(1, [[pin]])
 
-        zone_specs = specs.zone_specs if specs.zone_specs is not None else CylindricalPinCell.ZoneSpecs()
+        zone_specs = specs.zone_specs if specs.zone_specs is not None else \
+            CylindricalPinCell.ZoneSpecs()
         if isinstance(zone_specs, CylindricalPinCell.ZoneSpecs):
-            zone_specs = [zone_specs] * (len(element.zones) + 1)
+            zone_specs = [zone_specs]
+        if len(zone_specs) == 1:
+            zone_specs = zone_specs * (len(element.zones) + 1)
 
         assert len(zone_specs) == len(element.zones) + 1, \
-            f"len(zone_specs) = {len(zone_specs)}, len(element.zones) + 1 = {len(element.zones) + 1}"
+            f"len(zone_specs) = {len(zone_specs)}, " + \
+            f"len(element.zones) + 1 = {len(element.zones) + 1}"
 
         radii = [zone.shape.outer_radius for zone in element.zones]
         materials = [build_material(zone.material, specs.material_specs) for zone in element.zones]
         materials.append(build_material(element.outer_material, specs.material_specs))
 
         ndivr = [zone_spec.ndivr_fsr for zone_spec in zone_specs[:-1]]
-        ndiva = [zone_spec.ndiva for zone_spec in zone_specs[:-1] for _ in range(zone_spec.ndivr_fsr)]
+        ndiva = [zone_spec.ndiva
+                 for zone_spec in zone_specs[:-1]
+                 for _ in range(zone_spec.ndivr_fsr)]
         ndiva.append(zone_specs[-1].ndiva)
 
         z_thickness = bounds.Z.max - bounds.Z.min if bounds.Z else 1.0
