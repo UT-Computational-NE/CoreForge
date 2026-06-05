@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from math import ceil, inf
+from math import inf
 from typing import Optional, Tuple, TypedDict
 
 import mpactpy
 import openmc
+from mpactpy.utils import equal_thickness_ndivs
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Material
@@ -145,7 +146,7 @@ class VoxelBuilder(Builder[GeometryElement]):
                 target = specs.target_thicknesses.get(axis)
                 if target is None:
                     raise ValueError(f"Missing target_thicknesses and num_div for axis {axis}.")
-                num_div = max(1, int(ceil(length / target)))
+                num_div = equal_thickness_ndivs([length], target)[0]
             return [length / num_div] * num_div
 
         thicknesses = {axis: axis_thicknesses(axis, length) for axis, length in axis_lengths.items()}
