@@ -8,7 +8,6 @@ from coreforge.mpact_builder.builder import AxisBounds, Bounds
 from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.mpact_builder import build, register_builder
-from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.mpact_builder.triga.core_element import CoreElement
 from coreforge import geometry_elements
 import coreforge.geometry_elements.triga as geometry_elements_triga
@@ -111,14 +110,10 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
                               element: geometry_elements_triga.GraphiteElement,
     ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
 
-        lower_end_options = OneSidedCone.StackOptions(
-            target_axial_length=self.specs.lower_end_fitting.target_axial_thickness
+        stack = element.as_stack(
+            lower_end_target_axial_thickness = self.specs.lower_end_fitting.target_axial_thickness,
+            upper_end_target_axial_thickness = self.specs.upper_end_fitting.target_axial_thickness,
         )
-        upper_end_options = OneSidedCone.StackOptions(
-            target_axial_length=self.specs.upper_end_fitting.target_axial_thickness
-        )
-        stack = element.as_stack(lower_end_options=lower_end_options,
-                                 upper_end_options=upper_end_options)
 
         segment_specs = {}
         lower_end_count = None

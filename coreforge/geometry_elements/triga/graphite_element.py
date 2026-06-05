@@ -1,15 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from math import isclose, sqrt
-from typing import List, Literal, Optional
+from math import isclose
+from typing import List, Optional
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.geometry_elements.stack import Stack
+from coreforge.geometry_elements.triga.end_fitting import EndFitting as BaseEndFitting
 from coreforge.materials import Air, Al6061T6, Graphite, Material, Water, unique_materials
 
 
@@ -132,68 +132,28 @@ class GraphiteElement(GeometryElement):
                          relative_round(self.inner_radius, TOL),
                          self.material))
 
-    @dataclass(frozen=True)
-    class EndFitting:
-        """End fitting specification, approximated as a cone.
+    @dataclass(frozen=True, eq=False)
+    class EndFitting(BaseEndFitting):
+        """Graphite element end fitting specification.
 
-        Attributes
+        The fitting is represented as a conical taper that can be converted to
+        a stack of volume-preserving cylindrical segments. When the fitting is
+        clipped by the graphite element cladding radius, the full-radius
+        cylindrical portion is modeled exactly and only the remaining taper is
+        approximated.
+
+        Parameters
         ----------
         length : float
-            Cone length (base to apex) [cm].
+            Cone length from base to apex [cm].
         r2 : float
-            Square of the slope (dr/dz)^2 for the conical section.
+            Square of the cone slope ``(dr/dz)^2``.
         direction : {'up', 'down'}
-            Orientation of the fitting.
+            Orientation of the fitting in a bottom-to-top stack.
         material : Material
-            Fitting material (defaults to ``Al6061T6``).
+            Fitting material. Defaults to ``Al6061T6``.
         """
-        length: float
-        r2: float
-        direction: Literal["up", "down"]
         material: Material = field(default_factory=Al6061T6)
-
-        def __post_init__(self) -> None:
-            assert self.length > 0.0, "End Fitting length must be positive."
-            assert self.r2 > 0.0, "End Fitting r2 must be positive."
-            assert self.direction in ("up", "down"), (
-                "End Fitting direction must be either 'up' or 'down'."
-            )
-
-        def cone(self, outer_material: Material, name: str = "end_fitting_cone") -> OneSidedCone:
-            """Create a cone geometry element for this end fitting.
-
-            Parameters
-            ----------
-            outer_material : Material
-                Material surrounding the cone.
-            name : str, optional
-                Name for the returned geometry element.
-
-            Returns
-            -------
-            OneSidedCone
-                Geometry element representing this end fitting.
-            """
-            return OneSidedCone(fill_material  = self.material,
-                                outer_material = outer_material,
-                                r              = sqrt(self.r2) * self.length,
-                                h              = self.length,
-                                name           = name)
-
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, GraphiteElement.EndFitting) and
-                    isclose(self.length, other.length, rel_tol=TOL) and
-                    isclose(self.r2, other.r2, rel_tol=TOL) and
-                    self.direction == other.direction and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.length, TOL),
-                         relative_round(self.r2, TOL),
-                         self.direction,
-                         self.material))
 
     @property
     def cladding(self) -> Cladding:
@@ -309,8 +269,8 @@ class GraphiteElement(GeometryElement):
     def as_stack(
         self,
         bottom_pos: float = 0.0,
-        lower_end_options: Optional[OneSidedCone.StackOptions] = None,
-        upper_end_options: Optional[OneSidedCone.StackOptions] = None,
+        lower_end_target_axial_thickness: Optional[float] = None,
+        upper_end_target_axial_thickness: Optional[float] = None,
     ) -> Stack:
         """ A method for getting a copy of the Graphite Element as a Stack
 
@@ -318,10 +278,10 @@ class GraphiteElement(GeometryElement):
         ----------
         bottom_pos : float
             The axial position of the bottom of the stack (cm)
-        lower_end_options : Optional[OneSidedCone.StackOptions]
-            Stack options for the lower end fitting cone.
-        upper_end_options : Optional[OneSidedCone.StackOptions]
-            Stack options for the upper end fitting cone.
+        lower_end_target_axial_thickness : Optional[float]
+            Target axial thickness for lower end fitting segments.
+        upper_end_target_axial_thickness : Optional[float]
+            Target axial thickness for upper end fitting segments.
 
         Returns
         -------
@@ -329,26 +289,19 @@ class GraphiteElement(GeometryElement):
             The Graphite Element as a Stack
         """
 
-        lower_end_options = lower_end_options or OneSidedCone.StackOptions()
-        upper_end_options = upper_end_options or OneSidedCone.StackOptions()
-
-        lower_cone = self.lower_end_fitting.cone(
-            outer_material = self.outer_material,
-            name           = self.name + "_lower_end_fitting_cone",
-        )
-        lower_end_stack = lower_cone.as_stack(
-            bottom_pos    = bottom_pos,
-            stack_options = lower_end_options,
-            direction     = self.lower_end_fitting.direction,
+        lower_end_stack = self.lower_end_fitting.as_stack(
+            outer_material          = self.outer_material,
+            bottom_pos              = bottom_pos,
+            target_axial_thickness  = lower_end_target_axial_thickness,
+            max_radius              = self.cladding.outer_radius,
+            name                    = self.name + "_lower_end_fitting",
         )
 
-        upper_cone = self.upper_end_fitting.cone(
-            outer_material = self.outer_material,
-            name           = self.name + "_upper_end_fitting_cone",
-        )
-        upper_end_stack = upper_cone.as_stack(
-            stack_options = upper_end_options,
-            direction     = self.upper_end_fitting.direction,
+        upper_end_stack = self.upper_end_fitting.as_stack(
+            outer_material          = self.outer_material,
+            target_axial_thickness  = upper_end_target_axial_thickness,
+            max_radius              = self.cladding.outer_radius,
+            name                    = self.name + "_upper_end_fitting",
         )
 
         mid_stack = Stack(segments=[
