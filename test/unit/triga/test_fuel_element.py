@@ -167,15 +167,11 @@ def test_mpact_builder(fuel_element, multi_region_fuel_element):
     core = mpact_builder.build(geom_element)
 
     expected_xy = fuel_element.cladding.outer_radius * 2.0
-    expected_z = sorted([fuel_element.lower_end_fitting.length,
-                         fuel_element.lower_graphite_reflector.thickness,
-                         fuel_element.moly_disc.thickness,
-                         fuel_element.fuel_meat.length,
-                         fuel_element.upper_graphite_reflector.thickness,
-                         fuel_element.upper_air_gap.thickness,
-                         fuel_element.upper_end_fitting.length,])
-    expected_nz = len(expected_z)
-    expected_height = sum(expected_z)
+    expected_axial_lengths = [segment.length for segment in fuel_element.as_stack().segments]
+    expected_z = sorted(set(expected_axial_lengths))
+    expected_nz = len(expected_axial_lengths)
+    expected_unique_count = len(expected_z)
+    expected_height = sum(expected_axial_lengths)
 
     assert isclose(core.mod_dim['X'], expected_xy)
     assert isclose(core.mod_dim['Y'], expected_xy)
@@ -183,20 +179,16 @@ def test_mpact_builder(fuel_element, multi_region_fuel_element):
     assert core.nz == expected_nz
     assert isclose(core.height, expected_height)
 
-    assert len(core.pins)       == expected_nz
-    assert len(core.modules)    == expected_nz
-    assert len(core.lattices)   == expected_nz
+    assert len(core.pins)       == expected_unique_count
+    assert len(core.modules)    == expected_unique_count
+    assert len(core.lattices)   == expected_unique_count
     assert len(core.assemblies) == 1
 
     multi_core = mpact_builder.build(multi_region_fuel_element)
-    expected_multi_axial_lengths = [multi_region_fuel_element.lower_end_fitting.length,
-                                    multi_region_fuel_element.lower_graphite_reflector.thickness,
-                                    multi_region_fuel_element.moly_disc.thickness,
-                                    multi_region_fuel_element.fuel_meat.length * 0.5,
-                                    multi_region_fuel_element.fuel_meat.length * 0.5,
-                                    multi_region_fuel_element.upper_graphite_reflector.thickness,
-                                    multi_region_fuel_element.upper_air_gap.thickness,
-                                    multi_region_fuel_element.upper_end_fitting.length]
+    expected_multi_axial_lengths = [
+        segment.length
+        for segment in multi_region_fuel_element.as_stack().segments
+    ]
     expected_multi_z = sorted(set(expected_multi_axial_lengths))
     assert_allclose(multi_core.mod_dim['Z'], expected_multi_z)
     assert multi_core.nz == len(expected_multi_axial_lengths)

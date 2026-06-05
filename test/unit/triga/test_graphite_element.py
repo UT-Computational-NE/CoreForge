@@ -96,11 +96,11 @@ def test_mpact_builder(graphite_element):
     core = mpact_builder.build(geom_element)
 
     expected_xy = graphite_element.cladding.outer_radius * 2.0
-    expected_z = sorted([graphite_element.lower_end_fitting.length,
-                         graphite_element.graphite_meat.length,
-                         graphite_element.upper_end_fitting.length])
-    expected_nz = len(expected_z)
-    expected_height = sum(expected_z)
+    expected_axial_lengths = [segment.length for segment in graphite_element.as_stack().segments]
+    expected_z = sorted(set(expected_axial_lengths))
+    expected_nz = len(expected_axial_lengths)
+    expected_unique_count = len(expected_z)
+    expected_height = sum(expected_axial_lengths)
 
     assert isclose(core.mod_dim['X'], expected_xy)
     assert isclose(core.mod_dim['Y'], expected_xy)
@@ -108,7 +108,7 @@ def test_mpact_builder(graphite_element):
     assert core.nz == expected_nz
     assert isclose(core.height, expected_height)
 
-    assert len(core.pins)       == expected_nz
-    assert len(core.modules)    == expected_nz
-    assert len(core.lattices)   == expected_nz
+    assert len(core.pins)       == expected_unique_count
+    assert len(core.modules)    == expected_unique_count
+    assert len(core.lattices)   == expected_unique_count
     assert len(core.assemblies) == 1
