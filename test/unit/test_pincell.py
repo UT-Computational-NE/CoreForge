@@ -138,6 +138,37 @@ def test_cylindrical_pincell_initialization(cylindrical_pincell):
     expected = unique_materials([zone.material for zone in geom_element.zones] + [geom_element.outer_material])
     assert geom_element.get_materials() == expected
 
+
+def test_cylindrical_pincell_meshing_factory():
+    zone_specs = mpact_builder.CylindricalPinCell.meshing(ndivr_fsr      = 2,
+                                                          ndivr_mat      = 3,
+                                                          ndiva          = 4,
+                                                          ndivr_mat_type = "equal_volume")
+
+    assert len(zone_specs) == 1
+    assert zone_specs[0] == mpact_builder.CylindricalPinCell.ZoneSpecs(ndivr_fsr      = 2,
+                                                                       ndivr_mat      = 3,
+                                                                       ndiva          = 4,
+                                                                       ndivr_mat_type = "equal_volume")
+
+    zone_specs = mpact_builder.CylindricalPinCell.meshing(
+        ndivr_fsr      = [1, 2, 3],
+        ndivr_mat      = 4,
+        ndiva          = [5, 6, 7],
+        ndivr_mat_type = ["equal_thickness", "equal_volume", "equal_thickness"]
+    )
+
+    assert [(spec.ndivr_fsr, spec.ndivr_mat, spec.ndiva, spec.ndivr_mat_type)
+            for spec in zone_specs] == [(1, 4, 5, "equal_thickness"),
+                                        (2, 4, 6, "equal_volume"),
+                                        (3, 4, 7, "equal_thickness")]
+
+    with pytest.raises(AssertionError):
+        mpact_builder.CylindricalPinCell.meshing(ndivr_fsr = [1, 2],
+                                                 ndivr_mat = [1],
+                                                 ndiva     = 4)
+
+
 def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pincell_mpact_specs, salt, graphite):
 
     geom_element = cylindrical_pincell
