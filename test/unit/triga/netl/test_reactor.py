@@ -1,6 +1,7 @@
 from copy import deepcopy
 from math import cos, radians, sin
 
+import openmc
 import pytest
 
 from coreforge.geometry_elements.triga.netl import Reactor
@@ -8,6 +9,7 @@ from coreforge.materials import unique_materials
 from coreforge.shapes import Rectangle
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
+from coreforge.openmc_builder.triga.netl.reactor import build_core_lattice
 
 from .test_pool import pool
 from .test_reflector import reflector
@@ -190,6 +192,20 @@ def test_openmc_builder(reactor):
     universe = openmc_builder.build(reactor)
     assert universe.name == "reactor"
     assert len(universe.cells) == 9
+
+
+def test_openmc_core_lattice_outer_extends_grid_plates(reactor):
+    lattice = build_core_lattice(reactor)
+    outer_cells = list(lattice.outer.cells.values())
+    outer_fills = [cell.fill for cell in outer_cells]
+
+    assert len(outer_cells) == 3
+    assert outer_fills.count(reactor.upper_grid_plate.geometry.material.openmc_material) == 2
+    assert reactor.core.fill_material.openmc_material in outer_fills
+
+    for cell in outer_cells:
+        assert all(not isinstance(surface, openmc.ZCylinder)
+                   for surface in cell.region.get_surfaces().values())
 
 
 def test_mpact_builder_without_excore(reactor, num_procs):
