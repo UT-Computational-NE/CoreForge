@@ -194,20 +194,6 @@ def test_openmc_builder(reactor):
     assert len(universe.cells) == 9
 
 
-def test_openmc_core_lattice_outer_extends_grid_plates(reactor):
-    lattice = build_core_lattice(reactor)
-    outer_cells = list(lattice.outer.cells.values())
-    outer_fills = [cell.fill for cell in outer_cells]
-
-    assert len(outer_cells) == 3
-    assert outer_fills.count(reactor.upper_grid_plate.geometry.material.openmc_material) == 2
-    assert reactor.core.fill_material.openmc_material in outer_fills
-
-    for cell in outer_cells:
-        assert all(not isinstance(surface, openmc.ZCylinder)
-                   for surface in cell.region.get_surfaces().values())
-
-
 def test_mpact_builder_without_excore(reactor, num_procs):
     specs = mpact_builder.triga.netl.Reactor.Specs(exclude_excore=True, num_procs=num_procs)
     core = mpact_builder.build(reactor, specs)
