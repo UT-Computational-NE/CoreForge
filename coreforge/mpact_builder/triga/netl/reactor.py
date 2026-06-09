@@ -475,6 +475,10 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         excore_specs = self.specs.excore_specs
         voxel_material = geometry_elements.InfiniteMedium(reactor.pool.material, name="excore_voxel")
 
+        gride_plate_bounds = (-reactor.lower_grid_plate.top_to_core_centerline_distance +
+                              -reactor.lower_grid_plate.geometry.thickness,
+                              reactor.upper_grid_plate.top_to_core_centerline_distance,)
+
         lattice_cache: Dict[Tuple[float, float], mpactpy.Lattice] = {}
         lattice_map: List[mpactpy.Lattice] = []
         z_cursor = reactor.pool_axial_bounds[0]
@@ -483,8 +487,13 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             axial_bounds = (z_cursor, z_next)
             z_cursor = z_next
 
+            between_grid_plate_bounds = ((axial_bounds[1] > gride_plate_bounds[0] or
+                                         isclose(axial_bounds[1], gride_plate_bounds[0], rel_tol=TOL)) &
+                                         (axial_bounds[0] < gride_plate_bounds[1] or
+                                         isclose(axial_bounds[1], gride_plate_bounds[0], rel_tol=TOL)))
+
             target_thicknesses: List[float] = []
-            if reactor.shroud_intersects(rect, radial_location, axial_bounds):
+            if reactor.shroud_intersects(rect, radial_location) and between_grid_plate_bounds:
                 target_thicknesses.append(excore_specs.shroud.radial)
             if reactor.rsr_intersects(rect, radial_location, axial_bounds):
                 target_thicknesses.append(excore_specs.rsr.radial)
