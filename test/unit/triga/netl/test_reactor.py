@@ -6,7 +6,7 @@ import pytest
 
 from coreforge.geometry_elements.triga.netl import Reactor
 from coreforge.materials import unique_materials
-from coreforge.shapes import Rectangle
+from coreforge.shapes import Interval, Rectangle
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from coreforge.openmc_builder.triga.netl.reactor import build_core_lattice
@@ -110,10 +110,10 @@ def test_initialization(reactor, pool, reflector, rsr_cavity):
     expected_reflector = (reflector_center - reflector_half, reflector_center + reflector_half)
     expected_rsr = (expected_reflector[1] - rsr_cavity.height, expected_reflector[1])
 
-    assert reactor.pool_axial_bounds == pytest.approx(expected_pool)
-    assert reactor.reflector_axial_bounds == pytest.approx(expected_reflector)
-    assert reactor.shroud_axial_bounds == pytest.approx(expected_reflector)
-    assert reactor.rsr_axial_bounds == pytest.approx(expected_rsr)
+    assert reactor.pool_axial_bounds.bounds == pytest.approx(expected_pool)
+    assert reactor.reflector_axial_bounds.bounds == pytest.approx(expected_reflector)
+    assert reactor.shroud_axial_bounds.bounds == pytest.approx(expected_reflector)
+    assert reactor.rsr_axial_bounds.bounds == pytest.approx(expected_rsr)
     assert reactor.beamport_axial_bounds[5] == reactor.beamport_axial_bounds[1]
     expected = []
     expected.extend(reactor.pool.get_materials())
@@ -146,15 +146,15 @@ def test_axial_bounds_properties(reactor):
 
     assert set(reactor.beamport_axial_bounds.keys()) == {1, 2, 3, 4, 5}
     for beamport_id, bounds in expected.items():
-        assert reactor.beamport_axial_bounds[beamport_id] == pytest.approx(bounds)
+        assert reactor.beamport_axial_bounds[beamport_id].bounds == pytest.approx(bounds)
 
 
 def test_axial_intersection_filters(reactor):
     rect = Rectangle(w=1.0, h=1.0)
     cell_center = (0.0, 0.0)
 
-    out_reflector = (reactor.reflector_axial_bounds[1] + 1.0,
-                     reactor.reflector_axial_bounds[1] + 2.0)
+    out_reflector = Interval(reactor.reflector_axial_bounds.upper + 1.0,
+                             reactor.reflector_axial_bounds.upper + 2.0)
     shroud_outer_x = reactor.shroud.primary_hex_inner_radius + reactor.shroud.thickness
     rsr_center = ((shroud_outer_x + reactor.rotary_specimen_rack_cavity.outer_radius) * 0.5, 0.0)
     reflector_center = ((reactor.rotary_specimen_rack_cavity.outer_radius +
@@ -163,19 +163,19 @@ def test_axial_intersection_filters(reactor):
     assert reactor.reflector_intersects(rect, reflector_center, reactor.reflector_axial_bounds)
     assert not reactor.reflector_intersects(rect, cell_center, out_reflector)
 
-    out_rsr = (reactor.rsr_axial_bounds[1] + 1.0,
-               reactor.rsr_axial_bounds[1] + 2.0)
+    out_rsr = Interval(reactor.rsr_axial_bounds.upper + 1.0,
+                       reactor.rsr_axial_bounds.upper + 2.0)
     assert not reactor.rsr_intersects(rect, cell_center, reactor.rsr_axial_bounds)
     assert reactor.rsr_intersects(rect, rsr_center, reactor.rsr_axial_bounds)
     assert not reactor.rsr_intersects(rect, rsr_center, out_rsr)
 
     cell_center = (reactor.beam_port_1_5.translation[0], reactor.beam_port_1_5.translation[1])
-    out_beamport = (reactor.beamport_axial_bounds[1][1] + 1.0,
-                    reactor.beamport_axial_bounds[1][1] + 2.0)
+    out_beamport = Interval(reactor.beamport_axial_bounds[1].upper + 1.0,
+                            reactor.beamport_axial_bounds[1].upper + 2.0)
     assert reactor.beamport_intersects(rect, cell_center, 1, reactor.beamport_axial_bounds[1])
     assert not reactor.beamport_intersects(rect, cell_center, 1, out_beamport)
-    out_pool = (reactor.pool_axial_bounds[1] + 1.0,
-                reactor.pool_axial_bounds[1] + 2.0)
+    out_pool = Interval(reactor.pool_axial_bounds.upper + 1.0,
+                        reactor.pool_axial_bounds.upper + 2.0)
     assert reactor.pool_contains(rect, cell_center, reactor.pool_axial_bounds)
     assert not reactor.pool_contains(rect, cell_center, out_pool)
 
@@ -183,8 +183,8 @@ def test_axial_intersection_filters(reactor):
     cell_side = thickness * 0.1
     shroud_rect = Rectangle(w=cell_side, h=cell_side)
     cell_center = (reactor.shroud.primary_hex_inner_radius + 0.25 * cell_side, 0.0)
-    out_shroud = (reactor.shroud_axial_bounds[1] + 1.0,
-                  reactor.shroud_axial_bounds[1] + 2.0)
+    out_shroud = Interval(reactor.shroud_axial_bounds.upper + 1.0,
+                          reactor.shroud_axial_bounds.upper + 2.0)
     assert reactor.shroud_intersects(shroud_rect, cell_center, reactor.shroud_axial_bounds)
     assert not reactor.shroud_intersects(shroud_rect, cell_center, out_shroud)
 

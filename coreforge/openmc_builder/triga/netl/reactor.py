@@ -177,8 +177,8 @@ def build_shroud(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Univer
                                                  orientation = 'y')
     rotated_hex   = openmc.model.HexagonalPrism(edge_length = rotated_hex_shape.outer_radius,
                                                  orientation = 'y').rotate((0, 0, 30))
-    shroud_top    = openmc.ZPlane(z0 = reactor.shroud_axial_bounds[1])
-    shroud_bottom = openmc.ZPlane(z0 = reactor.shroud_axial_bounds[0])
+    shroud_top    = openmc.ZPlane(z0 = reactor.shroud_axial_bounds.upper)
+    shroud_bottom = openmc.ZPlane(z0 = reactor.shroud_axial_bounds.lower)
 
     shroud_region = ~(-primary_hex & -rotated_hex) & (-shroud_top & +shroud_bottom)
 

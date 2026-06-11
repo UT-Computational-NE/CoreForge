@@ -1,13 +1,40 @@
 import pytest
 from math import isclose, pi, sqrt, asin
 
-from coreforge.shapes import Circle, Rectangle, Square, Stadium, Hexagon, \
+from coreforge.shapes import Interval, Circle, Rectangle, Square, Stadium, Hexagon, \
                             Torispherical_Dome, ASME_Flanged_Dished_Dome, \
                             Cone, OneSidedCone
 from coreforge.shapes.utils import is_convex
 from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE
 
 TOL = ROUNDING_RELATIVE_TOLERANCE * 1E-2
+
+def test_interval():
+    interval = Interval(lower=1.0, upper=3.0)
+    assert isclose(interval.lower, 1.0)
+    assert isclose(interval.upper, 3.0)
+    assert interval.bounds == (1.0, 3.0)
+    assert isclose(interval.length, 2.0)
+    assert isclose(interval.center, 2.0)
+
+    equal_interval = Interval(lower=1.0 * (1.0 + TOL), upper=3.0 * (1.0 + TOL))
+    not_equal_interval = Interval(lower=1.0, upper=4.0)
+    assert interval == equal_interval
+    assert interval != not_equal_interval
+    assert hash(interval) == hash(equal_interval)
+    assert hash(interval) != hash(not_equal_interval)
+
+    assert interval.intersects(Interval(3.0, 4.0))
+    assert not interval.intersects(Interval(3.1, 4.0))
+    assert interval.intersects(Interval(3.0 * (1.0 + TOL), 4.0))
+
+    assert interval.contains(Interval(1.5, 2.5))
+    assert interval.contains(Interval(1.0 * (1.0 - TOL), 3.0 * (1.0 + TOL)))
+    assert not interval.contains(Interval(0.5, 2.5))
+
+    with pytest.raises(AssertionError):
+        Interval(lower=3.0, upper=1.0)
+
 
 def test_circle():
     r = 3.

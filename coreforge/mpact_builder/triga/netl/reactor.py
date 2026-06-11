@@ -10,7 +10,7 @@ from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE as TOL
 from coreforge import geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 from coreforge.materials import Material
-from coreforge.shapes import Rectangle
+from coreforge.shapes import Interval, Rectangle
 from coreforge import openmc_builder
 from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs, DEFAULT_MPACT_MATERIAL_SPECS
@@ -93,7 +93,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             VoxelizedSegmentSpecs (InfiniteMedium.Specs) when there are no grid
             plate penetrations, and CoreElement.SegmentSpecs
             (CylindricalPinCell.Specs) when penetrations are present.
-        axial_bounds : Optional[tuple[float, float]]
+        axial_bounds : Optional[Interval]
             Lower and upper axial bounds (cm) to clip the constructed stack.
         unionize_radial_mesh : bool
             Whether to unionize the radial mesh across stack segments when a core
@@ -102,13 +102,16 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         element_specs:      Optional[Reactor.CoreElementSpecs] = None
         outer_region_specs: Optional[Reactor.VoxelizedSegmentSpecs | CoreElement.SegmentSpecs] = None
-        axial_bounds:       Optional[Tuple[float, float]] = None
+        axial_bounds:       Optional[Interval | Tuple[float, float]] = None
         unionize_radial_mesh: bool = False
 
         def __post_init__(self) -> None:
             if self.axial_bounds is not None:
-                assert self.axial_bounds[1] > self.axial_bounds[0], \
-                    f"Upper axial bound {self.axial_bounds[1]} must be greater than lower axial bound {self.axial_bounds[0]}."
+                if not isinstance(self.axial_bounds, Interval):
+                    self.axial_bounds = Interval(*self.axial_bounds)
+                assert self.axial_bounds.upper > self.axial_bounds.lower, \
+                    (f"Upper axial bound {self.axial_bounds.upper} must be greater than lower axial bound "
+                     f"{self.axial_bounds.lower}.")
 
     @dataclass
     class VoxelationSpecs:
@@ -319,7 +322,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         offset = self.specs.offset or (-core.width['X'] * 0.5,
                                        -core.width['Y'] * 0.5,
-                                       reactor.pool_axial_bounds[0])
+                                       reactor.pool_axial_bounds.lower)
 
         return core.overlay(openmc.Geometry(openmc_universe), offset, include_only, overlay_policy)
 
@@ -381,9 +384,11 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
     def _get_axial_mesh(self, reactor: geometry_elements_triga_netl.Reactor
     ) -> List[float]:
 
-        pool_bottom, pool_top = reactor.pool_axial_bounds
-        reflector_bottom, reflector_top = reactor.reflector_axial_bounds
-        rsr_bottom, _ = reactor.rsr_axial_bounds
+        pool_bottom = reactor.pool_axial_bounds.lower
+        pool_top = reactor.pool_axial_bounds.upper
+        reflector_bottom = reactor.reflector_axial_bounds.lower
+        reflector_top = reactor.reflector_axial_bounds.upper
+        rsr_bottom = reactor.rsr_axial_bounds.lower
         excore_specs = self.specs.excore_specs
 
         points = [pool_bottom,
@@ -393,18 +398,18 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                   rsr_bottom]
 
         for beamport_id in (1, 2, 3, 4):
-            points.extend(reactor.beamport_axial_bounds[beamport_id])
+            points.extend(reactor.beamport_axial_bounds[beamport_id].bounds)
 
         def add_subdivision_points(
-            bounds: tuple[float, float],
+            bounds: Interval,
             specs: Reactor.VoxelationSpecs,
         ) -> None:
             target = specs.axial
             if isinf(target):
                 return
 
-            lower = max(bounds[0], pool_bottom)
-            upper = min(bounds[1], pool_top)
+            lower = max(bounds.lower, pool_bottom)
+            upper = min(bounds.upper, pool_top)
             length = upper - lower
             if isclose(length, 0.0, rel_tol=TOL, abs_tol=TOL):
                 return
@@ -481,16 +486,13 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         lattice_cache: Dict[Tuple[float, float], mpactpy.Lattice] = {}
         lattice_map: List[mpactpy.Lattice] = []
-        z_cursor = reactor.pool_axial_bounds[0]
+        z_cursor = reactor.pool_axial_bounds.lower
         for length in axial_mesh:
             z_next = z_cursor + length
-            axial_bounds = (z_cursor, z_next)
+            axial_bounds = Interval(z_cursor, z_next)
             z_cursor = z_next
 
-            between_grid_plate_bounds = ((axial_bounds[1] > gride_plate_bounds[0] or
-                                         isclose(axial_bounds[1], gride_plate_bounds[0], rel_tol=TOL)) &
-                                         (axial_bounds[0] < gride_plate_bounds[1] or
-                                         isclose(axial_bounds[1], gride_plate_bounds[0], rel_tol=TOL)))
+            between_grid_plate_bounds = axial_bounds.intersects(Interval(*gride_plate_bounds))
 
             target_thicknesses: List[float] = []
             if reactor.shroud_intersects(rect, radial_location) and between_grid_plate_bounds:
@@ -613,13 +615,14 @@ def build_core_element(
     assert outer_material is not None, "outer_material must be provided if element is None."
 
     if axial_bounds is None:
-        axial_bounds = (-(lower_grid_plate.top_to_core_centerline_distance +
-                              lower_grid_plate.geometry.thickness),
-                        upper_grid_plate.top_to_core_centerline_distance)
+        axial_bounds = Interval(
+            -(lower_grid_plate.top_to_core_centerline_distance + lower_grid_plate.geometry.thickness),
+            upper_grid_plate.top_to_core_centerline_distance,
+        )
 
         if element is not None:
-            axial_bounds = (min(axial_bounds[0], element_bottom_axial_position),
-                            max(axial_bounds[1], element_bottom_axial_position + element.length))
+            axial_bounds = Interval(min(axial_bounds.lower, element_bottom_axial_position),
+                                    max(axial_bounds.upper, element_bottom_axial_position + element.length))
 
     if upper_penetration_radius is None and lower_penetration_radius is None:
         return _build_core_location_with_no_penetrations(upper_grid_plate,
@@ -658,7 +661,7 @@ def build_core_element(
 def _build_core_location_with_no_penetrations(
     upper_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
     lower_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
-    axial_bounds:       tuple[float, float],
+    axial_bounds:       Interval,
     outer_material:     Material,
     outer_region_specs: Optional[Reactor.VoxelizedSegmentSpecs] = None,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
@@ -669,7 +672,7 @@ def _build_core_location_with_no_penetrations(
     upper_plate_top    = upper_grid_plate.top_to_core_centerline_distance
     upper_plate_bottom = upper_plate_top - upper_grid_plate.geometry.thickness
 
-    buffer       = axial_bounds[1] - axial_bounds[0]
+    buffer       = axial_bounds.length
     stack_bottom = lower_plate_bottom - buffer
 
     segments = [
@@ -702,13 +705,13 @@ def _build_core_location_with_no_penetrations(
                                     bottom_pos = stack_bottom)
     stack_specs = Stack.Specs({segment: outer_region_specs for segment in segments})
 
-    return stack_builder.get_axial_slice(stack, stack_specs, axial_bounds[0], axial_bounds[1])
+    return stack_builder.get_axial_slice(stack, stack_specs, axial_bounds.lower, axial_bounds.upper)
 
 
 def _build_core_location_with_water_hole(
     upper_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
     lower_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
-    axial_bounds:       tuple[float, float],
+    axial_bounds:       Interval,
     outer_material:     Material,
     core_location:      str,
     outer_region_specs: Optional[CoreElement.SegmentSpecs] = None,
@@ -723,7 +726,7 @@ def _build_core_location_with_water_hole(
     lower_plate_bottom = lower_plate_top - lower_grid_plate.geometry.thickness
     upper_plate_top    = upper_grid_plate.top_to_core_centerline_distance
 
-    buffer       = axial_bounds[1] - axial_bounds[0]
+    buffer       = axial_bounds.length
     stack_bottom = lower_plate_bottom - buffer
 
     segment = geometry_elements.Stack.Segment(
@@ -736,7 +739,7 @@ def _build_core_location_with_water_hole(
                                     bottom_pos = stack_bottom)
     stack_specs = Stack.Specs({segment: outer_region_specs})
 
-    stack, specs = stack_builder.get_axial_slice(stack, stack_specs, axial_bounds[0], axial_bounds[1])
+    stack, specs = stack_builder.get_axial_slice(stack, stack_specs, axial_bounds.lower, axial_bounds.upper)
     stack, specs = _add_grid_plates_to_stack(stack, specs, upper_grid_plate, lower_grid_plate, core_location)
     return stack, specs
 
@@ -746,7 +749,7 @@ def _build_core_location_with_element(
     lower_grid_plate:              geometry_elements_triga_netl.Reactor.GridPlate,
     element:                       geometry_elements_triga_netl.Core.Element,
     element_bottom_axial_position: float,
-    axial_bounds:                  tuple[float, float],
+    axial_bounds:                  Interval,
     outer_material:                Material,
     core_location:                 str,
     element_specs:                 Optional[Reactor.CoreElementSpecs] = None,
@@ -766,7 +769,7 @@ def _build_core_location_with_element(
     lower_plate_bottom = lower_plate_top - lower_grid_plate.geometry.thickness
     upper_plate_top    = upper_grid_plate.top_to_core_centerline_distance
 
-    buffer = axial_bounds[1] - axial_bounds[0]
+    buffer = axial_bounds.length
     stack_bottom = min(lower_plate_bottom, element_bottom_axial_position) - buffer
     stack_top    = max(upper_plate_top, element_top) + buffer
 
@@ -790,7 +793,7 @@ def _build_core_location_with_element(
     stack_specs = Stack.Specs(segment_specs=segment_specs,
                               num_procs=element_stack_specs.num_procs)
 
-    stack, specs = stack_builder.get_axial_slice(stack, stack_specs, axial_bounds[0], axial_bounds[1])
+    stack, specs = stack_builder.get_axial_slice(stack, stack_specs, axial_bounds.lower, axial_bounds.upper)
     stack, specs = _add_grid_plates_to_stack(stack, specs, upper_grid_plate, lower_grid_plate, core_location)
     return stack, specs
 

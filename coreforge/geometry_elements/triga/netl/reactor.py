@@ -7,7 +7,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Material, unique_materials
-from coreforge.shapes import Circle, Hexagon, Rectangle
+from coreforge.shapes import Circle, Hexagon, Interval, Rectangle
 from coreforge.geometry_elements.triga import FuelElement as FuelElementGeometry, GraphiteElement as GraphiteElementGeometry
 from .beam_port import BeamPort as BeamPortGeometry
 from .core import Core as CoreGeometry
@@ -98,15 +98,15 @@ class Reactor(GeometryElement):
         Axial position (cm) for the bottom of shim 2.
     name : str
         Name for this reactor element.
-    pool_axial_bounds : Tuple[float, float]
+    pool_axial_bounds : Interval
         Lower and upper axial bounds (cm) for the pool.
-    reflector_axial_bounds : Tuple[float, float]
+    reflector_axial_bounds : Interval
         Lower and upper axial bounds (cm) for the reflector canister.
-    shroud_axial_bounds : Tuple[float, float]
+    shroud_axial_bounds : Interval
         Lower and upper axial bounds (cm) for the shroud region.
-    rsr_axial_bounds : Tuple[float, float]
+    rsr_axial_bounds : Interval
         Lower and upper axial bounds (cm) for the RSR cavity.
-    beamport_axial_bounds : Dict[int, Tuple[float, float]]
+    beamport_axial_bounds : Dict[int, Interval]
         Mapping of beamport ID to its lower/upper axial bounds (cm).
     """
 
@@ -304,23 +304,23 @@ class Reactor(GeometryElement):
         self._shim_2_rod_position = position
 
     @property
-    def pool_axial_bounds(self) -> Tuple[float, float]:
+    def pool_axial_bounds(self) -> Interval:
         return self._pool_axial_bounds
 
     @property
-    def reflector_axial_bounds(self) -> Tuple[float, float]:
+    def reflector_axial_bounds(self) -> Interval:
         return self._reflector_axial_bounds
 
     @property
-    def shroud_axial_bounds(self) -> Tuple[float, float]:
+    def shroud_axial_bounds(self) -> Interval:
         return self._shroud_axial_bounds
 
     @property
-    def rsr_axial_bounds(self) -> Tuple[float, float]:
+    def rsr_axial_bounds(self) -> Interval:
         return self._rsr_axial_bounds
 
     @property
-    def beamport_axial_bounds(self) -> Dict[int, Tuple[float, float]]:
+    def beamport_axial_bounds(self) -> Dict[int, Interval]:
         return self._beamport_axial_bounds
 
     def __init__(self,
@@ -366,21 +366,21 @@ class Reactor(GeometryElement):
         self.shim_1_rod_position          = shim_1_rod_position
         self.shim_2_rod_position          = shim_2_rod_position
 
-        self._pool_axial_bounds      = (-0.5 * self.pool.height,
-                                        0.5 * self.pool.height)
+        self._pool_axial_bounds      = Interval(-0.5 * self.pool.height,
+                                                0.5 * self.pool.height)
         reflector_center             = self.reflector.core_centerline_offset
         reflector_half               = 0.5 * self.reflector.geometry.height
-        self._reflector_axial_bounds = (reflector_center - reflector_half,
-                                        reflector_center + reflector_half)
+        self._reflector_axial_bounds = Interval(reflector_center - reflector_half,
+                                                reflector_center + reflector_half)
         self._shroud_axial_bounds    = self._reflector_axial_bounds
-        reflector_top                = self._reflector_axial_bounds[1]
-        self._rsr_axial_bounds       = (reflector_top - self.rotary_specimen_rack_cavity.height,
-                                        reflector_top)
+        reflector_top                = self._reflector_axial_bounds.upper
+        self._rsr_axial_bounds       = Interval(reflector_top - self.rotary_specimen_rack_cavity.height,
+                                                reflector_top)
 
-        def beamport_bounds(beamport: Reactor.BeamPort) -> Tuple[float, float]:
+        def beamport_bounds(beamport: Reactor.BeamPort) -> Interval:
             z_center = beamport.translation[2]
             radius = beamport.geometry.outer_radius
-            return (z_center - radius, z_center + radius)
+            return Interval(z_center - radius, z_center + radius)
 
         self._beamport_axial_bounds = {
             1: beamport_bounds(self.beam_port_1_5),
@@ -490,57 +490,10 @@ class Reactor(GeometryElement):
         return axial_position
 
 
-    def _axial_bounds_intersect(self,
-                                bounds_a: Tuple[float, float],
-                                bounds_b: Tuple[float, float]) -> bool:
-        """Check whether two axial bounds overlap.
-
-        Parameters
-        ----------
-        bounds_a : Tuple[float, float]
-            Lower and upper axial bounds (cm).
-        bounds_b : Tuple[float, float]
-            Lower and upper axial bounds (cm).
-
-        Returns
-        -------
-        bool
-            True if the bounds overlap.
-        """
-        if bounds_a[1] < bounds_b[0] and not isclose(bounds_a[1], bounds_b[0], rel_tol=TOL):
-            return False
-        if bounds_b[1] < bounds_a[0] and not isclose(bounds_b[1], bounds_a[0], rel_tol=TOL):
-            return False
-        return True
-
-    def _axial_bounds_contain(self,
-                              outer_bounds: Tuple[float, float],
-                              inner_bounds: Tuple[float, float]) -> bool:
-        """Check whether one axial interval is fully inside another.
-
-        Parameters
-        ----------
-        outer_bounds : Tuple[float, float]
-            Lower and upper axial bounds (cm) for the outer interval.
-        inner_bounds : Tuple[float, float]
-            Lower and upper axial bounds (cm) for the inner interval.
-
-        Returns
-        -------
-        bool
-            True if the inner interval lies inside the outer interval.
-        """
-        lower_ok = (inner_bounds[0] > outer_bounds[0] or
-                    isclose(inner_bounds[0], outer_bounds[0], rel_tol=TOL))
-        upper_ok = (inner_bounds[1] < outer_bounds[1] or
-                    isclose(inner_bounds[1], outer_bounds[1], rel_tol=TOL))
-        return lower_ok and upper_ok
-
-
     def shroud_intersects(self,
                           cell: Rectangle,
                           center: Tuple[float, float] = (0.0, 0.0),
-                          axial_bounds: Optional[Tuple[float, float]] = None) -> bool:
+                          axial_bounds: Optional[Interval] = None) -> bool:
         """Check whether a cell intersects the shroud radial region.
 
         Parameters
@@ -549,7 +502,7 @@ class Reactor(GeometryElement):
             Rectangle representing the cell footprint.
         center : Tuple[float, float]
             (x, y) center of the cell.
-        axial_bounds : Optional[Tuple[float, float]]
+        axial_bounds : Optional[Interval]
             Lower and upper axial bounds (cm) for the cell.
 
         Returns
@@ -557,7 +510,7 @@ class Reactor(GeometryElement):
         bool
             True if the cell intersects the shroud region.
         """
-        if axial_bounds is not None and not self._axial_bounds_intersect(axial_bounds, self.shroud_axial_bounds):
+        if axial_bounds is not None and not axial_bounds.intersects(self.shroud_axial_bounds):
             return False
 
         primary_inner_radius = self.shroud.primary_hex_inner_radius
@@ -606,7 +559,7 @@ class Reactor(GeometryElement):
     def pool_contains(self,
                       cell: Rectangle,
                       center: Tuple[float, float] = (0.0, 0.0),
-                      axial_bounds: Optional[Tuple[float, float]] = None) -> bool:
+                      axial_bounds: Optional[Interval] = None) -> bool:
         """Check whether a cell is fully inside the pool boundary.
 
         Parameters
@@ -616,7 +569,7 @@ class Reactor(GeometryElement):
         center : Tuple[float, float]
             (x, y) center of the cell.
 
-        axial_bounds : Optional[Tuple[float, float]]
+        axial_bounds : Optional[Interval]
             Lower and upper axial bounds (cm) for the cell.
 
         Returns
@@ -624,7 +577,7 @@ class Reactor(GeometryElement):
         bool
             True if the cell is fully inside the pool boundary.
         """
-        if axial_bounds is not None and not self._axial_bounds_contain(self.pool_axial_bounds, axial_bounds):
+        if axial_bounds is not None and not self.pool_axial_bounds.contains(axial_bounds):
             return False
         return Circle(self.pool.radius).contains(cell, other_center=center)
 
@@ -632,7 +585,7 @@ class Reactor(GeometryElement):
     def rsr_intersects(self,
                        cell: Rectangle,
                        center: Tuple[float, float] = (0.0, 0.0),
-                       axial_bounds: Optional[Tuple[float, float]] = None) -> bool:
+                       axial_bounds: Optional[Interval] = None) -> bool:
         """Check whether a cell intersects the RSR cavity region.
 
         Parameters
@@ -642,7 +595,7 @@ class Reactor(GeometryElement):
         center : Tuple[float, float]
             (x, y) center of the cell.
 
-        axial_bounds : Optional[Tuple[float, float]]
+        axial_bounds : Optional[Interval]
             Lower and upper axial bounds (cm) for the cell.
 
         Returns
@@ -650,7 +603,7 @@ class Reactor(GeometryElement):
         bool
             True if the cell intersects the RSR region.
         """
-        if axial_bounds is not None and not self._axial_bounds_intersect(axial_bounds, self.rsr_axial_bounds):
+        if axial_bounds is not None and not axial_bounds.intersects(self.rsr_axial_bounds):
             return False
         rsr_circle = Circle(self.rotary_specimen_rack_cavity.outer_radius)
         return (cell.intersects(rsr_circle, center, (0.0, 0.0)) and
@@ -661,7 +614,7 @@ class Reactor(GeometryElement):
     def reflector_intersects(self,
                              cell: Rectangle,
                              center: Tuple[float, float] = (0.0, 0.0),
-                             axial_bounds: Optional[Tuple[float, float]] = None) -> bool:
+                             axial_bounds: Optional[Interval] = None) -> bool:
         """Check whether a cell intersects the reflector region.
 
         Parameters
@@ -671,7 +624,7 @@ class Reactor(GeometryElement):
         center : Tuple[float, float]
             (x, y) center of the cell.
 
-        axial_bounds : Optional[Tuple[float, float]]
+        axial_bounds : Optional[Interval]
             Lower and upper axial bounds (cm) for the cell.
 
         Returns
@@ -679,8 +632,7 @@ class Reactor(GeometryElement):
         bool
             True if the cell intersects the reflector region.
         """
-        if axial_bounds is not None and not self._axial_bounds_intersect(axial_bounds,
-                                                                        self.reflector_axial_bounds):
+        if axial_bounds is not None and not axial_bounds.intersects(self.reflector_axial_bounds):
             return False
         reflector_circle = Circle(self.reflector.geometry.radius)
         return (cell.intersects(reflector_circle, center, (0.0, 0.0)) and
@@ -693,7 +645,7 @@ class Reactor(GeometryElement):
                             cell: Rectangle,
                             center: Tuple[float, float],
                             beamport_id: int,
-                            axial_bounds: Optional[Tuple[float, float]] = None) -> bool:
+                            axial_bounds: Optional[Interval] = None) -> bool:
         """Check whether a cell intersects a beam port region.
 
         Parameters
@@ -706,7 +658,7 @@ class Reactor(GeometryElement):
             Beam port identifier (1, 2, 3, 4, or 5). Beam ports 1 and 5 map to
             the same beam port geometry.
 
-        axial_bounds : Optional[Tuple[float, float]]
+        axial_bounds : Optional[Interval]
             Lower and upper axial bounds (cm) for the cell.
 
         Returns
@@ -715,9 +667,7 @@ class Reactor(GeometryElement):
             True if the cell intersects the beam port region.
         """
         beamport = self._beamport_geometry(beamport_id)
-        if axial_bounds is not None and not self._axial_bounds_intersect(
-            axial_bounds, self.beamport_axial_bounds[beamport_id]
-        ):
+        if axial_bounds is not None and not axial_bounds.intersects(self.beamport_axial_bounds[beamport_id]):
             return False
         beam_rect = Rectangle(beamport.geometry.length,
                               beamport.geometry.outer_radius*2.0)
@@ -756,7 +706,7 @@ class Reactor(GeometryElement):
     def any_beamport_intersects(self,
                                 cell: Rectangle,
                                 center: Tuple[float, float],
-                                axial_bounds: Optional[Tuple[float, float]] = None) -> bool:
+                                axial_bounds: Optional[Interval] = None) -> bool:
         """Check whether a cell intersects any beam port radial region.
 
         Parameters
@@ -766,7 +716,7 @@ class Reactor(GeometryElement):
         center : Tuple[float, float]
             (x, y) center of the cell.
 
-        axial_bounds : Optional[Tuple[float, float]]
+        axial_bounds : Optional[Interval]
             Lower and upper axial bounds (cm) for the cell.
 
         Returns
