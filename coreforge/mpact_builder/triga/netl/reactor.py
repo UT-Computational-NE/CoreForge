@@ -136,25 +136,38 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
     class ExcoreSpecs:
         """Specifications for excore region construction.
 
+        Axial voxelation targets from these regions are combined into one
+        global MPACT axial mesh before excore overlay. If multiple overlapping
+        regions specify finite axial targets, their mesh points are unionized;
+        for paired regions such as RSR cavity/tube or beamport exterior/interior,
+        it is usually best to set one axial target and leave the other
+        unspecified.
+
         Attributes
         ----------
         shroud : Reactor.VoxelationSpecs
             Voxelation specifications for the shroud region.
-        rsr : Reactor.VoxelationSpecs
-            Voxelation specifications for the RSR region.
+        rsr_cavity : Reactor.VoxelationSpecs
+            Voxelation specifications for the RSR cavity region.
+        rsr_tube : Reactor.VoxelationSpecs
+            Voxelation specifications for RSR tube regions.
         reflector : Reactor.VoxelationSpecs
             Voxelation specifications for the reflector region.
-        beamport : Reactor.VoxelationSpecs
-            Voxelation specifications for beamport regions.
+        beamport_exterior : Reactor.VoxelationSpecs
+            Voxelation specifications for beamport exterior regions.
+        beamport_interior : Reactor.VoxelationSpecs
+            Voxelation specifications for beamport interior regions.
         pool : Reactor.VoxelationSpecs
             Voxelation specifications for the pool region.
         """
 
-        shroud:    Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
-        rsr:       Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
-        reflector: Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
-        beamport:  Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
-        pool:      Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        shroud:            Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        rsr_cavity:        Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        rsr_tube:          Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        reflector:         Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        beamport_exterior: Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        beamport_interior: Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
+        pool:              Reactor.VoxelationSpecs = field(default_factory=_default_voxelation_specs)
 
 
     @dataclass
@@ -247,12 +260,12 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             for loc in ring:
                 core_cell_specs = self.specs.core_specs.get(loc, None)
                 if core_cell_specs is None:
-                    core_cell_specs = Reactor.CoreCellSpecs(axial_bounds=reactor.pool_axial_bounds)
+                    core_cell_specs = Reactor.CoreCellSpecs(axial_bounds=reactor.pool.axial_bounds)
                 else:
                     core_cell_specs = Reactor.CoreCellSpecs(
                         element_specs        = core_cell_specs.element_specs,
                         outer_region_specs   = core_cell_specs.outer_region_specs,
-                        axial_bounds         = reactor.pool_axial_bounds,
+                        axial_bounds         = reactor.pool.axial_bounds,
                         unionize_radial_mesh = core_cell_specs.unionize_radial_mesh,
                     )
                 element                       = reactor.core.full_map.get(loc, None)
@@ -322,7 +335,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         offset = self.specs.offset or (-core.width['X'] * 0.5,
                                        -core.width['Y'] * 0.5,
-                                       reactor.pool_axial_bounds.lower)
+                                       reactor.pool.axial_bounds.lower)
 
         return core.overlay(openmc.Geometry(openmc_universe), offset, include_only, overlay_policy)
 
@@ -384,11 +397,11 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
     def _get_axial_mesh(self, reactor: geometry_elements_triga_netl.Reactor
     ) -> List[float]:
 
-        pool_bottom = reactor.pool_axial_bounds.lower
-        pool_top = reactor.pool_axial_bounds.upper
-        reflector_bottom = reactor.reflector_axial_bounds.lower
-        reflector_top = reactor.reflector_axial_bounds.upper
-        rsr_bottom = reactor.rsr_axial_bounds.lower
+        pool_bottom = reactor.pool.axial_bounds.lower
+        pool_top = reactor.pool.axial_bounds.upper
+        reflector_bottom = reactor.reflector.axial_bounds.lower
+        reflector_top = reactor.reflector.axial_bounds.upper
+        rsr_bottom = reactor.rotary_specimen_rack_cavity.axial_bounds.lower
         excore_specs = self.specs.excore_specs
 
         points = [pool_bottom,
@@ -398,7 +411,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                   rsr_bottom]
 
         for beamport_id in (1, 2, 3, 4):
-            points.extend(reactor.beamport_axial_bounds[beamport_id].bounds)
+            points.extend(reactor.beam_port[beamport_id].axial_bounds.bounds)
 
         def add_subdivision_points(
             bounds: Interval,
@@ -420,17 +433,21 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             subd_length = length / num_subdivisions
             points.extend(lower + i * subd_length for i in range(num_subdivisions + 1))
 
-        add_subdivision_points(reactor.pool_axial_bounds,
+        add_subdivision_points(reactor.pool.axial_bounds,
                                excore_specs.pool)
-        add_subdivision_points(reactor.shroud_axial_bounds,
+        add_subdivision_points(reactor.shroud.axial_bounds,
                                excore_specs.shroud)
-        add_subdivision_points(reactor.rsr_axial_bounds,
-                               excore_specs.rsr)
-        add_subdivision_points(reactor.reflector_axial_bounds,
+        add_subdivision_points(reactor.rotary_specimen_rack_cavity.axial_bounds,
+                               excore_specs.rsr_cavity)
+        add_subdivision_points(reactor.rotary_specimen_rack_cavity.axial_bounds,
+                               excore_specs.rsr_tube)
+        add_subdivision_points(reactor.reflector.axial_bounds,
                                excore_specs.reflector)
         for beamport_id in (1, 2, 3, 4):
-            add_subdivision_points(reactor.beamport_axial_bounds[beamport_id],
-                                   excore_specs.beamport)
+            add_subdivision_points(reactor.beam_port[beamport_id].axial_bounds,
+                                   excore_specs.beamport_exterior)
+            add_subdivision_points(reactor.beam_port[beamport_id].interior_axial_bounds,
+                                   excore_specs.beamport_interior)
 
         def within_pool(z: float) -> bool:
             return ((z > pool_bottom or isclose(z, pool_bottom, rel_tol=TOL, abs_tol=TOL)) and
@@ -471,38 +488,43 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             return None
 
         rect = Rectangle(w=side_lengths[0], h=side_lengths[1])
-        if reactor.shroud_inner_contains(rect, radial_location) and assembly is not None:
+        if reactor.shroud.contains(rect, radial_location) and assembly is not None:
             return assembly
 
-        if not reactor.pool_contains(rect, radial_location):
+        if not reactor.pool.contains(rect, radial_location):
             return None
 
         excore_specs = self.specs.excore_specs
         voxel_material = geometry_elements.InfiniteMedium(reactor.pool.material, name="excore_voxel")
 
-        gride_plate_bounds = (-reactor.lower_grid_plate.top_to_core_centerline_distance +
-                              -reactor.lower_grid_plate.geometry.thickness,
-                              reactor.upper_grid_plate.top_to_core_centerline_distance,)
+        gride_plate_bounds = Interval(reactor.lower_grid_plate.axial_bounds.lower,
+                                      reactor.upper_grid_plate.axial_bounds.upper)
 
         lattice_cache: Dict[Tuple[float, float], mpactpy.Lattice] = {}
         lattice_map: List[mpactpy.Lattice] = []
-        z_cursor = reactor.pool_axial_bounds.lower
+        z_cursor = reactor.pool.axial_bounds.lower
         for length in axial_mesh:
             z_next = z_cursor + length
             axial_bounds = Interval(z_cursor, z_next)
             z_cursor = z_next
 
-            between_grid_plate_bounds = axial_bounds.intersects(Interval(*gride_plate_bounds))
+            between_grid_plate_bounds = axial_bounds.intersects(gride_plate_bounds)
 
             target_thicknesses: List[float] = []
-            if reactor.shroud_intersects(rect, radial_location) and between_grid_plate_bounds:
+            if reactor.shroud.intersects(rect, radial_location) and between_grid_plate_bounds:
                 target_thicknesses.append(excore_specs.shroud.radial)
-            if reactor.rsr_intersects(rect, radial_location, axial_bounds):
-                target_thicknesses.append(excore_specs.rsr.radial)
+            if reactor.rsr_cavity_intersects(rect, radial_location, axial_bounds):
+                target_thicknesses.append(excore_specs.rsr_cavity.radial)
+            if reactor.rsr_tube_intersects(rect, radial_location, axial_bounds):
+                target_thicknesses.append(excore_specs.rsr_tube.radial)
             if reactor.reflector_intersects(rect, radial_location, axial_bounds):
                 target_thicknesses.append(excore_specs.reflector.radial)
-            if reactor.any_beamport_intersects(rect, radial_location, axial_bounds):
-                target_thicknesses.append(excore_specs.beamport.radial)
+            for bp in (1, 2, 3, 4):
+                if reactor.beam_port[bp].intersects(rect, radial_location, axial_bounds):
+                    if reactor.beam_port[bp].contains(rect, radial_location, axial_bounds):
+                        target_thicknesses.append(excore_specs.beamport_interior.radial)
+                    else:
+                        target_thicknesses.append(excore_specs.beamport_exterior.radial)
 
             if not target_thicknesses:
                 target_thicknesses.append(excore_specs.pool.radial)
@@ -615,10 +637,7 @@ def build_core_element(
     assert outer_material is not None, "outer_material must be provided if element is None."
 
     if axial_bounds is None:
-        axial_bounds = Interval(
-            -(lower_grid_plate.top_to_core_centerline_distance + lower_grid_plate.geometry.thickness),
-            upper_grid_plate.top_to_core_centerline_distance,
-        )
+        axial_bounds = Interval(lower_grid_plate.axial_bounds.length, upper_grid_plate.axial_bounds.upper)
 
         if element is not None:
             axial_bounds = Interval(min(axial_bounds.lower, element_bottom_axial_position),
@@ -667,13 +686,8 @@ def _build_core_location_with_no_penetrations(
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
     outer_region_specs = outer_region_specs or Reactor.VoxelizedSegmentSpecs()
 
-    lower_plate_top    = -lower_grid_plate.top_to_core_centerline_distance
-    lower_plate_bottom = lower_plate_top - lower_grid_plate.geometry.thickness
-    upper_plate_top    = upper_grid_plate.top_to_core_centerline_distance
-    upper_plate_bottom = upper_plate_top - upper_grid_plate.geometry.thickness
-
     buffer       = axial_bounds.length
-    stack_bottom = lower_plate_bottom - buffer
+    stack_bottom = lower_grid_plate.axial_bounds.lower - buffer
 
     segments = [
         geometry_elements.Stack.Segment(
@@ -683,16 +697,16 @@ def _build_core_location_with_no_penetrations(
         geometry_elements.Stack.Segment(
             element = geometry_elements.InfiniteMedium(lower_grid_plate.geometry.material,
                                                        name="lower_grid_plate"),
-            length  = lower_plate_top - lower_plate_bottom,
+            length  = lower_grid_plate.axial_bounds.length,
         ),
         geometry_elements.Stack.Segment(
             element = geometry_elements.InfiniteMedium(outer_material, name="outer_region"),
-            length  = upper_plate_bottom - lower_plate_top,
+            length  = upper_grid_plate.axial_bounds.lower - lower_grid_plate.axial_bounds.upper,
         ),
         geometry_elements.Stack.Segment(
             element = geometry_elements.InfiniteMedium(upper_grid_plate.geometry.material,
                                                        name="upper_grid_plate"),
-            length  = upper_plate_top - upper_plate_bottom,
+            length  = upper_grid_plate.axial_bounds.length,
         ),
         geometry_elements.Stack.Segment(
             element = geometry_elements.InfiniteMedium(outer_material, name="outer_region"),
@@ -722,16 +736,12 @@ def _build_core_location_with_water_hole(
                                          outer_material,
                                          core_location)
 
-    lower_plate_top    = -lower_grid_plate.top_to_core_centerline_distance
-    lower_plate_bottom = lower_plate_top - lower_grid_plate.geometry.thickness
-    upper_plate_top    = upper_grid_plate.top_to_core_centerline_distance
-
     buffer       = axial_bounds.length
-    stack_bottom = lower_plate_bottom - buffer
+    stack_bottom = lower_grid_plate.axial_bounds.lower - buffer
 
     segment = geometry_elements.Stack.Segment(
         element = outer_pincell,
-        length  = upper_plate_top - lower_plate_bottom + 2 * buffer,
+        length  = upper_grid_plate.axial_bounds.upper - lower_grid_plate.axial_bounds.lower + 2 * buffer,
     )
 
     stack = geometry_elements.Stack(segments   = [segment],
@@ -765,13 +775,9 @@ def _build_core_location_with_element(
     element_stack, element_stack_specs = builder_cls(element_specs).build_stack_and_specs(element)
     element_top = element_bottom_axial_position + element_stack.length
 
-    lower_plate_top    = -lower_grid_plate.top_to_core_centerline_distance
-    lower_plate_bottom = lower_plate_top - lower_grid_plate.geometry.thickness
-    upper_plate_top    = upper_grid_plate.top_to_core_centerline_distance
-
     buffer = axial_bounds.length
-    stack_bottom = min(lower_plate_bottom, element_bottom_axial_position) - buffer
-    stack_top    = max(upper_plate_top, element_top) + buffer
+    stack_bottom = min(lower_grid_plate.axial_bounds.lower, element_bottom_axial_position) - buffer
+    stack_top    = max(upper_grid_plate.axial_bounds.upper, element_top) + buffer
 
     bottom_segment = geometry_elements.Stack.Segment(
         element = outer_pincell,
@@ -824,24 +830,15 @@ def _add_grid_plates_to_stack(
     core_location:    str,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
 
-    plate_ranges = [
-        (lower_grid_plate,
-         -lower_grid_plate.top_to_core_centerline_distance,
-         -lower_grid_plate.top_to_core_centerline_distance - lower_grid_plate.geometry.thickness),
-        (upper_grid_plate,
-         upper_grid_plate.top_to_core_centerline_distance,
-         upper_grid_plate.top_to_core_centerline_distance - upper_grid_plate.geometry.thickness),
-    ]
-
-    for grid_plate, plate_top, plate_bottom in plate_ranges:
+    for grid_plate in (lower_grid_plate, upper_grid_plate):
         penetration_radius = grid_plate.geometry.penetration_map.get(core_location)
         assert penetration_radius is not None, \
             f"No penetration radius for core location {core_location}."
 
         grid_part = _build_grid_stack_and_specs(stack,
                                                 stack_specs,
-                                                plate_top,
-                                                plate_bottom,
+                                                grid_plate.axial_bounds.upper,
+                                                grid_plate.axial_bounds.lower,
                                                 grid_plate.geometry.material,
                                                 penetration_radius)
         if grid_part is None:
@@ -849,8 +846,9 @@ def _add_grid_plates_to_stack(
 
         grid_stack, grid_specs = grid_part
 
-        lower_part = stack_builder.get_axial_slice(stack, stack_specs, stack.bottom_pos, plate_bottom)
-        upper_part = stack_builder.get_axial_slice(stack, stack_specs, plate_top, stack.bottom_pos + stack.length)
+        lower_part = stack_builder.get_axial_slice(stack, stack_specs, stack.bottom_pos, grid_plate.axial_bounds.lower)
+        upper_part = stack_builder.get_axial_slice(stack, stack_specs, grid_plate.axial_bounds.upper,
+                                                   stack.bottom_pos + stack.length)
 
         segments = []
         segment_specs = {}
