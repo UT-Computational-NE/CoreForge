@@ -251,6 +251,28 @@ def test_axial_intersection_filters(reactor):
     assert not reactor.shroud.intersects(shroud_rect, cell_center, out_shroud)
 
 
+def test_excore_region_contains(reactor):
+    rect = Rectangle(w=0.1, h=0.1)
+    rsr = reactor.rotary_specimen_rack_cavity
+    axial_bounds = Interval(rsr.axial_bounds.center - 0.05, rsr.axial_bounds.center + 0.05)
+    shroud_outer_x = reactor.shroud.primary_hex_inner_radius + reactor.shroud.thickness
+    rsr_center = ((shroud_outer_x + rsr.outer_radius) * 0.5, 0.0)
+
+    assert reactor.rsr_cavity_contains(rect, rsr_center, axial_bounds)
+    assert not reactor.rsr_cavity_contains(rect, rsr.tube_centers[0], axial_bounds)
+
+    reflector_axial_bounds = Interval(reactor.reflector.axial_bounds.center - 0.05,
+                                      reactor.reflector.axial_bounds.center + 0.05)
+    reflector_radius = (rsr.outer_radius + reactor.reflector.geometry.radius) * 0.5
+    reflector_centers = [(reflector_radius * cosd(angle), reflector_radius * sind(angle))
+                         for angle in (270.0, 315.0, 225.0, 90.0, 45.0, 135.0)]
+    reflector_center = next(center for center in reflector_centers
+                            if not reactor.any_beamport_intersects(rect, center, reflector_axial_bounds))
+
+    assert reactor.reflector_contains(rect, reflector_center, reflector_axial_bounds)
+    assert not reactor.reflector_contains(rect, rsr_center, axial_bounds)
+
+
 def test_beam_port_contains(reactor):
     beamport = reactor.beam_port[3]
     rect = Rectangle(w=1.0, h=1.0)

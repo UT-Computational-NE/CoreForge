@@ -917,6 +917,38 @@ class Reactor(GeometryElement):
                 not self.shroud.intersects(cell, center, axial_bounds) and
                 not self.shroud.contains(cell, center))
 
+    def rsr_cavity_contains(self,
+                            cell: Rectangle,
+                            center: Tuple[float, float] = (0.0, 0.0),
+                            axial_bounds: Optional[Interval] = None) -> bool:
+        """Check whether a rectangular cell is fully inside the RSR cavity fill region.
+
+        Parameters
+        ----------
+        cell : Rectangle
+            Rectangular XY footprint to test.
+        center : Tuple[float, float]
+            ``(x, y)`` center of the cell footprint.
+        axial_bounds : Optional[Interval]
+            Optional lower and upper axial bounds (cm) for the cell. When
+            provided, the interval must be fully contained in the RSR cavity
+            axial bounds.
+
+        Returns
+        -------
+        bool
+            True if the cell is axially inside the RSR cavity, fully contained
+            by the RSR outer radial boundary, outside the shroud/core region,
+            and does not intersect any RSR specimen tube.
+        """
+        rsr = self.rotary_specimen_rack_cavity
+        if axial_bounds is not None and not rsr.axial_bounds.contains(axial_bounds):
+            return False
+        return (rsr.outer_boundary.contains(cell, other_center=center) and
+                not self.shroud.intersects(cell, center, axial_bounds) and
+                not self.shroud.contains(cell, center) and
+                not self.rsr_tube_intersects(cell, center, axial_bounds))
+
     def rsr_tube_intersects(self,
                             cell: Rectangle,
                             center: Tuple[float, float] = (0.0, 0.0),
@@ -974,6 +1006,38 @@ class Reactor(GeometryElement):
                 not self.shroud.intersects(cell, center, axial_bounds) and
                 not self.shroud.contains(cell, center) and
                 not self.rsr_cavity_intersects(cell, center, axial_bounds))
+
+    def reflector_contains(self,
+                           cell: Rectangle,
+                           center: Tuple[float, float] = (0.0, 0.0),
+                           axial_bounds: Optional[Interval] = None) -> bool:
+        """Check whether a rectangular cell is fully inside the reflector material region.
+
+        Parameters
+        ----------
+        cell : Rectangle
+            Rectangular XY footprint to test.
+        center : Tuple[float, float]
+            ``(x, y)`` center of the cell footprint.
+        axial_bounds : Optional[Interval]
+            Optional lower and upper axial bounds (cm) for the cell. When
+            provided, the interval must be fully contained in the reflector
+            axial bounds.
+
+        Returns
+        -------
+        bool
+            True if the cell is axially inside the reflector, fully contained by
+            the reflector radial boundary, and does not intersect shroud, RSR,
+            or beam port regions.
+        """
+        if axial_bounds is not None and not self.reflector.axial_bounds.contains(axial_bounds):
+            return False
+        return (self.reflector.outer_boundary.contains(cell, other_center=center) and
+                not self.shroud.intersects(cell, center, axial_bounds) and
+                not self.shroud.contains(cell, center) and
+                not self.rsr_cavity_intersects(cell, center, axial_bounds) and
+                not self.any_beamport_intersects(cell, center, axial_bounds))
 
     def any_beamport_intersects(self,
                                 cell: Rectangle,
