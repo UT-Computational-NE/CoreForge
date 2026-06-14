@@ -1,6 +1,5 @@
 from typing import Optional, Tuple
 
-import numpy as np
 import openmc
 
 
@@ -40,8 +39,8 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             return surfaces[0], surfaces[1]
 
         cells = []
-        for beamport in [element.beam_port_1_5, element.beam_port_2,
-                         element.beam_port_3,   element.beam_port_4]:
+        for beamport_id in (1, 2, 3, 4):
+            beamport = element.beam_port[beamport_id]
             inner_surface, outer_surface = build_beam_port_surfaces(beamport)
             cells.append(openmc.Cell(fill   = beamport.geometry.fill_material.openmc_material,
                                      region = -inner_surface & pool_region,
@@ -73,12 +72,9 @@ def build_pool(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Universe
     """
 
     reflector_radius        = openmc.ZCylinder(r = reactor.reflector.geometry.radius)
-    top_of_reflector        = openmc.ZPlane(z0 = reactor.reflector.core_centerline_offset +
-                                                 reactor.reflector.geometry.height / 2.0)
-    bottom_of_reflector     = openmc.ZPlane(z0 = reactor.reflector.core_centerline_offset -
-                                                 reactor.reflector.geometry.height / 2.0)
-    bottom_of_rsr_cavity    = openmc.ZPlane(z0 = top_of_reflector.z0 -
-                                                 reactor.rotary_specimen_rack_cavity.height)
+    top_of_reflector        = openmc.ZPlane(z0 = reactor.reflector.axial_bounds.upper)
+    bottom_of_reflector     = openmc.ZPlane(z0 = reactor.reflector.axial_bounds.lower)
+    bottom_of_rsr_cavity    = openmc.ZPlane(z0 = reactor.rotary_specimen_rack_cavity.axial_bounds.lower)
     rsr_cavity_outer_radius = openmc.ZCylinder(
                                   r = reactor.rotary_specimen_rack_cavity.outer_radius)
     primary_hex_shape       = Hexagon(inner_radius= reactor.shroud.primary_hex_inner_radius +
@@ -126,21 +122,16 @@ def build_rsr_cavity(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Un
         Universe containing the RSR cavity.
     """
 
-    r                = reactor.rotary_specimen_rack_cavity.tube_to_center_distance
-    number_of_tubes  = reactor.rotary_specimen_rack_cavity.number_of_tubes
-    d_theta          = 360.0 / number_of_tubes
-    outer_radius     = reactor.rotary_specimen_rack_cavity.tube_specs.outer_radius
-    inner_radius     = outer_radius - reactor.rotary_specimen_rack_cavity.tube_specs.thickness
+    rsr = reactor.rotary_specimen_rack_cavity
+    outer_radius = rsr.tube_outer_boundary.r
+    inner_radius = outer_radius - rsr.tube_specs.thickness
 
-    cavity_fill_material = reactor.rotary_specimen_rack_cavity.material.openmc_material
-    tube_clad_material   = reactor.rotary_specimen_rack_cavity.tube_specs.material.openmc_material
+    cavity_fill_material = rsr.material.openmc_material
+    tube_clad_material   = rsr.tube_specs.material.openmc_material
 
     cells          = []
     outside_region = None
-    for i in range(1, number_of_tubes + 1):
-        angle = 90.0 + (i-1) * -d_theta
-        x     = r * np.cos(np.radians(angle))
-        y     = r * np.sin(np.radians(angle))
+    for i, (x, y) in enumerate(rsr.tube_centers, start=1):
         tube  = f"rsr_tube_{i:02d}"
         inner_surface = openmc.ZCylinder(r=inner_radius, x0=x, y0=y, name=tube+"_id")
         outer_surface = openmc.ZCylinder(r=outer_radius, x0=x, y0=y, name=tube+"_od")
@@ -177,8 +168,8 @@ def build_shroud(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Univer
                                                  orientation = 'y')
     rotated_hex   = openmc.model.HexagonalPrism(edge_length = rotated_hex_shape.outer_radius,
                                                  orientation = 'y').rotate((0, 0, 30))
-    shroud_top    = openmc.ZPlane(z0 = reactor.shroud_axial_bounds[1])
-    shroud_bottom = openmc.ZPlane(z0 = reactor.shroud_axial_bounds[0])
+    shroud_top    = openmc.ZPlane(z0 = reactor.shroud.axial_bounds.upper)
+    shroud_bottom = openmc.ZPlane(z0 = reactor.shroud.axial_bounds.lower)
 
     shroud_region = ~(-primary_hex & -rotated_hex) & (-shroud_top & +shroud_bottom)
 
@@ -287,9 +278,8 @@ def build_core_element(
     def penetration_radius(grid_plate: geometry_elements_triga_netl.Reactor.GridPlate) -> Optional[float]:
         return None if core_location is None else grid_plate.geometry.penetration_map[core_location]
 
-    region = -openmc.ZPlane(upper_grid_plate.top_to_core_centerline_distance)
-    region &= +openmc.ZPlane(upper_grid_plate.top_to_core_centerline_distance -
-                            upper_grid_plate.geometry.thickness)
+    region = -openmc.ZPlane(upper_grid_plate.axial_bounds.upper)
+    region &= +openmc.ZPlane(upper_grid_plate.axial_bounds.lower)
     radius = penetration_radius(upper_grid_plate)
     if radius is not None:
         region &= +openmc.ZCylinder(r = radius)
@@ -300,9 +290,8 @@ def build_core_element(
     outer_region = ~cells[-1].region
 
 
-    region = +openmc.ZPlane(-(lower_grid_plate.top_to_core_centerline_distance +
-                              lower_grid_plate.geometry.thickness))
-    region &= -openmc.ZPlane(-lower_grid_plate.top_to_core_centerline_distance)
+    region = +openmc.ZPlane(lower_grid_plate.axial_bounds.lower)
+    region &= -openmc.ZPlane(lower_grid_plate.axial_bounds.upper)
     radius = penetration_radius(lower_grid_plate)
     if radius is not None:
         region &= +openmc.ZCylinder(r = radius)
