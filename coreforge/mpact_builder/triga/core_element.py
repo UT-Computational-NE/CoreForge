@@ -55,7 +55,7 @@ class CoreElement(Builder[TCoreElement], ABC):
     def build_stack_and_specs(
         self,
         element: TCoreElement,
-    ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
+    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
         """Build the element stack and corresponding stack specs.
 
         Parameters
@@ -65,7 +65,7 @@ class CoreElement(Builder[TCoreElement], ABC):
 
         Returns
         -------
-        Tuple[geometry_elements.Stack, Stack.Specs]
+        Tuple[geometry_elements.CylindricalStack, Stack.Specs]
             The stack representation of the element and corresponding stack specs.
         """
         raise NotImplementedError

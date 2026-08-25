@@ -108,7 +108,7 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
 
     def build_stack_and_specs(self,
                               element: geometry_elements_triga.GraphiteElement,
-    ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
+    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
 
         stack = element.as_stack(
             lower_end_target_axial_thickness = self.specs.lower_end_fitting.target_axial_thickness,

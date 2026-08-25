@@ -13,6 +13,7 @@ from mpactpy.utils import (
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.geometry_elements.triga.end_fitting import EndFitting as BaseEndFitting
 from coreforge.materials import Air, Graphite, Material, Mo, SS304, UZrH, Water, Zr, unique_materials
@@ -614,7 +615,7 @@ class FuelElement(GeometryElement):
         bottom_pos: float = 0.0,
         lower_end_target_axial_thickness: Optional[float] = None,
         upper_end_target_axial_thickness: Optional[float] = None,
-    ) -> Stack:
+    ) -> CylindricalStack:
         """ A method for getting a copy of the Fuel Element as a Stack
 
         Parameters
@@ -628,7 +629,7 @@ class FuelElement(GeometryElement):
 
         Returns
         -------
-        Stack
+        CylindricalStack
             The Fuel Element as a Stack
         """
         lower_end_stack = self.lower_end_fitting.as_stack(
@@ -650,7 +651,7 @@ class FuelElement(GeometryElement):
         fuel_segments         = [Stack.Segment(pincell, fuel_region_thickness)
                                  for pincell in reversed(self.fuel_pincells)]
 
-        mid_stack = Stack(segments=[
+        mid_stack = CylindricalStack(segments=[
             Stack.Segment(self.lower_reflector_pincell, self.lower_graphite_reflector.thickness),
             Stack.Segment(self.moly_disc_pincell, self.moly_disc.thickness),
             *fuel_segments,

@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TypeVar
 from dataclasses import dataclass, field
 from math import inf
 from multiprocessing import cpu_count
@@ -13,6 +13,9 @@ from coreforge.mpact_builder.utils import build_elements
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.infinite_medium import InfiniteMedium
 from coreforge import geometry_elements
+
+
+TGeometryStack = TypeVar("TGeometryStack", bound=geometry_elements.Stack)
 
 @register_builder(geometry_elements.Stack)
 class Stack(Builder[geometry_elements.Stack]):
@@ -293,11 +296,11 @@ def _stack_chunk_worker(chunk:         List[geometry_elements.Stack.Segment],
     return results
 
 
-def get_axial_slice(stack:       geometry_elements.Stack,
+def get_axial_slice(stack:       TGeometryStack,
                     stack_specs: Stack.Specs,
                     start_pos:   float,
                     stop_pos:    float,
-) -> Optional[Tuple[geometry_elements.Stack, Stack.Specs]]:
+) -> Optional[Tuple[TGeometryStack, Stack.Specs]]:
     """Return a stack/specs pair from an axial slice of the stack.
 
     Parameters

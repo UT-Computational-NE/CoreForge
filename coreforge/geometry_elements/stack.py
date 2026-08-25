@@ -1,12 +1,14 @@
 from __future__ import annotations
-from typing import List, Any, Optional, Tuple
+from typing import List, Any, Optional, Tuple, TypeVar
 from math import isclose
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.materials import Material, unique_materials
+
+TStack = TypeVar("TStack", bound="Stack")
+
 
 class Stack(GeometryElement):
     """ A class for Z-axis aligned segments (i.e. stacks)
@@ -123,58 +125,17 @@ class Stack(GeometryElement):
             materials.extend(segment.element.get_materials())
         return unique_materials(materials)
 
-    def __add__(self, other: Stack) -> Stack:
-        assert isinstance(other, Stack), f"Can only add Stack to Stack (got {type(other)})"
-        return Stack(segments   = self.segments + other.segments,
-                     name       = self.name,
-                     bottom_pos = self.bottom_pos)
+    def __add__(self: TStack, other: TStack) -> TStack:
+        if type(other) is not type(self):
+            return NotImplemented
+        return type(self)(segments   = self.segments + other.segments,
+                          name       = self.name,
+                          bottom_pos = self.bottom_pos)
 
-    def unionize_radial_mesh(self) -> Stack:
-        """Return a new Stack with unionized radial material meshes across all segments.
-
-        Returns
-        -------
-        Stack
-            A new stack with segments rebuilt to share a common
-            set of radii derived from the union of all segment radii.
-
-        Notes
-        -----
-        This currently supports only stacks whose segments are CylindricalPinCell
-        elements. Each rebuilt pincell uses the unionized radii and assigns the
-        material for each radius based on the original segment's zones. Radii
-        beyond the original zones are filled with the segment's outer material.
-        """
-        assert all(isinstance(segment.element, CylindricalPinCell) for segment in self.segments), \
-            "All stack segments must be CylindricalPinCell to unionize radial mesh."
-
-        union_radii = sorted(set(
-            radius
-            for segment in self.segments
-            for radius in [zone.shape.outer_radius for zone in segment.element.zones]))
-
-        def material_for_radius(pincell: CylindricalPinCell, radius: float):
-            for zone in pincell.zones:
-                if radius <= zone.shape.outer_radius or isclose(radius, zone.shape.outer_radius, rel_tol=TOL):
-                    return zone.material
-            return pincell.outer_material
-
-        segments = []
-        for segment in self.segments:
-            materials = [material_for_radius(segment.element, radius) for radius in union_radii]
-            materials.append(segment.element.outer_material)
-            pincell = CylindricalPinCell(radii     = union_radii,
-                                         materials = materials,
-                                         name      = segment.element.name)
-            segments.append(Stack.Segment(element = pincell,
-                                          length  = segment.length))
-
-        return Stack(segments=segments, name=self.name, bottom_pos=self.bottom_pos)
-
-    def get_axial_slice_with_origins(self,
+    def get_axial_slice_with_origins(self: TStack,
                                      start_pos: float,
                                      stop_pos:  float,
-    ) -> Optional[Tuple[Stack, List[Stack.Segment]]]:
+    ) -> Optional[Tuple[TStack, List[Stack.Segment]]]:
         """Return a new Stack from an axial slice with segment origins.
 
         Parameters
@@ -229,11 +190,11 @@ class Stack(GeometryElement):
         if not segments:
             return None
 
-        sliced_stack = Stack(segments=segments, name=self.name, bottom_pos=start_pos)
+        sliced_stack = type(self)(segments=segments, name=self.name, bottom_pos=start_pos)
         return sliced_stack, origins
 
 
-    def get_axial_slice(self, start_pos: float, stop_pos: float) -> Optional[Stack]:
+    def get_axial_slice(self: TStack, start_pos: float, stop_pos: float) -> Optional[TStack]:
         """Return a new Stack from the axial slice of this stack.
 
         Parameters
