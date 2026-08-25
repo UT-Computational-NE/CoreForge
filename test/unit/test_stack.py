@@ -4,7 +4,7 @@ from math import isclose
 
 from numpy.testing import assert_allclose
 
-from coreforge.geometry_elements import Stack, CylindricalPinCell
+from coreforge.geometry_elements import Stack, CylindricalPinCell, CylindricalStack
 from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
@@ -23,6 +23,13 @@ def stack(pincell):
 def unequal_stack(pincell):
     return Stack([Stack.Segment(element=pincell, length=4.0),
                   Stack.Segment(element=pincell, length=4.0)])
+
+@pytest.fixture
+def cylindrical_stack(pincell):
+    return CylindricalStack([Stack.Segment(element=pincell, length=3.0),
+                             Stack.Segment(element=pincell, length=1.0),
+                             Stack.Segment(element=pincell, length=4.0)])
+
 
 @pytest.fixture
 def stack_mpact_specs(stack, unequal_stack, pincell_mpact_specs):
@@ -47,6 +54,18 @@ def test_stack_initialization(stack, pincell):
     assert geom_element.segments[1].element == pincell
     assert geom_element.segments[2].element == pincell
     assert geom_element.get_materials() == unique_materials(pincell.get_materials())
+
+def test_cylindrical_stack_initialization(cylindrical_stack, pincell, stack):
+    geom_element = cylindrical_stack
+    assert geom_element.name == "stack"
+    assert isclose(geom_element.bottom_pos, 0.0)
+    assert isclose(geom_element.length, 8.0)
+    assert len(geom_element.segments) == 3
+    assert all(segment.element == pincell for segment in geom_element.segments)
+
+    with pytest.raises(AssertionError, match="must contain a CylindricalPinCell"):
+        CylindricalStack([Stack.Segment(element=stack, length=1.0)])
+
 
 def test_equality_and_hash(stack, unequal_stack):
     assert stack == deepcopy(stack)
@@ -109,10 +128,11 @@ def test_unionize_radial_mesh(salt, graphite):
         materials=[graphite, salt, graphite],
         name="pin_b",
     )
-    stack = Stack([Stack.Segment(element=pin_a, length=3.0),
-                   Stack.Segment(element=pin_b, length=4.0)])
+    stack = CylindricalStack([Stack.Segment(element=pin_a, length=3.0),
+                              Stack.Segment(element=pin_b, length=4.0)])
 
     unionized = stack.unionize_radial_mesh()
+    assert isinstance(unionized, CylindricalStack)
     union_radii = [zone.shape.outer_radius for zone in unionized.segments[0].element.zones]
 
     assert union_radii == pytest.approx([1.0, 1.5, 2.0, 2.5])
@@ -143,6 +163,17 @@ def test_get_axial_slice(stack):
     assert all(segment.element == stack.segments[0].element for segment in sliced.segments)
 
     assert stack.get_axial_slice(8.0, 9.0) is None
+
+
+def test_cylindrical_stack_operations_preserve_type(cylindrical_stack, stack):
+    combined = cylindrical_stack + deepcopy(cylindrical_stack)
+    assert isinstance(combined, CylindricalStack)
+
+    sliced = cylindrical_stack.get_axial_slice(1.0, 6.0)
+    assert isinstance(sliced, CylindricalStack)
+
+    with pytest.raises(TypeError):
+        _ = cylindrical_stack + stack
 
 
 def test_mpact_builder_get_axial_slice(stack, stack_mpact_specs):

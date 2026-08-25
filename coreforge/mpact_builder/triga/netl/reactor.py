@@ -729,7 +729,7 @@ def _build_core_location_with_water_hole(
     outer_material:     Material,
     core_location:      str,
     outer_region_specs: Optional[CoreElement.SegmentSpecs] = None,
-) -> Tuple[geometry_elements.Stack, Stack.Specs]:
+) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
 
     outer_pincell = _build_outer_pincell(upper_grid_plate,
                                          lower_grid_plate,
@@ -744,9 +744,10 @@ def _build_core_location_with_water_hole(
         length  = upper_grid_plate.axial_bounds.upper - lower_grid_plate.axial_bounds.lower + 2 * buffer,
     )
 
-    stack = geometry_elements.Stack(segments   = [segment],
-                                    name       = f"{core_location}_outer_stack",
-                                    bottom_pos = stack_bottom)
+    stack = geometry_elements.CylindricalStack(
+        segments   = [segment],
+        name       = f"{core_location}_outer_stack",
+        bottom_pos = stack_bottom)
     stack_specs = Stack.Specs({segment: outer_region_specs})
 
     stack, specs = stack_builder.get_axial_slice(stack, stack_specs, axial_bounds.lower, axial_bounds.upper)
@@ -764,7 +765,7 @@ def _build_core_location_with_element(
     core_location:                 str,
     element_specs:                 Optional[Reactor.CoreElementSpecs] = None,
     outer_region_specs:            Optional[CoreElement.SegmentSpecs] = None,
-) -> Tuple[geometry_elements.Stack, Stack.Specs]:
+) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
 
     outer_pincell = _build_outer_pincell(upper_grid_plate,
                                          lower_grid_plate,
@@ -789,9 +790,10 @@ def _build_core_location_with_element(
     )
 
     segments = [bottom_segment] + element_stack.segments + [top_segment]
-    stack = geometry_elements.Stack(segments   = segments,
-                                    name       = f"{core_location}_element_stack",
-                                    bottom_pos = stack_bottom)
+    stack = geometry_elements.CylindricalStack(
+        segments   = segments,
+        name       = f"{core_location}_element_stack",
+        bottom_pos = stack_bottom)
 
     segment_specs = {bottom_segment: outer_region_specs,
                      top_segment: outer_region_specs,}
@@ -823,12 +825,12 @@ def _build_outer_pincell(
 
 
 def _add_grid_plates_to_stack(
-    stack:            geometry_elements.Stack,
+    stack:            geometry_elements.CylindricalStack,
     stack_specs:      Stack.Specs,
     upper_grid_plate: geometry_elements_triga_netl.Reactor.GridPlate,
     lower_grid_plate: geometry_elements_triga_netl.Reactor.GridPlate,
     core_location:    str,
-) -> Tuple[geometry_elements.Stack, Stack.Specs]:
+) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
 
     for grid_plate in (lower_grid_plate, upper_grid_plate):
         penetration_radius = grid_plate.geometry.penetration_map.get(core_location)
@@ -865,22 +867,22 @@ def _add_grid_plates_to_stack(
             segments.extend(upper_stack.segments)
             segment_specs.update(upper_specs.segment_specs)
 
-        stack = geometry_elements.Stack(segments   = segments,
-                                        name       = stack.name,
-                                        bottom_pos = stack.bottom_pos)
+        stack = type(stack)(segments   = segments,
+                            name       = stack.name,
+                            bottom_pos = stack.bottom_pos)
         stack_specs = Stack.Specs(segment_specs=segment_specs, num_procs=stack_specs.num_procs)
 
     return stack, stack_specs
 
 
 def _build_grid_stack_and_specs(
-    stack:              geometry_elements.Stack,
+    stack:              geometry_elements.CylindricalStack,
     stack_specs:        Stack.Specs,
     plate_top:          float,
     plate_bottom:       float,
     plate_material:     Material,
     penetration_radius: float,
-) -> Optional[Tuple[geometry_elements.Stack, Stack.Specs]]:
+) -> Optional[Tuple[geometry_elements.CylindricalStack, Stack.Specs]]:
 
     def material_for_radius(pincell: geometry_elements.CylindricalPinCell, radius: float):
         for zone in pincell.zones:
@@ -922,8 +924,8 @@ def _build_grid_stack_and_specs(
         grid_segments.append(new_segment)
         grid_segment_specs[new_segment] = stack_specs.segment_specs.get(origin_segment, None)
 
-    grid_stack = geometry_elements.Stack(segments   = grid_segments,
-                                         name       = stack.name,
-                                         bottom_pos = plate_bottom)
+    grid_stack = type(stack)(segments   = grid_segments,
+                             name       = stack.name,
+                             bottom_pos = plate_bottom)
     grid_specs = Stack.Specs(segment_specs=grid_segment_specs, num_procs=stack_specs.num_procs)
     return grid_stack, grid_specs

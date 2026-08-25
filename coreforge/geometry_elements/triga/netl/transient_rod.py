@@ -8,6 +8,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, B4C, Material, Water, unique_materials
 
@@ -408,7 +409,7 @@ class TransientRod(GeometryElement):
         ]
         return unique_materials(materials)
 
-    def as_stack(self, bottom_pos: float = 0.0) -> Stack:
+    def as_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
         """ A method for getting a copy of the Transient Rod as a Stack
 
         Parameters
@@ -418,18 +419,19 @@ class TransientRod(GeometryElement):
 
         Returns
         -------
-        Stack
+        CylindricalStack
             The Transient Rod as a Stack
         """
 
-        return Stack(segments   = [Stack.Segment(self.lower_element_plug_pincell, self.lower_element_plug.thickness),
-                                   Stack.Segment(self.air_follower_pincell, self.air_follower.thickness),
-                                   Stack.Segment(self.lower_magneform_fitting_pincell, self.lower_magneform_fitting.thickness),
-                                   Stack.Segment(self.absorber_pincell, self.absorber.length),
-                                   Stack.Segment(self.upper_magneform_fitting_pincell, self.upper_magneform_fitting.thickness),
-                                   Stack.Segment(self.upper_element_plug_pincell, self.upper_element_plug.thickness)],
-                      name       = self.name,
-                      bottom_pos = bottom_pos)
+        return CylindricalStack(
+            segments   = [Stack.Segment(self.lower_element_plug_pincell, self.lower_element_plug.thickness),
+                          Stack.Segment(self.air_follower_pincell, self.air_follower.thickness),
+                          Stack.Segment(self.lower_magneform_fitting_pincell, self.lower_magneform_fitting.thickness),
+                          Stack.Segment(self.absorber_pincell, self.absorber.length),
+                          Stack.Segment(self.upper_magneform_fitting_pincell, self.upper_magneform_fitting.thickness),
+                          Stack.Segment(self.upper_element_plug_pincell, self.upper_element_plug.thickness)],
+            name       = self.name,
+            bottom_pos = bottom_pos)
 
     @staticmethod
     def build_absorber_pincell(cladding:       Cladding,

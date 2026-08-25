@@ -8,6 +8,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.geometry_elements.triga.end_fitting import EndFitting as BaseEndFitting
 from coreforge.materials import Air, Al6061T6, Graphite, Material, Water, unique_materials
@@ -271,7 +272,7 @@ class GraphiteElement(GeometryElement):
         bottom_pos: float = 0.0,
         lower_end_target_axial_thickness: Optional[float] = None,
         upper_end_target_axial_thickness: Optional[float] = None,
-    ) -> Stack:
+    ) -> CylindricalStack:
         """ A method for getting a copy of the Graphite Element as a Stack
 
         Parameters
@@ -285,7 +286,7 @@ class GraphiteElement(GeometryElement):
 
         Returns
         -------
-        Stack
+        CylindricalStack
             The Graphite Element as a Stack
         """
 
@@ -304,7 +305,7 @@ class GraphiteElement(GeometryElement):
             name                    = self.name + "_upper_end_fitting",
         )
 
-        mid_stack = Stack(segments=[
+        mid_stack = CylindricalStack(segments=[
             Stack.Segment(self.graphite_pincell, self.graphite_meat.length),
         ])
 

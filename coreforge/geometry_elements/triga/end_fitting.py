@@ -12,6 +12,7 @@ from mpactpy.utils import (
 
 from coreforge.geometry_elements.cone import OneSidedCone
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Material
 
@@ -59,7 +60,7 @@ class EndFitting:
         target_axial_thickness: Optional[float] = None,
         max_radius: Optional[float] = None,
         name: str = "end_fitting",
-    ) -> Stack:
+    ) -> CylindricalStack:
         """Create a stack representation of the clipped end fitting.
 
         When ``max_radius`` clips the cone base, the cylindrical portion is
@@ -116,7 +117,7 @@ class EndFitting:
         if self.direction == "down":
             segments = list(reversed(segments))
 
-        return Stack(segments=segments, name=name, bottom_pos=bottom_pos)
+        return CylindricalStack(segments=segments, name=name, bottom_pos=bottom_pos)
 
     def __eq__(self, other: object) -> bool:
         if self is other:

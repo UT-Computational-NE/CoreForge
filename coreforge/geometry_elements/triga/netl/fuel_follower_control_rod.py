@@ -9,6 +9,7 @@ from mpactpy.utils import equal_volume_ring_radii, relative_round, ROUNDING_RELA
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
+from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, B4C, Material, SS304, UZrH, Water, Zr, unique_materials
 
@@ -667,7 +668,7 @@ class FuelFollowerControlRod(GeometryElement):
         ]
         return unique_materials(materials)
 
-    def as_stack(self, bottom_pos: float = 0.0) -> Stack:
+    def as_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
         """ A method for getting a copy of the Fuel Follower Control Rod as a Stack
 
         Parameters
@@ -677,7 +678,7 @@ class FuelFollowerControlRod(GeometryElement):
 
         Returns
         -------
-        Stack
+        CylindricalStack
             The Fuel Follower Control Rod as a Stack
         """
 
@@ -685,9 +686,9 @@ class FuelFollowerControlRod(GeometryElement):
         fuel_segments = [Stack.Segment(pincell, fuel_region_thickness)
                          for pincell in reversed(self.fuel_follower_pincells)]
 
-        return Stack( name       = self.name,
-                      bottom_pos = bottom_pos,
-                      segments   = [
+        return CylindricalStack(name       = self.name,
+                                bottom_pos = bottom_pos,
+                                segments   = [
             Stack.Segment(self.lower_element_plug_pincell, self.lower_element_plug.thickness),
             Stack.Segment(self.air_gap_pincell, self.lower_air_gap.thickness),
             Stack.Segment(self.lower_magneform_fitting_pincell, self.lower_magneform_fitting.thickness),
@@ -699,8 +700,7 @@ class FuelFollowerControlRod(GeometryElement):
             Stack.Segment(self.upper_magneform_fitting_pincell, self.upper_magneform_fitting.thickness),
             Stack.Segment(self.air_gap_pincell, self.upper_air_gap.thickness),
             Stack.Segment(self.upper_element_plug_pincell, self.upper_element_plug.thickness)
-            ],
-        )
+                                ])
 
     @staticmethod
     def build_absorber_pincell(cladding:       Cladding,

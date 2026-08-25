@@ -126,7 +126,7 @@ class TransientRod(CoreElement[geometry_elements_triga_netl.TransientRod]):
 
     def build_stack_and_specs(self,
                               element: geometry_elements_triga_netl.TransientRod,
-    ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
+    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
 
         stack = element.as_stack().unionize_radial_mesh()
         segment_specs = {stack.segments[0]: self.specs.lower_element_plug,
