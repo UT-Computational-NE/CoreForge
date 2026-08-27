@@ -311,7 +311,16 @@ def test_mpact_builder_without_excore(reactor, num_procs):
 
 
 def test_mpact_builder_with_excore(reactor, num_procs):
-    specs = mpact_builder.triga.netl.Reactor.Specs(num_procs=num_procs)
+    reactor_builder = mpact_builder.triga.netl.Reactor
+    voxelization_specs = reactor_builder.VoxelationSpecs(
+        target_thicknesses={"radial": reactor.core.pitch},
+    )
+    empty_core_specs = {
+        location: reactor_builder.CoreCellSpecs(voxelization_specs=voxelization_specs)
+        for location, element in reactor.core.full_map.items()
+        if element is None
+    }
+    specs = reactor_builder.Specs(core_specs=empty_core_specs, num_procs=num_procs)
     core = mpact_builder.build(reactor, specs)
     assert core.nx > 0
     assert core.ny > 0
