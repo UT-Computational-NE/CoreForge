@@ -20,6 +20,7 @@ from coreforge.mpact_builder.stack import Stack
 import coreforge.mpact_builder.stack as stack_builder
 from coreforge.mpact_builder.mpact_builder import build, get_builder, register_builder
 from coreforge.mpact_builder.triga.core_element import CoreElement
+from coreforge.mpact_builder.triga.cylindrical_stack import CylindricalStack
 from coreforge.mpact_builder.triga.fuel_element import FuelElement
 from coreforge.mpact_builder.triga.graphite_element import GraphiteElement
 from .central_thimble import CentralThimble
@@ -54,6 +55,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
     CoreElementSpecs: TypeAlias = (FuelElement.Specs |
                                    GraphiteElement.Specs |
                                    CentralThimble.Specs |
+                                   CylindricalStack.Specs |
                                    SourceHolder.Specs |
                                    TransientRod.Specs |
                                    FuelFollowerControlRod.Specs)

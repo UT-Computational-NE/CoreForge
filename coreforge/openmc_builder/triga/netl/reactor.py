@@ -2,7 +2,7 @@ from typing import Optional, Tuple
 
 import openmc
 
-
+from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder, build
 from coreforge.shapes import Hexagon
@@ -309,7 +309,11 @@ def build_core_element(
         outer_region   = ~element_region if outer_region is None else outer_region & ~element_region
         element_region = element_region & ~grid_regions if grid_regions else element_region
         element_cell   = openmc.Cell(fill=build(element), region=element_region)
-        element_cell.translation = (0.0, 0.0, bottom_z)
+        z_translation  = bottom_z
+        # CylindricalStacks already use element.bottom_pos, so remove it from the translation
+        if isinstance(element, CylindricalStack):
+            z_translation -= element.bottom_pos
+        element_cell.translation = (0.0, 0.0, z_translation)
         cells.append(element_cell)
 
     outer_fill = outer_material or element.outer_material.openmc_material

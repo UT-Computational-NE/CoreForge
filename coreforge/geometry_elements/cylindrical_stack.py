@@ -7,6 +7,7 @@ from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.stack import Stack
+from coreforge.materials import Material
 
 
 class CylindricalStack(Stack):
@@ -21,7 +22,28 @@ class CylindricalStack(Stack):
         The axial position of the bottom of the stack (cm)
     length : float
         The total length of the stack
+    outer_material : Material
+        The common outer material of all cylindrical pin-cell segments
     """
+
+    @property
+    def outer_material(self) -> Material:
+        """Return the common outer material of all stack segments.
+
+        Returns
+        -------
+        Material
+            The common outer material of all cylindrical pin-cell segments.
+
+        Raises
+        ------
+        AssertionError
+            If the segments do not all have the same outer material.
+        """
+
+        assert self._outer_material is not None, \
+            "CylindricalStack segments must share a common outer material."
+        return self._outer_material
 
     @Stack.segments.setter
     def segments(self, segments: List[Stack.Segment]) -> None:
@@ -30,6 +52,10 @@ class CylindricalStack(Stack):
             "All CylindricalStack segments must contain a CylindricalPinCell."
         self._segments = segments
         self._length = sum(segment.length for segment in segments)
+        outer_material = segments[0].element.outer_material
+        self._outer_material = outer_material if all(
+            segment.element.outer_material == outer_material for segment in segments
+        ) else None
 
 
     def unionize_radial_mesh(self) -> CylindricalStack:

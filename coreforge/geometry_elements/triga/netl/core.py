@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import ClassVar, Dict, List, TypeAlias
 
-from coreforge.geometry_elements import GeometryElement, HexLattice
+from coreforge.geometry_elements import CylindricalStack, GeometryElement, HexLattice
 from coreforge.materials import Material, unique_materials
 from coreforge.geometry_elements.triga import FuelElement, GraphiteElement
 from coreforge.geometry_elements.triga.netl.central_thimble import CentralThimble
@@ -99,11 +99,11 @@ class Core(GeometryElement):
         ["A-01"]
     ]
 
-    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder
+    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | CylindricalStack
     ControlRod: TypeAlias = TransientRod | FuelFollowerControlRod
     Fixture:    TypeAlias = CentralThimble | TransientRod | FuelFollowerControlRod
-    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | CentralThimble | \
-                            TransientRod | FuelFollowerControlRod
+    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | CylindricalStack | \
+                            CentralThimble | TransientRod | FuelFollowerControlRod
 
     RESERVED_LOCATIONS: ClassVar[List[str]] = ["A-01", "C-01", "C-07", "D-06", "D-14",
                                                "G-01", "G-07", "G-13", "G-19", "G-25", "G-31"]
