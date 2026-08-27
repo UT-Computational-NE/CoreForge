@@ -55,16 +55,30 @@ def test_stack_initialization(stack, pincell):
     assert geom_element.segments[2].element == pincell
     assert geom_element.get_materials() == unique_materials(pincell.get_materials())
 
-def test_cylindrical_stack_initialization(cylindrical_stack, pincell, stack):
+def test_cylindrical_stack_initialization(cylindrical_stack, pincell, stack, salt, graphite):
     geom_element = cylindrical_stack
     assert geom_element.name == "stack"
     assert isclose(geom_element.bottom_pos, 0.0)
     assert isclose(geom_element.length, 8.0)
     assert len(geom_element.segments) == 3
     assert all(segment.element == pincell for segment in geom_element.segments)
+    assert geom_element.outer_material == pincell.outer_material
 
     with pytest.raises(AssertionError, match="must contain a CylindricalPinCell"):
         CylindricalStack([Stack.Segment(element=stack, length=1.0)])
+
+    salt_outer = CylindricalPinCell(radii=[1.0], materials=[graphite, salt])
+    also_salt_outer = CylindricalPinCell(radii=[2.0], materials=[salt, salt])
+    common_outer_stack = CylindricalStack([Stack.Segment(element=salt_outer, length=1.0),
+                                           Stack.Segment(element=also_salt_outer, length=1.0)])
+    assert common_outer_stack.outer_material == salt
+
+    graphite_outer = CylindricalPinCell(radii=[1.0], materials=[salt, graphite])
+    mixed_outer_stack = CylindricalStack([Stack.Segment(element=salt_outer, length=1.0),
+                                          Stack.Segment(element=graphite_outer, length=1.0)])
+
+    with pytest.raises(AssertionError, match="must share a common outer material"):
+        _ = mixed_outer_stack.outer_material
 
 
 def test_equality_and_hash(stack, unequal_stack):
@@ -115,6 +129,24 @@ def test_mpact_builder(stack, stack_mpact_specs, graphite):
     expected_assertion = "Unsupported Geometry! Stack: bad_stack Segment 0: stack is not a 2D radial geometry"
     with pytest.raises(AssertionError, match=expected_assertion):
         core = mpact_builder.build(geom_element)
+
+
+def test_cylindrical_stack_mpact_builder(cylindrical_stack, pincell_mpact_specs):
+    segment_specs = mpact_builder.Stack.Segment.Specs(builder_specs=pincell_mpact_specs)
+    specs = mpact_builder.triga.CylindricalStack.Specs(
+        {segment: segment_specs for segment in cylindrical_stack.segments}
+    )
+
+    builder_cls = mpact_builder.get_builder(cylindrical_stack)
+    assert builder_cls is mpact_builder.triga.CylindricalStack
+
+    stack, stack_specs = builder_cls(specs).build_stack_and_specs(cylindrical_stack)
+    assert stack is cylindrical_stack
+    assert stack_specs is specs
+
+    core = mpact_builder.build(cylindrical_stack, specs)
+    assert core.nz == len(cylindrical_stack.segments)
+    assert isclose(core.height, cylindrical_stack.length)
 
 
 def test_unionize_radial_mesh(salt, graphite):

@@ -6,6 +6,7 @@ from math import cos, isclose, radians, sin, sqrt
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
+from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Material, unique_materials
 from coreforge.shapes import Circle, Hexagon, Interval, Rectangle
@@ -845,9 +846,10 @@ class Reactor(GeometryElement):
     ) -> float | None:
         """Return the bottom axial position for a core element.
 
-        Built-in TRIGA fuel, graphite, central thimble, control rod, and source
-        holder placements are returned relative to the reactor core centerline.
-        Control rod locations use the reactor's current rod-position attributes.
+        Built-in TRIGA fuel, graphite, central thimble, control rod, source
+        holder, and cylindrical stack placements are returned relative to the
+        reactor core centerline. Control rod locations use the reactor's current
+        rod-position attributes.
 
         Parameters
         ----------
@@ -864,6 +866,8 @@ class Reactor(GeometryElement):
 
         axial_position: float | None = None
 
+        if isinstance(element, CylindricalStack):
+            axial_position = element.bottom_pos
         if isinstance(element, CentralThimbleGeometry):
             axial_position = -0.5 * element.length
         if isinstance(element, FuelElementGeometry):

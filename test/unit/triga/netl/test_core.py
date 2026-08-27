@@ -17,6 +17,9 @@ CM_PER_INCH = 2.54
 def core(central_thimble, transient_rod, control_rod, source_holder, fuel_element, graphite_element):
     fuel = lambda: deepcopy(fuel_element)
     graphite = lambda: deepcopy(graphite_element)
+    cylindrical_stack = lambda: graphite().as_stack(
+        bottom_pos = -0.5 * graphite_element.graphite_meat.length - graphite_element.lower_end_fitting.length
+    )
     source = lambda: deepcopy(source_holder)
     empty = lambda: None
 
@@ -28,11 +31,12 @@ def core(central_thimble, transient_rod, control_rod, source_holder, fuel_elemen
 
     core_loading |= fill(["C-02", "C-03", "C-04", "C-05", "C-06",
                           "C-08", "C-09", "C-10", "C-11", "C-12"], fuel)
+    core_loading["C-12"] = graphite()
 
     core_loading |= fill(["D-01", "D-02", "D-04", "D-05",
                           "D-07", "D-08", "D-09", "D-10", "D-11", "D-12",
                           "D-13", "D-15", "D-16", "D-17", "D-18"], fuel)
-    core_loading["D-03"] = graphite()
+    core_loading["D-03"] = cylindrical_stack()
 
     core_loading |= fill(["E-01", "E-02", "E-03", "E-04", "E-05", "E-06",
                           "E-07", "E-08", "E-09", "E-10", "E-12",
@@ -88,7 +92,9 @@ def unequal_core(core):
 def test_initialization(core, fuel_element, graphite_element, source_holder, central_thimble, transient_rod, control_rod):
     assert core.pitch == pytest.approx(1.714 * CM_PER_INCH)
     assert core.full_map["B-01"] == fuel_element
-    assert core.full_map["D-03"] == graphite_element
+    assert core.full_map["C-12"] == graphite_element
+    graphite_bottom = -0.5 * graphite_element.graphite_meat.length - graphite_element.lower_end_fitting.length
+    assert core.full_map["D-03"] == graphite_element.as_stack(bottom_pos=graphite_bottom)
     assert core.full_map["A-01"] == central_thimble
     assert core.full_map["C-01"] == transient_rod
     assert core.full_map["C-07"] == control_rod
@@ -101,6 +107,7 @@ def test_initialization(core, fuel_element, graphite_element, source_holder, cen
         if element is not None:
             expected.extend(element.get_materials())
     assert core.get_materials() == unique_materials(expected)
+
 
 def test_equality_and_hash(core, unequal_core):
     assert core == deepcopy(core)
