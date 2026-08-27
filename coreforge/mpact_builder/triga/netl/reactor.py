@@ -1,7 +1,7 @@
 from __future__ import annotations
-from typing import Dict, List, Optional, Tuple, TypeAlias
+from typing import Dict, List, Optional, Tuple, TypeAlias, TypedDict
 from dataclasses import dataclass, field
-from math import ceil, inf, isclose, isinf
+from math import ceil, inf, isclose, isfinite, isinf
 
 import openmc
 import mpactpy
@@ -61,27 +61,6 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                                    FuelFollowerControlRod.Specs)
 
     @dataclass
-    class VoxelizedSegmentSpecs(Stack.Segment.Specs):
-        """Specifications for voxelized segments outside core element regions.
-
-        Attributes
-        ----------
-        builder_specs : Optional[InfiniteMedium.Specs]
-            Builder specifications for the voxelized segment element.
-        """
-
-        builder_specs: Optional[InfiniteMedium.Specs] = None
-
-        def __post_init__(self) -> None:
-            super().__post_init__()
-            if self.builder_specs is None:
-                return
-            assert isinstance(
-                self.builder_specs,
-                InfiniteMedium.Specs,
-            ), "VoxelizedSegmentSpecs.builder_specs must be InfiniteMedium.Specs."
-
-    @dataclass
     class CoreCellSpecs:
         """Specifications for a single core location build.
 
@@ -90,11 +69,15 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         element_specs : Optional[Reactor.CoreElementSpecs]
             Builder specifications for the core element at this location. Must be
             consistent with the element being built.
-        outer_region_specs : Optional[Reactor.VoxelizedSegmentSpecs | CoreElement.SegmentSpecs]
+        outer_region_specs : Optional[Reactor.VoxelationSpecs | CoreElement.SegmentSpecs]
             Specifications for axial regions outside the core element. Use
-            VoxelizedSegmentSpecs (InfiniteMedium.Specs) when there are no grid
-            plate penetrations, and CoreElement.SegmentSpecs
-            (CylindricalPinCell.Specs) when penetrations are present.
+            VoxelationSpecs when there are no grid plate penetrations, and
+            CoreElement.SegmentSpecs (CylindricalPinCell.Specs) when
+            penetrations are present.
+        voxelization_specs : Optional[Reactor.VoxelationSpecs]
+            Specifications for representing the complete core location as a
+            rectangular voxel mesh. When omitted, populated core locations use
+            their analytic MPACT representation.
         axial_bounds : Optional[Interval]
             Lower and upper axial bounds (cm) to clip the constructed stack.
         unionize_radial_mesh : bool
@@ -103,7 +86,8 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         """
 
         element_specs:      Optional[Reactor.CoreElementSpecs] = None
-        outer_region_specs: Optional[Reactor.VoxelizedSegmentSpecs | CoreElement.SegmentSpecs] = None
+        outer_region_specs: Optional[Reactor.VoxelationSpecs | CoreElement.SegmentSpecs] = None
+        voxelization_specs: Optional[Reactor.VoxelationSpecs] = None
         axial_bounds:       Optional[Interval | Tuple[float, float]] = None
         unionize_radial_mesh: bool = False
 
@@ -117,22 +101,38 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
     @dataclass
     class VoxelationSpecs:
-        """Target voxel thicknesses for an excore feature region.
+        """Voxel mesh specifications for a geometry region.
 
         Attributes
         ----------
-        radial : float
-            Target transverse thickness (cm) used for X/Y voxelation.
-        axial : float
-            Target axial thickness (cm) used to add global axial mesh points.
+        target_thicknesses : Optional[TargetThicknesses]
+            Target voxel thicknesses (cm). ``radial`` is used for X/Y
+            voxelation and ``axial`` is used to add axial mesh points. Missing
+            targets default to infinity.
+        axial_points : List[float]
+            Required axial mesh points in the reactor coordinate system (cm).
         """
 
-        radial: float = inf
-        axial:  float = inf
+        class TargetThicknesses(TypedDict, total=False):
+            """Target voxel thicknesses by direction."""
+
+            radial: float
+            axial:  float
+
+        target_thicknesses: Optional[TargetThicknesses] = None
+        axial_points: List[float] = field(default_factory=list)
 
         def __post_init__(self) -> None:
-            assert self.radial > 0.0, "VoxelationSpecs.radial must be > 0.0 cm"
-            assert self.axial > 0.0, "VoxelationSpecs.axial must be > 0.0 cm"
+            self.target_thicknesses = dict(self.target_thicknesses or {})
+            self.axial_points = list(self.axial_points)
+
+            for direction in ["radial", "axial"]:
+                self.target_thicknesses.setdefault(direction, inf)
+
+            assert all(target > 0.0 for target in self.target_thicknesses.values()), \
+                f"VoxelationSpecs.target_thicknesses = {self.target_thicknesses}"
+            if not all(isfinite(point) for point in self.axial_points):
+                raise ValueError(f"Axial mesh points must be finite: {self.axial_points}")
 
     @dataclass
     class ExcoreSpecs:
@@ -267,6 +267,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                     core_cell_specs = Reactor.CoreCellSpecs(
                         element_specs        = core_cell_specs.element_specs,
                         outer_region_specs   = core_cell_specs.outer_region_specs,
+                        voxelization_specs   = core_cell_specs.voxelization_specs,
                         axial_bounds         = reactor.pool.axial_bounds,
                         unionize_radial_mesh = core_cell_specs.unionize_radial_mesh,
                     )
@@ -296,18 +297,22 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         mpact_core = build(lattice, lattice_specs)
 
-        if self.specs.exclude_excore:
+        has_incore_overlay = any(core_cell_specs.voxelization_specs is not None
+                                 for core_cell_specs in self.specs.core_specs.values())
+        if self.specs.exclude_excore and not has_incore_overlay:
             return mpact_core
 
         openmc_universe = self.specs.openmc_universe or openmc_builder.build(reactor)
         return self._apply_openmc_overlay(mpact_core, openmc_universe, reactor)
+
+
     def _apply_openmc_overlay(self,
                               core: mpactpy.Core,
                               openmc_universe: openmc.Universe,
                               reactor: geometry_elements_triga_netl.Reactor
     ) -> mpactpy.Core:
 
-        core = self._add_excore_cells(core, reactor)
+        core = core if self.specs.exclude_excore else self._add_excore_cells(core, reactor)
 
         # Only overlay pins/modules/lattices/assemblies that contain voxelized pins
         pins_to_overlay = {pin for pin in core.pins if isinstance(pin.pinmesh, mpactpy.RectangularPinMesh)}
@@ -401,25 +406,24 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         pool_bottom = reactor.pool.axial_bounds.lower
         pool_top = reactor.pool.axial_bounds.upper
-        reflector_bottom = reactor.reflector.axial_bounds.lower
-        reflector_top = reactor.reflector.axial_bounds.upper
-        rsr_bottom = reactor.rotary_specimen_rack_cavity.axial_bounds.lower
         excore_specs = self.specs.excore_specs
 
-        points = [pool_bottom,
-                  pool_top,
-                  reflector_bottom,
-                  reflector_top,
-                  rsr_bottom]
+        points = []
 
-        for beamport_id in (1, 2, 3, 4):
-            points.extend(reactor.beam_port[beamport_id].axial_bounds.bounds)
+        def add_mesh_points(bounds: Interval,
+                            specs: Reactor.VoxelationSpecs) -> None:
+            points.extend(bounds.bounds)
 
-        def add_subdivision_points(
-            bounds: Interval,
-            specs: Reactor.VoxelationSpecs,
-        ) -> None:
-            target = specs.axial
+            def within_bounds(point: float) -> bool:
+                return ((point > bounds.lower or isclose(point, bounds.lower, rel_tol=TOL, abs_tol=TOL)) and
+                        (point < bounds.upper or isclose(point, bounds.upper, rel_tol=TOL, abs_tol=TOL)))
+
+            invalid_points = [point for point in specs.axial_points if not within_bounds(point)]
+            if invalid_points:
+                raise ValueError(f"Axial mesh point(s) {invalid_points} are outside feature bounds {bounds.bounds}")
+            points.extend(specs.axial_points)
+
+            target = specs.target_thicknesses["axial"]
             if isinf(target):
                 return
 
@@ -435,21 +439,14 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             subd_length = length / num_subdivisions
             points.extend(lower + i * subd_length for i in range(num_subdivisions + 1))
 
-        add_subdivision_points(reactor.pool.axial_bounds,
-                               excore_specs.pool)
-        add_subdivision_points(reactor.shroud.axial_bounds,
-                               excore_specs.shroud)
-        add_subdivision_points(reactor.rotary_specimen_rack_cavity.axial_bounds,
-                               excore_specs.rsr_cavity)
-        add_subdivision_points(reactor.rotary_specimen_rack_cavity.axial_bounds,
-                               excore_specs.rsr_tube)
-        add_subdivision_points(reactor.reflector.axial_bounds,
-                               excore_specs.reflector)
+        add_mesh_points(reactor.pool.axial_bounds, excore_specs.pool)
+        add_mesh_points(reactor.shroud.axial_bounds, excore_specs.shroud)
+        add_mesh_points(reactor.rotary_specimen_rack_cavity.axial_bounds, excore_specs.rsr_cavity)
+        add_mesh_points(reactor.rotary_specimen_rack_cavity.axial_bounds, excore_specs.rsr_tube)
+        add_mesh_points(reactor.reflector.axial_bounds, excore_specs.reflector)
         for beamport_id in (1, 2, 3, 4):
-            add_subdivision_points(reactor.beam_port[beamport_id].axial_bounds,
-                                   excore_specs.beamport_exterior)
-            add_subdivision_points(reactor.beam_port[beamport_id].interior_axial_bounds,
-                                   excore_specs.beamport_interior)
+            add_mesh_points(reactor.beam_port[beamport_id].axial_bounds, excore_specs.beamport_exterior)
+            add_mesh_points(reactor.beam_port[beamport_id].interior_axial_bounds, excore_specs.beamport_interior)
 
         def within_pool(z: float) -> bool:
             return ((z > pool_bottom or isclose(z, pool_bottom, rel_tol=TOL, abs_tol=TOL)) and
@@ -459,7 +456,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         unique_points: List[float] = []
         for z in points:
-            if not unique_points or not isclose(z, unique_points[-1], rel_tol=TOL):
+            if not unique_points or not isclose(z, unique_points[-1], rel_tol=TOL, abs_tol=TOL):
                 unique_points.append(z)
 
         if len(unique_points) < 2:
@@ -514,22 +511,22 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
             target_thicknesses: List[float] = []
             if reactor.shroud.intersects(rect, radial_location) and between_grid_plate_bounds:
-                target_thicknesses.append(excore_specs.shroud.radial)
+                target_thicknesses.append(excore_specs.shroud.target_thicknesses["radial"])
             if reactor.rsr_cavity_intersects(rect, radial_location, axial_bounds):
-                target_thicknesses.append(excore_specs.rsr_cavity.radial)
+                target_thicknesses.append(excore_specs.rsr_cavity.target_thicknesses["radial"])
             if reactor.rsr_tube_intersects(rect, radial_location, axial_bounds):
-                target_thicknesses.append(excore_specs.rsr_tube.radial)
+                target_thicknesses.append(excore_specs.rsr_tube.target_thicknesses["radial"])
             if reactor.reflector_intersects(rect, radial_location, axial_bounds):
-                target_thicknesses.append(excore_specs.reflector.radial)
+                target_thicknesses.append(excore_specs.reflector.target_thicknesses["radial"])
             for bp in (1, 2, 3, 4):
                 if reactor.beam_port[bp].intersects(rect, radial_location, axial_bounds):
                     if reactor.beam_port[bp].contains(rect, radial_location, axial_bounds):
-                        target_thicknesses.append(excore_specs.beamport_interior.radial)
+                        target_thicknesses.append(excore_specs.beamport_interior.target_thicknesses["radial"])
                     else:
-                        target_thicknesses.append(excore_specs.beamport_exterior.radial)
+                        target_thicknesses.append(excore_specs.beamport_exterior.target_thicknesses["radial"])
 
             if not target_thicknesses:
-                target_thicknesses.append(excore_specs.pool.radial)
+                target_thicknesses.append(excore_specs.pool.target_thicknesses["radial"])
 
             target_thickness = min(target_thicknesses)
 
@@ -605,6 +602,7 @@ def build_core_element(
     core_cell_specs    = core_cell_specs or Reactor.CoreCellSpecs()
     element_specs      = core_cell_specs.element_specs
     outer_region_specs = core_cell_specs.outer_region_specs
+    voxelization_specs = core_cell_specs.voxelization_specs
     axial_bounds       = core_cell_specs.axial_bounds
 
     upper_penetration_radius = upper_grid_plate.geometry.penetration_map.get(core_location)
@@ -615,42 +613,53 @@ def build_core_element(
     assert both_grids_have_penetrations or both_grid_do_not_have_penetrations, \
         "Both upper and lower penetration radii must be provided or both must be None."
 
+    if element is not None:
+        outer_material = outer_material or element.outer_material
+
+    assert outer_material is not None, "outer_material must be provided if element is None."
+
+    if axial_bounds is None:
+        axial_bounds = Interval(lower_grid_plate.axial_bounds.lower, upper_grid_plate.axial_bounds.upper)
+
+        if element is not None:
+            assert element_bottom_axial_position is not None, \
+                "element_bottom_axial_position must be provided if element is not None and axial_bounds is None."
+            axial_bounds = Interval(min(axial_bounds.lower, element_bottom_axial_position),
+                                    max(axial_bounds.upper, element_bottom_axial_position + element.length))
+
+    if voxelization_specs is not None:
+        return _build_voxelized_core_location(upper_grid_plate,
+                                               lower_grid_plate,
+                                               axial_bounds,
+                                               outer_material,
+                                               voxelization_specs)
+
     if outer_region_specs is None:
         outer_region_specs = (
             CoreElement.SegmentSpecs()
             if both_grids_have_penetrations
-            else Reactor.VoxelizedSegmentSpecs()
+            else Reactor.VoxelationSpecs()
         )
 
     if both_grids_have_penetrations:
         assert isinstance(outer_region_specs, CoreElement.SegmentSpecs), \
             "outer_region_specs must be CoreElement.SegmentSpecs when penetrations are present."
     else:
-        assert isinstance(outer_region_specs, Reactor.VoxelizedSegmentSpecs), \
-            "outer_region_specs must be Reactor.VoxelizedSegmentSpecs when no penetrations are present."
+        assert isinstance(outer_region_specs, Reactor.VoxelationSpecs), \
+            "outer_region_specs must be Reactor.VoxelationSpecs when no penetrations are present."
 
     if element is not None:
-        outer_material = outer_material or element.outer_material
         assert element_bottom_axial_position is not None, \
             "element_bottom_axial_position must be provided if element is not None."
         assert both_grids_have_penetrations, \
             "Grid plate penetration radii must be provided for core locations with elements."
 
-    assert outer_material is not None, "outer_material must be provided if element is None."
-
-    if axial_bounds is None:
-        axial_bounds = Interval(lower_grid_plate.axial_bounds.length, upper_grid_plate.axial_bounds.upper)
-
-        if element is not None:
-            axial_bounds = Interval(min(axial_bounds.lower, element_bottom_axial_position),
-                                    max(axial_bounds.upper, element_bottom_axial_position + element.length))
-
     if upper_penetration_radius is None and lower_penetration_radius is None:
-        return _build_core_location_with_no_penetrations(upper_grid_plate,
-                                                         lower_grid_plate,
-                                                         axial_bounds,
-                                                         outer_material,
-                                                         outer_region_specs)
+        return _build_voxelized_core_location(upper_grid_plate,
+                                               lower_grid_plate,
+                                               axial_bounds,
+                                               outer_material,
+                                               outer_region_specs)
     if element is None:
         return _build_core_location_with_water_hole(upper_grid_plate,
                                                     lower_grid_plate,
@@ -679,49 +688,82 @@ def build_core_element(
     return stack, specs
 
 
-def _build_core_location_with_no_penetrations(
+def _build_voxelized_core_location(
     upper_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
     lower_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
     axial_bounds:       Interval,
     outer_material:     Material,
-    outer_region_specs: Optional[Reactor.VoxelizedSegmentSpecs] = None,
+    voxelization_specs: Optional[Reactor.VoxelationSpecs] = None,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
-    outer_region_specs = outer_region_specs or Reactor.VoxelizedSegmentSpecs()
+    voxelization_specs = voxelization_specs or Reactor.VoxelationSpecs()
 
-    buffer       = axial_bounds.length
-    stack_bottom = lower_grid_plate.axial_bounds.lower - buffer
+    def within_axial_bounds(point: float) -> bool:
+        return ((point > axial_bounds.lower or
+                 isclose(point, axial_bounds.lower, rel_tol=TOL, abs_tol=TOL)) and
+                (point < axial_bounds.upper or
+                 isclose(point, axial_bounds.upper, rel_tol=TOL, abs_tol=TOL)))
 
-    segments = [
-        geometry_elements.Stack.Segment(
-            element = geometry_elements.InfiniteMedium(outer_material, name="outer_region"),
-            length  = buffer,
-        ),
-        geometry_elements.Stack.Segment(
-            element = geometry_elements.InfiniteMedium(lower_grid_plate.geometry.material,
-                                                       name="lower_grid_plate"),
-            length  = lower_grid_plate.axial_bounds.length,
-        ),
-        geometry_elements.Stack.Segment(
-            element = geometry_elements.InfiniteMedium(outer_material, name="outer_region"),
-            length  = upper_grid_plate.axial_bounds.lower - lower_grid_plate.axial_bounds.upper,
-        ),
-        geometry_elements.Stack.Segment(
-            element = geometry_elements.InfiniteMedium(upper_grid_plate.geometry.material,
-                                                       name="upper_grid_plate"),
-            length  = upper_grid_plate.axial_bounds.length,
-        ),
-        geometry_elements.Stack.Segment(
-            element = geometry_elements.InfiniteMedium(outer_material, name="outer_region"),
-            length  = buffer,
-        ),
-    ]
+    invalid_points = [point for point in voxelization_specs.axial_points
+                      if not within_axial_bounds(point)]
+    if invalid_points:
+        raise ValueError(f"Axial mesh point(s) {invalid_points} are outside core cell bounds {axial_bounds.bounds}")
+
+    points = [axial_bounds.lower, axial_bounds.upper]
+    points.extend(voxelization_specs.axial_points)
+    points.extend(lower_grid_plate.axial_bounds.bounds)
+    points.extend(upper_grid_plate.axial_bounds.bounds)
+
+    def clamp_to_axial_bounds(point: float) -> float:
+        if isclose(point, axial_bounds.lower, rel_tol=TOL, abs_tol=TOL):
+            return axial_bounds.lower
+        if isclose(point, axial_bounds.upper, rel_tol=TOL, abs_tol=TOL):
+            return axial_bounds.upper
+        return point
+
+    points = sorted(clamp_to_axial_bounds(point) for point in points if within_axial_bounds(point))
+    unique_points: List[float] = []
+    for point in points:
+        if not unique_points or not isclose(point, unique_points[-1], rel_tol=TOL, abs_tol=TOL):
+            unique_points.append(point)
+
+    axial_target = voxelization_specs.target_thicknesses["axial"]
+    if not isinf(axial_target):
+        subdivided_points = [unique_points[0]]
+        for lower, upper in zip(unique_points[:-1], unique_points[1:]):
+            num_subdivisions = max(1, ceil((upper - lower) / axial_target))
+            subd_length = (upper - lower) / num_subdivisions
+            subdivided_points.extend(lower + i * subd_length for i in range(1, num_subdivisions + 1))
+        unique_points = subdivided_points
+
+    def material_at(point: float) -> Material:
+        for grid_plate in [lower_grid_plate, upper_grid_plate]:
+            bounds = grid_plate.axial_bounds
+            if point > bounds.lower and point < bounds.upper:
+                return grid_plate.geometry.material
+        return outer_material
+
+    radial_target = voxelization_specs.target_thicknesses["radial"]
+    segments = []
+    segment_specs = {}
+    for lower, upper in zip(unique_points[:-1], unique_points[1:]):
+        midpoint = 0.5 * (lower + upper)
+        material = material_at(midpoint)
+        segment = geometry_elements.Stack.Segment(
+            element = geometry_elements.InfiniteMedium(material, name="voxelized_region"),
+            length  = upper - lower,
+        )
+        segments.append(segment)
+        segment_specs[segment] = Stack.Segment.Specs(
+            builder_specs = InfiniteMedium.Specs(
+                target_cell_thicknesses = {"X": radial_target, "Y": radial_target},
+                divide_materials        = True,
+            ),
+        )
 
     stack = geometry_elements.Stack(segments   = segments,
-                                    name       = "outer_region_stack",
-                                    bottom_pos = stack_bottom)
-    stack_specs = Stack.Specs({segment: outer_region_specs for segment in segments})
-
-    return stack_builder.get_axial_slice(stack, stack_specs, axial_bounds.lower, axial_bounds.upper)
+                                    name       = "voxelized_core_location",
+                                    bottom_pos = axial_bounds.lower)
+    return stack, Stack.Specs(segment_specs)
 
 
 def _build_core_location_with_water_hole(
