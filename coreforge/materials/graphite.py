@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict
 import warnings
 from contextlib import contextmanager
 
@@ -69,10 +69,6 @@ class Graphite(Material):
     @property
     def theoretical_graphite_density(self) -> float:
         return self._theoretical_graphite_density
-
-    @property
-    def thermal_scattering(self) -> Tuple[str, ...]:
-        return ('c_Graphite',)
 
     def __init__(self,
                  graphite_density:             float,

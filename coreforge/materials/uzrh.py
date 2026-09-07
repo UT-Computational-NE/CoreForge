@@ -1,4 +1,3 @@
-from typing import Tuple
 import openmc
 
 from coreforge.materials.material import Material, ROOM_TEMPERATURE
@@ -26,10 +25,6 @@ class UZrH(Material):
            (NETL-FF-BP1/5-128-cca).", Nov. 2022. https://doi.org/10.2172/1898256
            Compositions from pg 59-60, density from pg 51
     """
-
-    @property
-    def thermal_scattering(self) -> Tuple[str, ...]:
-        return ('c_H_in_ZrH', 'c_Zr_in_ZrH')
 
     def __init__(self,
                  name: str = 'U-ZrH',

@@ -1,5 +1,5 @@
 from abc import ABC
-from typing import Dict, Any, Iterable, List, Tuple
+from typing import Dict, Any, Iterable, List
 from math import isclose
 
 import openmc
@@ -34,22 +34,6 @@ class Material(ABC):
     @property
     def openmc_material(self) -> openmc.Material:
         return self._openmc_material
-
-    @property
-    def thermal_scattering(self) -> Tuple[str, ...]:
-        """ The thermal scattering law names this material uses
-
-        Declared by the subclass rather than read back out of the OpenMC
-        object, so a consumer can ask for it without depending on OpenMC's
-        internal representation. Materials with no bound-atom treatment return
-        an empty tuple.
-
-        Returns
-        -------
-        Tuple[str, ...]
-            S(alpha,beta) table names, e.g. ``('c_H_in_ZrH', 'c_Zr_in_ZrH')``
-        """
-        return ()
 
     @property
     def name(self) -> str:
