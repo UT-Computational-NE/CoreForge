@@ -1,3 +1,5 @@
+from coreforge.serialization import register_serializable as _register
+
 from .material import Material, unique_materials
 from .graphite import Graphite
 from .inconel import Inconel
@@ -30,3 +32,10 @@ __all__ = [
     "Mo",
     "Al6061T6"
 ]
+
+
+# Registered here rather than by decorating each class, so the set of
+# serializable materials is visible in one place.
+for _material_cls in (Graphite, Inconel, Air, SS304, SS316H, Water, Helium,
+                      INOR8, B4C, UZrH, Zr, Mo, Al6061T6):
+    _register(_material_cls)

@@ -71,6 +71,32 @@ class Salt(Material):
         return self._lithium_enrichment
 
 
+    # ---- serialization -----------------------------------------------------
+    #
+    # Salt is a recipe rather than a composition, for the same reason Graphite
+    # is: the number densities are computed from a mol% composition and two
+    # enrichments, and nothing inverts them back. The base Material state of
+    # (name, temperature, density) would rebuild a chemically different salt at
+    # the right density.
+
+    def _serial_state(self, intern):
+        return {"name":               self.name,
+                "temperature":        self.temperature,
+                "density":            self.density,
+                "composition":        dict(self.composition),
+                "uranium_enrichment": self.uranium_enrichment,
+                "lithium_enrichment": self.lithium_enrichment}
+
+    @classmethod
+    def _from_serial_state(cls, state, resolve):
+        return cls(name               = state["name"],
+                   temperature        = state["temperature"],
+                   density            = state["density"],
+                   composition        = state["composition"],
+                   uranium_enrichment = state["uranium_enrichment"],
+                   lithium_enrichment = state["lithium_enrichment"])
+
+
     def __init__(self,
                  density:            float = 2.3275,
                  composition:        Composition = {"LiF": 0.6488, "BeF2": 0.2927, "ZrF4": 0.0506, "UF4": 0.0079},

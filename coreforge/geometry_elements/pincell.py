@@ -83,6 +83,21 @@ class PinCell(GeometryElement):
             self.material = material
             self.rotation = rotation
 
+        # ---- serialization -----------------------------------------------
+
+        def _serial_state(self, intern):
+            return {"name":     self.name,
+                    "shape":    intern(self.shape),
+                    "material": intern(self.material),
+                    "rotation": self.rotation}
+
+        @classmethod
+        def _from_serial_state(cls, state, resolve):
+            return cls(shape    = resolve(state["shape"]),
+                       material = resolve(state["material"]),
+                       name     = state["name"],
+                       rotation = state["rotation"])
+
         def __eq__(self, other: Any) -> bool:
             if self is other:
                 return True
@@ -177,3 +192,27 @@ class PinCell(GeometryElement):
         materials = [zone.material for zone in self.zones]
         materials.append(self.outer_material)
         return unique_materials(materials)
+
+    # ---- serialization -------------------------------------------------------
+    #
+    # Pincells store their *resolved* state — the zones as they ended up — not
+    # the arguments that produced them. `radii` and `materials` are lowered into
+    # `zones` at construction, and `min_zone_thickness` filters those zones and
+    # is then discarded — the object retains no attribute for it. The zones
+    # therefore already carry the effect of both, and storing the threshold
+    # would mean storing something the object does not have.
+
+    def _serial_state(self, intern):
+        return {"name":           self.name,
+                "zones":          [intern(zone) for zone in self.zones],
+                "outer_material": intern(self.outer_material),
+                "x0":             self.x0,
+                "y0":             self.y0}
+
+    @classmethod
+    def _from_serial_state(cls, state, resolve):
+        return cls(zones          = [resolve(ref) for ref in state["zones"]],
+                   outer_material = resolve(state["outer_material"]),
+                   name           = state["name"],
+                   x0             = state["x0"],
+                   y0             = state["y0"])
