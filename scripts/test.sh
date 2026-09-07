@@ -26,7 +26,18 @@
 # the full run to CI.
 #
 # MPACTPy is expected beside this repo; override with MPACTPY_DIR=/path.
-# The image can be pinned with OPENMC_IMAGE=openmc/openmc:v0.15.3.
+#
+# KNOWN DISCREPANCY. `openmc/openmc:latest` is OpenMC 0.15.3, while CI installs
+# whatever conda-forge has (0.16.0 at time of writing). The two disagree on the
+# natural-abundance expansion of oxygen — 0.15.3 omits O18 and redistributes it
+# into O16/O17 — so `msre/test_materials.py::test_thimble_gas`, which asserts
+# hardcoded number densities, fails in the container and passes on CI.
+#
+# That is a nuclear-data version difference, not a defect. Match CI exactly with
+#
+#     OPENMC_IMAGE=openmc/openmc:v0.16.0 scripts/test.sh
+#
+# at the cost of pulling a second multi-gigabyte image.
 
 set -euo pipefail
 

@@ -215,10 +215,21 @@ The container needs no install: both repositories are mounted read-only on
 disturb an editable install. MPACTPy is expected beside this repository —
 override with `MPACTPY_DIR`, and pin the image with `OPENMC_IMAGE`.
 
-**On Apple Silicon the container runs under x86 emulation** and is several times
-slower than native. Target a file or a `-k` expression while iterating and leave
-the full run to CI; the whole suite emulated takes long enough to break your
-concentration.
+**The container's OpenMC is not CI's OpenMC.** `openmc/openmc:latest` is 0.15.3;
+CI installs whatever conda-forge has, currently 0.16.0. They disagree on the
+natural-abundance expansion of oxygen — 0.15.3 omits O18 and redistributes it
+into O16 and O17 — so `msre/test_materials.py::test_thimble_gas`, which asserts
+hardcoded number densities, **fails in the container and passes on CI**. That is
+a nuclear-data version difference, not a defect. `OPENMC_IMAGE=openmc/openmc:v0.16.0`
+matches CI exactly, at the cost of a second multi-gigabyte pull.
+
+It is worth knowing that this class of test is version-sensitive at all: any
+assertion on expanded isotopics is really an assertion about the nuclear data
+shipped with a particular OpenMC.
+
+**On Apple Silicon the container runs under x86 emulation.** Measured on the full
+suite: 967 s emulated against 926 s native on CI — close enough not to worry
+about. Individual files are seconds.
 
 ---
 
