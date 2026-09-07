@@ -5,10 +5,12 @@ from math import isclose
 import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
+from coreforge.serialization import Serializable
+
 STANDARD_TEMPERATURE = 273.15
 ROOM_TEMPERATURE     = 293.6
 
-class Material(ABC):
+class Material(ABC, Serializable):
     """ An interface class for translating materials into solver specific representations
 
     Parameters
@@ -91,6 +93,47 @@ class Material(ABC):
         return hash((relative_round(self.density, TOL),
                      relative_round(self.temperature, TOL),
                      tuple(number_densities)))
+
+
+    # ---- serialization -----------------------------------------------------
+    #
+    # Materials store their *recipe*, not their resolved composition. The class
+    # is load-bearing: mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS is keyed by
+    # type, so a material rebuilt as a plain Material would compare equal and
+    # still render to MPACT without its thermal scattering specs.
+    #
+    # Twelve of the thirteen concrete materials share the signature
+    # (name, temperature, density), all recoverable from properties, so the base
+    # handles them. Graphite takes a required graphite_density plus extras and
+    # overrides both methods.
+
+    def _serial_state(self, intern):
+        return {"name":        self.name,
+                "temperature": self.temperature,
+                "density":     self.density}
+
+    @classmethod
+    def _from_serial_state(cls, state, resolve):
+        """ Rebuild a material from the recipe the base implementation stores
+
+            A template method: it is never valid on ``Material`` itself, whose
+            constructor takes an ``openmc.Material``. It is valid on any
+            subclass whose constructor is ``(name, temperature, density)``,
+            which is sixteen of the eighteen concrete materials. ``Graphite``
+            and ``msre.Salt`` are recipes with more arguments and override both
+            halves in their own modules.
+
+            pylint reads ``cls`` as ``Material`` here and objects to the call
+            signature. It is right about the base class and wrong about every
+            class this actually runs on; the constraint is stated above rather
+            than encoded, because encoding it would mean an abstract
+            declaration on a mixin that most subclasses would then have to
+            restate.
+        """
+        # pylint: disable=no-value-for-parameter,unexpected-keyword-arg
+        return cls(name        = state["name"],
+                   temperature = state["temperature"],
+                   density     = state["density"])
 
 
 def unique_materials(materials: Iterable["Material"]) -> List["Material"]:
