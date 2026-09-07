@@ -179,7 +179,46 @@ declare-and-dispatch pattern, not a forced fit into `geometry_elements/`.
 - **CI runs `pytest test/unit/` and `pylint ./coreforge`.** Lint must be clean;
   the disabled-message list lives in `pyproject.toml`.
 - **Keep the dependency list short.** It is currently numpy, openmc and MPACTPy.
-  Each addition is a constraint on everywhere CoreForge can be installed.
+  Each addition is a constraint on everywhere CoreForge can be installed — and
+  OpenMC is already the constraint that makes this repo hard to run on a Mac.
+
+---
+
+## Running the tests anywhere
+
+```bash
+scripts/test.sh                              # whole suite
+scripts/test.sh test/unit/test_materials.py  # one file
+scripts/test.sh -k thermal_scattering        # one expression
+```
+
+Arguments pass through to pytest. The script runs pytest directly when OpenMC is
+importable, and falls back to the `openmc/openmc` container when it is not — so
+the same command works on a Linux box with a conda environment and on a laptop
+with neither.
+
+**Why a script rather than "just run pytest".** OpenMC is harder to install than
+it looks, and CI never surfaces the problem because CI is ubuntu:
+
+| Route | Available? |
+|---|---|
+| PyPI | not published at all |
+| conda-forge | **linux-64 only** — no `osx-arm64` build |
+| `openmc/openmc` image | **amd64 only**, on every tag |
+
+So on Apple Silicon there is no native path, and a contributor on a Mac cannot
+run this suite at all without the container. That is worth knowing before
+concluding the tests are broken.
+
+The container needs no install: both repositories are mounted read-only on
+`PYTHONPATH`, so a run cannot leave build artefacts in the working tree or
+disturb an editable install. MPACTPy is expected beside this repository —
+override with `MPACTPY_DIR`, and pin the image with `OPENMC_IMAGE`.
+
+**On Apple Silicon the container runs under x86 emulation** and is several times
+slower than native. Target a file or a `-k` expression while iterating and leave
+the full run to CI; the whole suite emulated takes long enough to break your
+concentration.
 
 ---
 
