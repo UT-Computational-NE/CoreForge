@@ -1,3 +1,5 @@
+from coreforge.serialization import register_serializable as _register
+
 from .geometry_element import GeometryElement
 from .infinite_medium import InfiniteMedium
 from .pincell import PinCell
@@ -21,3 +23,10 @@ __all__ = [
     "RectLattice",
     "HexLattice"
 ]
+
+
+# Registered in one place so the set of serializable elements is visible.
+# PinCell.Zone is nested and registered by its qualified simple name.
+for _element_cls in (InfiniteMedium, PinCell, CylindricalPinCell, HexLattice):
+    _register(_element_cls)
+_register(PinCell.Zone)

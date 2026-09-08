@@ -74,6 +74,37 @@ class Graphite(Material):
     def thermal_scattering(self) -> Tuple[str, ...]:
         return ('c_Graphite',)
 
+    # ---- serialization -----------------------------------------------------
+    #
+    # Graphite is a calculation rather than a composition — theoretical density,
+    # boron-equivalent contamination, and a pore_intrusion map of other
+    # materials, mixed through OpenMC. Its number densities cannot be inverted
+    # back into these arguments, so the arguments themselves are stored. Every
+    # one is exposed as a property, and pore_intrusion's Material keys are
+    # interned like any other nested object.
+
+    def _serial_state(self, intern):
+        return {"name":                         self.name,
+                "temperature":                  self.temperature,
+                "graphite_density":             self.graphite_density,
+                "boron_equiv_contamination":    self.boron_equiv_contamination,
+                "theoretical_graphite_density": self.theoretical_graphite_density,
+                "pore_intrusion":               [[intern(material), fraction]
+                                                 for material, fraction
+                                                 in self.pore_intrusion.items()]}
+
+    @classmethod
+    def _from_serial_state(cls, state, resolve):
+        return cls(graphite_density             = state["graphite_density"],
+                   boron_equiv_contamination    = state["boron_equiv_contamination"],
+                   pore_intrusion               = {resolve(ref): fraction
+                                                   for ref, fraction
+                                                   in state["pore_intrusion"]},
+                   name                         = state["name"],
+                   temperature                  = state["temperature"],
+                   theoretical_graphite_density = state["theoretical_graphite_density"])
+
+
     def __init__(self,
                  graphite_density:             float,
                  boron_equiv_contamination:    float = 0.,

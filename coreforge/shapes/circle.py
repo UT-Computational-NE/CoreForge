@@ -5,8 +5,10 @@ import openmc
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shapes.shape import Shape_2D
+from coreforge.serialization import Serializable, register_serializable
 
-class Circle(Shape_2D):
+@register_serializable
+class Circle(Shape_2D, Serializable):
     """ A concrete circle channel shape class
 
     Parameters
@@ -68,3 +70,13 @@ class Circle(Shape_2D):
         dist_sq = dx * dx + dy * dy
         radius_sq = self.r * self.r
         return dist_sq < radius_sq or isclose(dist_sq, radius_sq, rel_tol=TOL)
+
+    # ---- serialization ---------------------------------------------------
+    # A circle is fully described by its radius.
+
+    def _serial_state(self, intern):
+        return {"r": self.r}
+
+    @classmethod
+    def _from_serial_state(cls, state, resolve):
+        return cls(r=state["r"])

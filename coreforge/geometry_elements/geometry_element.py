@@ -3,11 +3,12 @@ from abc import ABC, abstractmethod
 from typing import Any, List, TypeVar
 
 from coreforge.materials import Material
+from coreforge.serialization import Serializable
 
 
 T = TypeVar('T', bound='GeometryElement')
 
-class GeometryElement(ABC):
+class GeometryElement(ABC, Serializable):
     """ An abstract class for reactor geometry elements
 
     Attributes

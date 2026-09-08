@@ -170,3 +170,32 @@ class HexLattice(Lattice):
         return hash((relative_round(self.pitch, TOL),
                      self.outer_material,
                      tuple(tuple(row) for row in self.elements)))
+
+    # ---- serialization -------------------------------------------------------
+    #
+    # `elements` returns the *stored* ring map, after any offset-to-ring
+    # conversion, so the document always declares map_type="ring". Writing the
+    # form actually held removes the ambiguity that makes an offset map and a
+    # ring map easy to confuse — reloading cannot reinterpret one as the other.
+    #
+    # Orientation is carried explicitly: it decides which physical position
+    # index zero is, and losing it rotates the lattice by thirty degrees, which
+    # runs fine and gives a different answer.
+
+    def _serial_state(self, intern):
+        return {"name":           self.name,
+                "pitch":          self.pitch,
+                "outer_material": intern(self.outer_material),
+                "orientation":    self.orientation,
+                "elements":       [[intern(element) for element in ring]
+                                   for ring in self.elements]}
+
+    @classmethod
+    def _from_serial_state(cls, state, resolve):
+        return cls(pitch          = state["pitch"],
+                   outer_material = resolve(state["outer_material"]),
+                   elements       = [[resolve(ref) for ref in ring]
+                                     for ring in state["elements"]],
+                   name           = state["name"],
+                   orientation    = state["orientation"],
+                   map_type       = "ring")

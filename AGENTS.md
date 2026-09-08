@@ -88,6 +88,22 @@ and the lattice de-duplication the MPACT build depends on. That is not a
 crash; it is an MPACT model with ninety unique lattices where twelve were
 intended.
 
+### Equality does not see the class, and the class is load-bearing
+
+`Material.__eq__` checks `isinstance(other, Material)` and then compares
+density, temperature and number densities. It compares neither the class nor
+the name. But `mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS` is keyed by *type*
+and looked up by walking `__base__`, so a `UZrH` rebuilt as some other
+`Material` subclass compares equal, hashes the same, and renders to MPACT with
+no specs at all — losing `H1_in_ZrH` bound-atom scattering and the fuel,
+fluid and depletable flags.
+
+Anything that reconstructs a material must preserve its class, and no
+equality-based test will catch it if you do not. This is why serialisation
+stores a material's *recipe* (class plus constructor arguments) rather than its
+resolved composition, and it is the reason `Graphite` and `msre.Salt` — both
+calculations, neither invertible from number densities — override the default.
+
 ### One name, one composition
 
 `unique_materials` raises `ValueError` when two materials share a name and
@@ -135,6 +151,11 @@ by thirty degrees, which runs fine and gives a different flux tilt.
    boundaries cannot intersect is the model: a physically impossible object
    should be impossible to construct, not merely wrong later.
 4. Add tests under `test/unit/` mirroring the module path.
+5. Decide whether it serialises. Implement `_serial_state` /
+   `_from_serial_state` and register it in the package `__init__`, or add it to
+   `NOT_YET_SERIALIZABLE` in `test/unit/test_serialization_coverage.py` with a
+   note. That test fails until you do one or the other, on purpose — the person
+   writing the class knows what its state is, and nobody later does.
 
 ### A builder for an existing code
 
@@ -237,16 +258,16 @@ about. Individual files are seconds.
 
 Genuinely undecided, listed so a newcomer does not mistake them for settled.
 
-**Should the spec serialise?** There is no `to_dict`, `from_dict`, schema, YAML
-or JSON anywhere. A model is a Python program, so it cannot be archived,
-diffed, or handed to anything that is not a Python process holding the same
-imports — the as-built core loading currently lives in a test fixture. If this
-is taken up, the acceptance criterion that matters is
-`from_dict(to_dict(x)) == x` under the existing tolerance-aware equality, over
-every class in `geometry_elements/`, with geometry and mesh specs as separate
-documents. The traps are listed under **Invariants** above; content-addressing
-shared materials and restoring identity by hash rather than by name is the
-non-obvious one.
+**How far should serialisation go?** Partly answered. `coreforge/serialization.py`
+gives materials and the pincell/lattice spine a document form —
+`to_dict`/`from_dict`, content-addressed so shared elements de-duplicate, with
+`test/unit/test_serialization_contract.py` as the acceptance criteria and
+`test_serialization_coverage.py` as the inventory of what is still missing. The
+mechanism is settled; the remaining 34 classes are not, and the coverage test
+fails if a new class is added without a decision either way. What is genuinely
+open is listed in that module's docstring under *What is not settled* — whether
+documents carry provenance is the one to decide before anything relies on
+content hashes being stable.
 
 **Should `Material` keep storing its data in an OpenMC object?**
 `Material.__init__` takes an `openmc.Material` and the code-agnostic properties

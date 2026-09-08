@@ -75,3 +75,18 @@ class CylindricalPinCell(PinCell):
             zones = filtered_zones
 
         super().__init__(zones = zones, outer_material = outer_material, name = name)
+
+    # ---- serialization -------------------------------------------------------
+    #
+    # State is inherited from PinCell; only reconstruction differs, because this
+    # constructor takes no x0/y0. They are assigned afterwards through their
+    # setters so an offset pincell still round-trips.
+
+    @classmethod
+    def _from_serial_state(cls, state, resolve):
+        pincell = cls(zones          = [resolve(ref) for ref in state["zones"]],
+                      outer_material = resolve(state["outer_material"]),
+                      name           = state["name"])
+        pincell.x0 = state["x0"]
+        pincell.y0 = state["y0"]
+        return pincell

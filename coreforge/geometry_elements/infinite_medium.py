@@ -41,3 +41,12 @@ class InfiniteMedium(GeometryElement):
 
     def get_materials(self) -> List[Material]:
         return unique_materials([self.material])
+
+    # ---- serialization ---------------------------------------------------
+
+    def _serial_state(self, intern):
+        return {"name": self.name, "material": intern(self.material)}
+
+    @classmethod
+    def _from_serial_state(cls, state, resolve):
+        return cls(material=resolve(state["material"]), name=state["name"])
