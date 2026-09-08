@@ -1,3 +1,4 @@
+from typing import Tuple
 import openmc
 
 from coreforge.materials.material import Material, ROOM_TEMPERATURE
@@ -17,6 +18,10 @@ class Water(Material):
     density : float
         The density of the material (g/cm3)
     """
+
+    @property
+    def thermal_scattering(self) -> Tuple[str, ...]:
+        return ('c_H_in_H2O',)
 
     def __init__(self,
                  name: str = 'Water',
