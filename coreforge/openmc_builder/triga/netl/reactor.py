@@ -310,8 +310,8 @@ def build_core_element(
         element_region = element_region & ~grid_regions if grid_regions else element_region
         element_cell   = openmc.Cell(fill=build(element), region=element_region)
         z_translation  = bottom_z
-        # CylindricalStacks already use element.bottom_pos, so remove it from the translation
-        if isinstance(element, CylindricalStack):
+        # CylindricalStacks and PNTs already use element.bottom_pos, so remove it from the translation
+        if isinstance(element, (CylindricalStack, geometry_elements_triga_netl.PNT)):
             z_translation -= element.bottom_pos
         element_cell.translation = (0.0, 0.0, z_translation)
         cells.append(element_cell)

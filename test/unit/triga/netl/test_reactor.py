@@ -22,6 +22,7 @@ from .test_central_thimble import central_thimble
 from .test_transient_rod import transient_rod
 from .test_fuel_follower_control_rod import control_rod
 from .test_source_holder import source_holder
+from .test_pnt import pnt
 from ..test_fuel_element import fuel_element
 from ..test_graphite_element import graphite_element
 

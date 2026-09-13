@@ -7,6 +7,7 @@ from .test_central_thimble import central_thimble  # reuse fixtures
 from .test_transient_rod import transient_rod
 from .test_fuel_follower_control_rod import control_rod
 from .test_source_holder import source_holder
+from .test_pnt import pnt
 from ..test_fuel_element import fuel_element
 from ..test_graphite_element import graphite_element
 
@@ -14,13 +15,14 @@ CM_PER_INCH = 2.54
 
 
 @pytest.fixture
-def core(central_thimble, transient_rod, control_rod, source_holder, fuel_element, graphite_element):
+def core(central_thimble, transient_rod, control_rod, source_holder, pnt, fuel_element, graphite_element):
     fuel = lambda: deepcopy(fuel_element)
     graphite = lambda: deepcopy(graphite_element)
     cylindrical_stack = lambda: graphite().as_stack(
         bottom_pos = -0.5 * graphite_element.graphite_meat.length - graphite_element.lower_end_fitting.length
     )
     source = lambda: deepcopy(source_holder)
+    pneumatic_tube = lambda: deepcopy(pnt)
     empty = lambda: None
 
     def fill(locations, factory):
@@ -59,7 +61,7 @@ def core(central_thimble, transient_rod, control_rod, source_holder, fuel_elemen
                           "G-26", "G-27", "G-28", "G-29", "G-30",
                           "G-33", "G-35", "G-36"], fuel)
     core_loading["G-32"] = source()
-    core_loading["G-34"] = empty()
+    core_loading["G-34"] = pneumatic_tube()
 
     return Core(
         pitch=1.714 * CM_PER_INCH,
@@ -89,7 +91,8 @@ def unequal_core(core):
     )
 
 
-def test_initialization(core, fuel_element, graphite_element, source_holder, central_thimble, transient_rod, control_rod):
+def test_initialization(core, fuel_element, graphite_element, source_holder, pnt,
+                        central_thimble, transient_rod, control_rod):
     assert core.pitch == pytest.approx(1.714 * CM_PER_INCH)
     assert core.full_map["B-01"] == fuel_element
     assert core.full_map["C-12"] == graphite_element
@@ -102,6 +105,7 @@ def test_initialization(core, fuel_element, graphite_element, source_holder, cen
     assert core.full_map["D-14"] == control_rod
     assert core.full_map["G-01"] is None
     assert core.full_map["G-32"] == source_holder
+    assert core.full_map["G-34"] == pnt
     expected = [core.fill_material]
     for element in core.full_map.values():
         if element is not None:

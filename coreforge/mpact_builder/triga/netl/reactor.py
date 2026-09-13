@@ -25,6 +25,7 @@ from coreforge.mpact_builder.triga.fuel_element import FuelElement
 from coreforge.mpact_builder.triga.graphite_element import GraphiteElement
 from .central_thimble import CentralThimble
 from .fuel_follower_control_rod import FuelFollowerControlRod
+from .pnt import PNT
 from .source_holder import SourceHolder
 from .transient_rod import TransientRod
 
@@ -56,6 +57,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                                    GraphiteElement.Specs |
                                    CentralThimble.Specs |
                                    CylindricalStack.Specs |
+                                   PNT.Specs |
                                    SourceHolder.Specs |
                                    TransientRod.Specs |
                                    FuelFollowerControlRod.Specs)

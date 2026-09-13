@@ -19,6 +19,7 @@ from .reflector import Reflector as ReflectorGeometry
 from .rsr_cavity import RSRCavity as RSRCavityGeometry
 from .shroud import Shroud as ShroudGeometry
 from .central_thimble import CentralThimble as CentralThimbleGeometry
+from .pnt import PNT as PNTGeometry
 from .source_holder import SourceHolder as SourceHolderGeometry
 
 
@@ -847,9 +848,9 @@ class Reactor(GeometryElement):
         """Return the bottom axial position for a core element.
 
         Built-in TRIGA fuel, graphite, central thimble, control rod, source
-        holder, and cylindrical stack placements are returned relative to the
-        reactor core centerline. Control rod locations use the reactor's current
-        rod-position attributes.
+        holder, PNT, and cylindrical stack placements are returned relative to
+        the reactor core centerline. Control rod locations use the reactor's
+        current rod-position attributes.
 
         Parameters
         ----------
@@ -866,7 +867,7 @@ class Reactor(GeometryElement):
 
         axial_position: float | None = None
 
-        if isinstance(element, CylindricalStack):
+        if isinstance(element, (CylindricalStack, PNTGeometry)):
             axial_position = element.bottom_pos
         if isinstance(element, CentralThimbleGeometry):
             axial_position = -0.5 * element.length

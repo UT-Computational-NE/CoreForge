@@ -7,6 +7,7 @@ from coreforge.materials import Material, unique_materials
 from coreforge.geometry_elements.triga import FuelElement, GraphiteElement
 from coreforge.geometry_elements.triga.netl.central_thimble import CentralThimble
 from coreforge.geometry_elements.triga.netl.fuel_follower_control_rod import FuelFollowerControlRod
+from coreforge.geometry_elements.triga.netl.pnt import PNT
 from coreforge.geometry_elements.triga.netl.source_holder import SourceHolder
 from coreforge.geometry_elements.triga.netl.transient_rod import TransientRod
 
@@ -34,7 +35,8 @@ class Core(GeometryElement):
         Map of mutable locations to their contents; keys must be in ``RING_MAP``
         and not in the reserved locations (A-01, C-01, C-07, D-06, D-14,
         G-01, G-07, G-13, G-19, G-25, G-31). Any unspecified, non-reserved
-        locations are set to ``None``.
+        locations are set to ``None``. Supported contents are fuel elements,
+        graphite elements, source holders, PNTs, and cylindrical stacks.
     name : str, optional
         Name for this core element.
 
@@ -99,10 +101,10 @@ class Core(GeometryElement):
         ["A-01"]
     ]
 
-    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | CylindricalStack
+    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | CylindricalStack
     ControlRod: TypeAlias = TransientRod | FuelFollowerControlRod
     Fixture:    TypeAlias = CentralThimble | TransientRod | FuelFollowerControlRod
-    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | CylindricalStack | \
+    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | CylindricalStack | \
                             CentralThimble | TransientRod | FuelFollowerControlRod
 
     RESERVED_LOCATIONS: ClassVar[List[str]] = ["A-01", "C-01", "C-07", "D-06", "D-14",
