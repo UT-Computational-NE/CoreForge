@@ -135,8 +135,8 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
         return build(stack, stack_specs, bounds)
 
 
-    def build_stack_and_specs(self,
-                              element: geometry_elements_triga.FuelElement,
+    def _build_stack_and_specs(self,
+                               element: geometry_elements_triga.FuelElement,
     ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
 
         stack = element.as_stack(

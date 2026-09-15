@@ -24,6 +24,9 @@ class GridPlate(GeometryElement):
         Plate material (defaults to ``Al6061T6``).
     name : str, optional
         Name for this grid plate.
+    three_element_penetration_radius : float, optional
+        Radius of the single penetration used when a three-element irradiator
+        is present [cm].
 
     Attributes
     ----------
@@ -34,6 +37,8 @@ class GridPlate(GeometryElement):
         penetration is present.
     material : Material
         Plate material.
+    three_element_penetration_radius : float, optional
+        Radius of the three-element penetration [cm].
     """
 
     @property
@@ -48,18 +53,27 @@ class GridPlate(GeometryElement):
     def material(self) -> Material:
         return self._material
 
+    @property
+    def three_element_penetration_radius(self) -> Optional[float]:
+        return self._three_element_penetration_radius
+
     def __init__(self,
                  thickness: float,
                  penetration_map: Dict[str, Optional[float]],
                  material: Optional[Material] = None,
-                 name: str = "grid_plate") -> None:
+                 name: str = "grid_plate",
+                 three_element_penetration_radius: Optional[float] = None) -> None:
         super().__init__(name)
         assert thickness > 0.0, "Grid plate thickness must be positive."
         assert penetration_map, "penetration_map must not be empty."
+        if three_element_penetration_radius is not None:
+            assert three_element_penetration_radius > 0.0, \
+                "Three-element penetration radius must be positive."
 
         self._thickness = thickness
         self._penetration_map = self._validate_penetration_map(penetration_map)
         self._material = material or Al6061T6()
+        self._three_element_penetration_radius = three_element_penetration_radius
 
     def _validate_penetration_map(self,
                                   penetration_map: Dict[str, Optional[float]],
@@ -82,7 +96,16 @@ class GridPlate(GeometryElement):
             isinstance(other, GridPlate) and
             isclose(self.thickness, other.thickness, rel_tol=TOL) and
             self._penetration_maps_equal(other.penetration_map) and
-            self.material == other.material
+            self.material == other.material and
+            (
+                self.three_element_penetration_radius is None and
+                other.three_element_penetration_radius is None or
+                self.three_element_penetration_radius is not None and
+                other.three_element_penetration_radius is not None and
+                isclose(self.three_element_penetration_radius,
+                        other.three_element_penetration_radius,
+                        rel_tol=TOL)
+            )
         )
 
     def _penetration_maps_equal(self, other_map: Dict[str, Optional[float]]) -> bool:
@@ -103,6 +126,8 @@ class GridPlate(GeometryElement):
                 for location, radius in sorted(self.penetration_map.items())
             ),
             self.material,
+            None if self.three_element_penetration_radius is None else
+            relative_round(self.three_element_penetration_radius, TOL),
         ))
 
     def get_materials(self) -> List[Material]:

@@ -124,8 +124,8 @@ class TransientRod(CoreElement[geometry_elements_triga_netl.TransientRod]):
         return build(stack, stack_specs, bounds)
 
 
-    def build_stack_and_specs(self,
-                              element: geometry_elements_triga_netl.TransientRod,
+    def _build_stack_and_specs(self,
+                               element: geometry_elements_triga_netl.TransientRod,
     ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
 
         stack = element.as_stack().unionize_radial_mesh()

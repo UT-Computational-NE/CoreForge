@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import ClassVar, Dict, List, TypeAlias
+from math import sqrt
+from typing import ClassVar, Dict, List, Tuple, TypeAlias
 
 from coreforge.geometry_elements import CylindricalStack, GeometryElement, HexLattice
 from coreforge.materials import Material, unique_materials
@@ -37,6 +38,10 @@ class Core(GeometryElement):
         G-01, G-07, G-13, G-19, G-25, G-31). Any unspecified, non-reserved
         locations are set to ``None``. Supported contents are fuel elements,
         graphite elements, source holders, PNTs, and cylindrical stacks.
+    three_element_irradiator : Loadable, optional
+        Loadable spanning locations E-11, F-13, and F-14. When provided, those
+        locations are conditionally reserved and must not contain another
+        nonempty entry in ``loading``.
     name : str, optional
         Name for this core element.
 
@@ -58,6 +63,12 @@ class Core(GeometryElement):
         Material to fill unoccupied core locations.
     loading : Dict[str, Loadable | None]
         Map of mutable locations to their contents
+    three_element_irradiator : Loadable, optional
+        Loadable spanning the three conditionally reserved irradiation-facility
+        locations.
+    three_element_offsets : Dict[str, Tuple[float, float]]
+        Facility-center coordinates relative to the center of each three-element
+        lattice location [cm].
     full_map : Dict[str, Element | None]
         Full map of core locations to their contents.
     lattice : HexLattice
@@ -107,6 +118,7 @@ class Core(GeometryElement):
     Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | CylindricalStack | \
                             CentralThimble | TransientRod | FuelFollowerControlRod
 
+    THREE_ELEMENT_LOCATIONS: ClassVar[List[str]] = ["E-11", "F-13", "F-14"]
     RESERVED_LOCATIONS: ClassVar[List[str]] = ["A-01", "C-01", "C-07", "D-06", "D-14",
                                                "G-01", "G-07", "G-13", "G-19", "G-25", "G-31"]
 
@@ -143,6 +155,14 @@ class Core(GeometryElement):
         return self._loading
 
     @property
+    def three_element_irradiator(self) -> Loadable | None:
+        return self._three_element_irradiator
+
+    @property
+    def three_element_offsets(self) -> Dict[str, Tuple[float, float]]:
+        return self._three_element_offsets
+
+    @property
     def full_map(self) -> Dict[str, Element | None]:
         return self._full_map
 
@@ -159,23 +179,37 @@ class Core(GeometryElement):
                  shim_2_rod:      FuelFollowerControlRod,
                  fill_material:   Material,
                  loading:         Dict[str, Loadable | None],
+                 three_element_irradiator: Loadable | None = None,
                  name:            str = "core") -> None:
         super().__init__(name)
         assert pitch > 0.0, "Core pitch must be positive."
         self._pitch           = pitch
+        self._three_element_offsets = self._calculate_three_element_offsets()
         self._central_thimble = central_thimble
         self._transient_rod   = transient_rod
         self._regulating_rod  = regulating_rod
         self._shim_1_rod      = shim_1_rod
         self._shim_2_rod      = shim_2_rod
         self._fill_material   = fill_material
-        self._loading    = dict(loading)
+        self._loading          = dict(loading)
+        self._three_element_irradiator = three_element_irradiator
 
         for location in self._loading:
             assert any(location in ring for ring in Core.RING_MAP), \
                 f"Invalid core location '{location}' in core loading."
             assert location not in Core.RESERVED_LOCATIONS, \
                 f"Core location '{location}' is reserved for control rods or central thimble."
+
+        if self.three_element_irradiator is not None:
+            conflicting_locations = [
+                location
+                for location in Core.THREE_ELEMENT_LOCATIONS
+                if self.loading.get(location) is not None
+            ]
+            assert not conflicting_locations, (
+                "Three-element irradiator locations must be empty in core loading: "
+                f"{conflicting_locations}."
+            )
 
         reserved = {
             "A-01": self.central_thimble,
@@ -194,7 +228,9 @@ class Core(GeometryElement):
         full_map: Dict[str, Core.Element | None] = {}
         for ring in Core.RING_MAP:
             for loc in ring:
-                if loc in reserved:
+                if self.three_element_irradiator is not None and loc in Core.THREE_ELEMENT_LOCATIONS:
+                    full_map[loc] = self.three_element_irradiator
+                elif loc in reserved:
                     full_map[loc] = reserved[loc]
                 else:
                     full_map[loc] = self._loading.get(loc, None)
@@ -219,6 +255,7 @@ class Core(GeometryElement):
             and self.shim_1_rod == other.shim_1_rod
             and self.shim_2_rod == other.shim_2_rod
             and self.loading == other.loading
+            and self.three_element_irradiator == other.three_element_irradiator
             and self.fill_material == other.fill_material
         )
 
@@ -231,6 +268,7 @@ class Core(GeometryElement):
             self.shim_1_rod,
             self.shim_2_rod,
             tuple(sorted(self.loading.items())),
+            self.three_element_irradiator,
             self.fill_material,
         ))
 
@@ -240,3 +278,31 @@ class Core(GeometryElement):
             if element is not None:
                 materials.extend(element.get_materials())
         return unique_materials(materials)
+
+
+    def _calculate_three_element_offsets(self) -> Dict[str, Tuple[float, float]]:
+        """Calculate the three-element irradiator offsets from the lattice map.
+
+        Returns
+        -------
+        Dict[str, Tuple[float, float]]
+            Mapping from each three-element lattice location to its local
+            facility-center offset [cm].
+        """
+
+        R = self.pitch
+        r = 0.5 * sqrt(3.0) * R
+
+        # Centers are relative to the core center in Cartesian coordinates.
+        location_centers = {"E-11": (2.0 * r, -3.0 * R),
+                            "F-13": (3.0 * r, -3.5 * R),
+                            "F-14": (2.0 * r, -4.0 * R)}
+
+        # The 3-EL axis is located at the radial centroid of the three positions.
+        number_of_locations = len(location_centers)
+        centroid = (sum(center[0] for center in location_centers.values()) / number_of_locations,
+                    sum(center[1] for center in location_centers.values()) / number_of_locations)
+
+        # Express that common centroid in each lattice cell's local coordinates.
+        return {location: (centroid[0] - center[0], centroid[1] - center[1])
+                for location, center in location_centers.items()}

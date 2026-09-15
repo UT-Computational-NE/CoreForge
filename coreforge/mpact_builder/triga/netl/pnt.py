@@ -107,7 +107,7 @@ class PNT(CoreElement[geometry_elements_triga_netl.PNT]):
 
         return build(stack, stack_specs, bounds)
 
-    def build_stack_and_specs(
+    def _build_stack_and_specs(
         self,
         element: geometry_elements_triga_netl.PNT,
     ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:

@@ -238,10 +238,10 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
 
         z_thickness = bounds.Z.max - bounds.Z.min if bounds.Z else 1.0
         pinmesh = mpactpy.GeneralCylindricalPinMesh(radii,
-                                                    bounds.X.min,
-                                                    bounds.X.max,
-                                                    bounds.Y.min,
-                                                    bounds.Y.max,
+                                                    bounds.X.min - element.x0,
+                                                    bounds.X.max - element.x0,
+                                                    bounds.Y.min - element.y0,
+                                                    bounds.Y.max - element.y0,
                                                     [z_thickness],
                                                     ndivr,
                                                     ndiva,

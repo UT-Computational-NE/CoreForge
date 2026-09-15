@@ -27,6 +27,10 @@ class CylindricalPinCell(PinCell):
         outer most material.  The last material represents the outer material of pincell that surrounds
         the cylindrical regions.  Ergo, len(materials) == len(radii)+1
         (should be specified with radii)
+    x0 : float
+        The x-coordinate of the cylindrical-zone center [cm].
+    y0 : float
+        The y-coordinate of the cylindrical-zone center [cm].
     min_zone_thickness : Optional[float]
         If provided, any zone whose thickness is <= this threshold is removed
         after the zones list is constructed. Thickness is computed as the
@@ -50,6 +54,8 @@ class CylindricalPinCell(PinCell):
                  radii:             Optional[List[float]] = None,
                  materials:         Optional[List[Material]] = None,
                  name:              str = 'pincell',
+                 x0:                float = 0.0,
+                 y0:                float = 0.0,
                  min_zone_thickness: Optional[float] = None):
 
         assert (zones and outer_material) or (radii and materials)
@@ -74,4 +80,8 @@ class CylindricalPinCell(PinCell):
                     prev_outer = zone.shape.outer_radius
             zones = filtered_zones
 
-        super().__init__(zones = zones, outer_material = outer_material, name = name)
+        super().__init__(zones          = zones,
+                         outer_material = outer_material,
+                         name           = name,
+                         x0             = x0,
+                         y0             = y0)

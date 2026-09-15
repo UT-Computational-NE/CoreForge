@@ -61,7 +61,7 @@ class CylindricalStack(CoreElement[geometry_elements.CylindricalStack]):
         """
         return Stack(self.specs).build(element, bounds)
 
-    def build_stack_and_specs(
+    def _build_stack_and_specs(
         self,
         element: geometry_elements.CylindricalStack,
     ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:

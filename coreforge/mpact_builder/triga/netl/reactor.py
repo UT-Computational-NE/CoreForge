@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing import Dict, List, Optional, Tuple, TypeAlias, TypedDict
-from dataclasses import dataclass, field
+from typing import Dict, List, Optional, Tuple, TypeAlias, TypedDict, cast
+from dataclasses import dataclass, field, replace
 from math import ceil, inf, isclose, isfinite, isinf
 
 import openmc
@@ -28,6 +28,9 @@ from .fuel_follower_control_rod import FuelFollowerControlRod
 from .pnt import PNT
 from .source_holder import SourceHolder
 from .transient_rod import TransientRod
+
+CoreGeometrySpecs: TypeAlias = geometry_elements_triga_netl.Reactor.CoreCellSpecs
+CoreGridPlateSpecs: TypeAlias = CoreGeometrySpecs.GridPlateSpecs
 
 
 def _default_voxelation_specs() -> "Reactor.VoxelationSpecs":
@@ -273,15 +276,9 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                         axial_bounds         = reactor.pool.axial_bounds,
                         unionize_radial_mesh = core_cell_specs.unionize_radial_mesh,
                     )
-                element                       = reactor.core.full_map.get(loc, None)
-                element_bottom_axial_position = reactor.get_element_bottom_axial_position(element)
-                stack, stack_specs = build_core_element(core_location                 = loc,
-                                                        upper_grid_plate              = reactor.upper_grid_plate,
-                                                        lower_grid_plate              = reactor.lower_grid_plate,
-                                                        element                       = element,
-                                                        element_bottom_axial_position = element_bottom_axial_position,
-                                                        outer_material                = reactor.pool.material,
-                                                        core_cell_specs               = core_cell_specs)
+                geometry_specs = reactor.get_core_cell_specs(loc)
+                stack, stack_specs = build_core_element(geometry_specs=geometry_specs,
+                                                        builder_specs=core_cell_specs)
                 stack_specs.apply_material_specs(stack, self.specs.material_specs)
                 elements[-1].append(stack)
                 element_specs[stack] = stack_specs
@@ -558,15 +555,10 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
 
 def build_core_element(
-    core_location:                 str,
-    upper_grid_plate:              geometry_elements_triga_netl.Reactor.GridPlate,
-    lower_grid_plate:              geometry_elements_triga_netl.Reactor.GridPlate,
-    element:                       Optional[geometry_elements_triga_netl.Core.Element] = None,
-    element_bottom_axial_position: Optional[float] = None,
-    outer_material:                Optional[Material] = None,
-    core_cell_specs:               Optional[Reactor.CoreCellSpecs] = None,
+    geometry_specs: CoreGeometrySpecs,
+    builder_specs: Optional[Reactor.CoreCellSpecs] = None,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
-    """Helper to build an MPACT core for a single element with grid plates.
+    """Build an MPACT core cell from resolved geometry specifications.
 
     This function handles core locations with or without grid plate penetrations.
     Non-element axial regions are represented as either voxelized InfiniteMedium
@@ -575,25 +567,12 @@ def build_core_element(
 
     Parameters
     ----------
-    core_location : str
-        Core location identifier (e.g., ``"C-07"``) used to look up grid plate
-        penetration radii.
-    upper_grid_plate : geometry_elements_triga_netl.Reactor.GridPlate
-        Upper grid plate geometry and placement.
-    lower_grid_plate : geometry_elements_triga_netl.Reactor.GridPlate
-        Lower grid plate geometry and placement.
-    element : geometry_elements_triga_netl.Core.Element, optional
-        Core element to place in the cell. When omitted, only the grid plates and outer
-        material will be present in the returned universe.
-    element_bottom_axial_position : float, optional
-        Axial z-position (cm) of the element bottom relative to the core centerline.
-    outer_material : Material, optional
-        Material filling the region outside the element and grid plates. If omitted
-        and ``element`` is provided, the element's ``outer_material`` is used. If
-        ``element`` is ``None``, this must be provided.
-    core_cell_specs : Optional[Reactor.CoreCellSpecs]
-        Specifications for building the core cell location, including element
-        specs, outer region specs, and optional axial bounds.
+    geometry_specs : geometry_elements_triga_netl.Reactor.CoreCellSpecs
+        Resolved element, grid-plate, fill-material, and placement data for the
+        core cell.
+    builder_specs : Optional[Reactor.CoreCellSpecs]
+        MPACT-specific element, outer-region, voxelization, and axial-mesh
+        specifications.
 
     Returns
     -------
@@ -601,47 +580,43 @@ def build_core_element(
         Stack and corresponding specs for the core element with grid plates and non-core axial regions.
     """
 
-    core_cell_specs    = core_cell_specs or Reactor.CoreCellSpecs()
-    element_specs      = core_cell_specs.element_specs
-    outer_region_specs = core_cell_specs.outer_region_specs
-    voxelization_specs = core_cell_specs.voxelization_specs
-    axial_bounds       = core_cell_specs.axial_bounds
+    builder_specs = builder_specs or Reactor.CoreCellSpecs()
+    outer_region_specs = builder_specs.outer_region_specs
+    voxelization_specs = builder_specs.voxelization_specs
+    axial_bounds = builder_specs.axial_bounds
 
-    upper_penetration_radius = upper_grid_plate.geometry.penetration_map.get(core_location)
-    lower_penetration_radius = lower_grid_plate.geometry.penetration_map.get(core_location)
+    upper_grid_plate = geometry_specs.upper_grid_plate
+    lower_grid_plate = geometry_specs.lower_grid_plate
+    element_placement = geometry_specs.element
+    element = None if element_placement is None else element_placement.geometry
+    assert upper_grid_plate is not None and lower_grid_plate is not None, \
+        "MPACT core-cell construction requires upper and lower grid-plate specifications."
 
-    both_grids_have_penetrations       = upper_penetration_radius and lower_penetration_radius
-    both_grid_do_not_have_penetrations = not upper_penetration_radius and not lower_penetration_radius
+    upper_penetration_radius = upper_grid_plate.penetration_radius
+    lower_penetration_radius = lower_grid_plate.penetration_radius
+
+    both_grids_have_penetrations = (upper_penetration_radius is not None and
+                                    lower_penetration_radius is not None)
+    both_grid_do_not_have_penetrations = (upper_penetration_radius is None and
+                                           lower_penetration_radius is None)
     assert both_grids_have_penetrations or both_grid_do_not_have_penetrations, \
         "Both upper and lower penetration radii must be provided or both must be None."
-
-    if element is not None:
-        outer_material = outer_material or element.outer_material
-
-    assert outer_material is not None, "outer_material must be provided if element is None."
 
     if axial_bounds is None:
         axial_bounds = Interval(lower_grid_plate.axial_bounds.lower, upper_grid_plate.axial_bounds.upper)
 
-        if element is not None:
-            assert element_bottom_axial_position is not None, \
-                "element_bottom_axial_position must be provided if element is not None and axial_bounds is None."
-            axial_bounds = Interval(min(axial_bounds.lower, element_bottom_axial_position),
-                                    max(axial_bounds.upper, element_bottom_axial_position + element.length))
+        if element_placement is not None:
+            element_bottom = element_placement.bottom_axial_position
+            axial_bounds = Interval(min(axial_bounds.lower, element_bottom),
+                                    max(axial_bounds.upper, element_bottom + element_placement.geometry.length))
 
     if voxelization_specs is not None:
-        return _build_voxelized_core_location(upper_grid_plate,
-                                               lower_grid_plate,
-                                               axial_bounds,
-                                               outer_material,
-                                               voxelization_specs)
+        builder_specs = replace(builder_specs, axial_bounds=axial_bounds)
+        return _build_voxelized_core_location(geometry_specs, builder_specs)
 
     if outer_region_specs is None:
-        outer_region_specs = (
-            CoreElement.SegmentSpecs()
-            if both_grids_have_penetrations
-            else Reactor.VoxelationSpecs()
-        )
+        outer_region_specs = (CoreElement.SegmentSpecs() if both_grids_have_penetrations
+                              else Reactor.VoxelationSpecs())
 
     if both_grids_have_penetrations:
         assert isinstance(outer_region_specs, CoreElement.SegmentSpecs), \
@@ -650,36 +625,19 @@ def build_core_element(
         assert isinstance(outer_region_specs, Reactor.VoxelationSpecs), \
             "outer_region_specs must be Reactor.VoxelationSpecs when no penetrations are present."
 
+    builder_specs = replace(builder_specs, outer_region_specs=outer_region_specs, axial_bounds=axial_bounds)
+
     if element is not None:
-        assert element_bottom_axial_position is not None, \
-            "element_bottom_axial_position must be provided if element is not None."
         assert both_grids_have_penetrations, \
             "Grid plate penetration radii must be provided for core locations with elements."
 
     if upper_penetration_radius is None and lower_penetration_radius is None:
-        return _build_voxelized_core_location(upper_grid_plate,
-                                               lower_grid_plate,
-                                               axial_bounds,
-                                               outer_material,
-                                               outer_region_specs)
+        return _build_voxelized_core_location(geometry_specs, builder_specs)
     if element is None:
-        return _build_core_location_with_water_hole(upper_grid_plate,
-                                                    lower_grid_plate,
-                                                    axial_bounds,
-                                                    outer_material,
-                                                    core_location,
-                                                    outer_region_specs)
+        return _build_core_location_with_water_hole(geometry_specs, builder_specs)
 
-    stack, specs = _build_core_location_with_element(upper_grid_plate,
-                                                     lower_grid_plate,
-                                                     element,
-                                                     element_bottom_axial_position,
-                                                     axial_bounds,
-                                                     outer_material,
-                                                     core_location,
-                                                     element_specs,
-                                                     outer_region_specs)
-    if core_cell_specs.unionize_radial_mesh:
+    stack, specs = _build_core_location_with_element(geometry_specs, builder_specs)
+    if builder_specs.unionize_radial_mesh:
         old_segments = stack.segments
         old_specs = specs
         stack = stack.unionize_radial_mesh()
@@ -690,14 +648,26 @@ def build_core_element(
     return stack, specs
 
 
+def _get_grid_plate_specs(
+    geometry_specs: CoreGeometrySpecs,
+) -> Tuple[CoreGridPlateSpecs, CoreGridPlateSpecs]:
+    upper_grid_plate = cast(CoreGridPlateSpecs, geometry_specs.upper_grid_plate)
+    lower_grid_plate = cast(CoreGridPlateSpecs, geometry_specs.lower_grid_plate)
+    return upper_grid_plate, lower_grid_plate
+
+
 def _build_voxelized_core_location(
-    upper_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
-    lower_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
-    axial_bounds:       Interval,
-    outer_material:     Material,
-    voxelization_specs: Optional[Reactor.VoxelationSpecs] = None,
+    geometry_specs: CoreGeometrySpecs,
+    builder_specs:  Reactor.CoreCellSpecs,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
-    voxelization_specs = voxelization_specs or Reactor.VoxelationSpecs()
+    upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
+    axial_bounds = cast(Interval, builder_specs.axial_bounds)
+
+    voxelization_specs = builder_specs.voxelization_specs
+    if voxelization_specs is None:
+        voxelization_specs = cast(Reactor.VoxelationSpecs, builder_specs.outer_region_specs)
+
+    outer_material = geometry_specs.outer_material
 
     def within_axial_bounds(point: float) -> bool:
         return ((point > axial_bounds.lower or
@@ -741,7 +711,7 @@ def _build_voxelized_core_location(
         for grid_plate in [lower_grid_plate, upper_grid_plate]:
             bounds = grid_plate.axial_bounds
             if point > bounds.lower and point < bounds.upper:
-                return grid_plate.geometry.material
+                return grid_plate.material
         return outer_material
 
     radial_target = voxelization_specs.target_thicknesses["radial"]
@@ -769,18 +739,14 @@ def _build_voxelized_core_location(
 
 
 def _build_core_location_with_water_hole(
-    upper_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
-    lower_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
-    axial_bounds:       Interval,
-    outer_material:     Material,
-    core_location:      str,
-    outer_region_specs: Optional[CoreElement.SegmentSpecs] = None,
+    geometry_specs: CoreGeometrySpecs,
+    builder_specs:  Reactor.CoreCellSpecs,
 ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+    upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
+    axial_bounds = cast(Interval, builder_specs.axial_bounds)
+    outer_region_specs = cast(CoreElement.SegmentSpecs, builder_specs.outer_region_specs)
 
-    outer_pincell = _build_outer_pincell(upper_grid_plate,
-                                         lower_grid_plate,
-                                         outer_material,
-                                         core_location)
+    outer_pincell = _build_outer_pincell(geometry_specs)
 
     buffer       = axial_bounds.length
     stack_bottom = lower_grid_plate.axial_bounds.lower - buffer
@@ -792,34 +758,35 @@ def _build_core_location_with_water_hole(
 
     stack = geometry_elements.CylindricalStack(
         segments   = [segment],
-        name       = f"{core_location}_outer_stack",
+        name       = f"{geometry_specs.location}_outer_stack",
         bottom_pos = stack_bottom)
     stack_specs = Stack.Specs({segment: outer_region_specs})
 
     stack, specs = stack_builder.get_axial_slice(stack, stack_specs, axial_bounds.lower, axial_bounds.upper)
-    stack, specs = _add_grid_plates_to_stack(stack, specs, upper_grid_plate, lower_grid_plate, core_location)
+    stack, specs = _add_grid_plates_to_stack(stack, specs, geometry_specs)
     return stack, specs
 
 
 def _build_core_location_with_element(
-    upper_grid_plate:              geometry_elements_triga_netl.Reactor.GridPlate,
-    lower_grid_plate:              geometry_elements_triga_netl.Reactor.GridPlate,
-    element:                       geometry_elements_triga_netl.Core.Element,
-    element_bottom_axial_position: float,
-    axial_bounds:                  Interval,
-    outer_material:                Material,
-    core_location:                 str,
-    element_specs:                 Optional[Reactor.CoreElementSpecs] = None,
-    outer_region_specs:            Optional[CoreElement.SegmentSpecs] = None,
+    geometry_specs: CoreGeometrySpecs,
+    builder_specs:  Reactor.CoreCellSpecs,
 ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+    upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
+    element_placement = cast(CoreGeometrySpecs.ElementSpecs, geometry_specs.element)
+    element = element_placement.geometry
+    element_bottom_axial_position = element_placement.bottom_axial_position
 
-    outer_pincell = _build_outer_pincell(upper_grid_plate,
-                                         lower_grid_plate,
-                                         outer_material,
-                                         core_location)
+    axial_bounds = cast(Interval, builder_specs.axial_bounds)
+    outer_region_specs = cast(CoreElement.SegmentSpecs, builder_specs.outer_region_specs)
+
+    outer_pincell = _build_outer_pincell(geometry_specs)
 
     builder_cls: CoreElement = get_builder(element)
-    element_stack, element_stack_specs = builder_cls(element_specs).build_stack_and_specs(element)
+    element_stack, element_stack_specs = builder_cls(builder_specs.element_specs).build_stack_and_specs(
+        element,
+        x0=element_placement.x0,
+        y0=element_placement.y0,
+    )
     element_top = element_bottom_axial_position + element_stack.length
 
     buffer = axial_bounds.length
@@ -838,7 +805,7 @@ def _build_core_location_with_element(
     segments = [bottom_segment] + element_stack.segments + [top_segment]
     stack = geometry_elements.CylindricalStack(
         segments   = segments,
-        name       = f"{core_location}_element_stack",
+        name       = f"{geometry_specs.location}_element_stack",
         bottom_pos = stack_bottom)
 
     segment_specs = {bottom_segment: outer_region_specs,
@@ -848,47 +815,36 @@ def _build_core_location_with_element(
                               num_procs=element_stack_specs.num_procs)
 
     stack, specs = stack_builder.get_axial_slice(stack, stack_specs, axial_bounds.lower, axial_bounds.upper)
-    stack, specs = _add_grid_plates_to_stack(stack, specs, upper_grid_plate, lower_grid_plate, core_location)
+    stack, specs = _add_grid_plates_to_stack(stack, specs, geometry_specs)
     return stack, specs
 
 
 def _build_outer_pincell(
-    upper_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
-    lower_grid_plate:   geometry_elements_triga_netl.Reactor.GridPlate,
-    outer_material:     Material,
-    core_location:      str,
+    geometry_specs: CoreGeometrySpecs,
 ) -> geometry_elements.CylindricalPinCell:
-
-    radii = sorted({upper_grid_plate.geometry.penetration_map.get(core_location),
-                    lower_grid_plate.geometry.penetration_map.get(core_location)})
+    upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
+    radii = sorted({cast(float, upper_grid_plate.penetration_radius),
+                    cast(float, lower_grid_plate.penetration_radius)})
 
     outer_pincell = geometry_elements.CylindricalPinCell(
         radii     = radii,
-        materials = [outer_material for _ in range(len(radii) + 1)],
-        name      = f"{core_location}_outer_pincell")
+        materials = [geometry_specs.outer_material for _ in range(len(radii) + 1)],
+        name      = f"{geometry_specs.location}_outer_pincell")
 
     return outer_pincell
 
 
 def _add_grid_plates_to_stack(
-    stack:            geometry_elements.CylindricalStack,
-    stack_specs:      Stack.Specs,
-    upper_grid_plate: geometry_elements_triga_netl.Reactor.GridPlate,
-    lower_grid_plate: geometry_elements_triga_netl.Reactor.GridPlate,
-    core_location:    str,
+    stack:          geometry_elements.CylindricalStack,
+    stack_specs:    Stack.Specs,
+    geometry_specs: CoreGeometrySpecs,
 ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+    upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
 
     for grid_plate in (lower_grid_plate, upper_grid_plate):
-        penetration_radius = grid_plate.geometry.penetration_map.get(core_location)
-        assert penetration_radius is not None, \
-            f"No penetration radius for core location {core_location}."
-
         grid_part = _build_grid_stack_and_specs(stack,
                                                 stack_specs,
-                                                grid_plate.axial_bounds.upper,
-                                                grid_plate.axial_bounds.lower,
-                                                grid_plate.geometry.material,
-                                                penetration_radius)
+                                                grid_plate)
         if grid_part is None:
             continue
 
@@ -922,13 +878,15 @@ def _add_grid_plates_to_stack(
 
 
 def _build_grid_stack_and_specs(
-    stack:              geometry_elements.CylindricalStack,
-    stack_specs:        Stack.Specs,
-    plate_top:          float,
-    plate_bottom:       float,
-    plate_material:     Material,
-    penetration_radius: float,
+    stack:            geometry_elements.CylindricalStack,
+    stack_specs:      Stack.Specs,
+    grid_plate_specs: CoreGridPlateSpecs,
 ) -> Optional[Tuple[geometry_elements.CylindricalStack, Stack.Specs]]:
+
+    plate_top = grid_plate_specs.axial_bounds.upper
+    plate_bottom = grid_plate_specs.axial_bounds.lower
+    plate_material = grid_plate_specs.material
+    penetration_radius = cast(float, grid_plate_specs.penetration_radius)
 
     def material_for_radius(pincell: geometry_elements.CylindricalPinCell, radius: float):
         for zone in pincell.zones:
@@ -963,7 +921,9 @@ def _build_grid_stack_and_specs(
         grid_pincell = geometry_elements.CylindricalPinCell(
             radii     = radii,
             materials = materials,
-            name      = f"{pincell.name}_grid_plate")
+            name      = f"{pincell.name}_grid_plate",
+            x0        = grid_plate_specs.x0,
+            y0        = grid_plate_specs.y0)
 
         new_segment = geometry_elements.Stack.Segment(element = grid_pincell,
                                                       length  = sliced_segment.length)

@@ -51,10 +51,11 @@ class CoreElement(Builder[TCoreElement], ABC):
                 material_specs | specs.builder_specs.material_specs
             )
 
-    @abstractmethod
     def build_stack_and_specs(
         self,
         element: TCoreElement,
+        x0: float = 0.0,
+        y0: float = 0.0,
     ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
         """Build the element stack and corresponding stack specs.
 
@@ -62,10 +63,35 @@ class CoreElement(Builder[TCoreElement], ABC):
         ----------
         element : GeometryElement
             The geometry element to be built into a stack.
+        x0 : float
+            Translation applied to the stack along the x-axis [cm].
+        y0 : float
+            Translation applied to the stack along the y-axis [cm].
 
         Returns
         -------
         Tuple[geometry_elements.CylindricalStack, Stack.Specs]
             The stack representation of the element and corresponding stack specs.
         """
+        stack, stack_specs = self._build_stack_and_specs(element)
+
+        if x0 == 0.0 and y0 == 0.0:
+            return stack, stack_specs
+
+        translated_stack = stack.translate(x0, y0)
+        translated_segment_specs = {
+            translated_segment: stack_specs.segment_specs.get(original_segment)
+            for original_segment, translated_segment
+            in zip(stack.segments, translated_stack.segments)
+        }
+        translated_specs = Stack.Specs(segment_specs=translated_segment_specs,
+                                       num_procs=stack_specs.num_procs)
+        return translated_stack, translated_specs
+
+    @abstractmethod
+    def _build_stack_and_specs(
+        self,
+        element: TCoreElement,
+    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+        """Build an untranslated element stack and its corresponding specs."""
         raise NotImplementedError

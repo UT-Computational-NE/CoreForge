@@ -194,29 +194,30 @@ def build_core_lattice(reactor: geometry_elements_triga_netl.Reactor) -> openmc.
         Lattice containing the full core.
     """
 
-    outer_material = reactor.core.fill_material.openmc_material
-    outer_universe = build_core_element(
-        core_location=None,
-        element=None,
-        outer_material=outer_material,
-        upper_grid_plate=reactor.upper_grid_plate,
-        lower_grid_plate=reactor.lower_grid_plate,
+    grid_plate_specs = geometry_elements_triga_netl.Reactor.CoreCellSpecs.GridPlateSpecs
+    outer_core_cell_specs = geometry_elements_triga_netl.Reactor.CoreCellSpecs(
+        location="outer",
+        outer_material=reactor.core.fill_material,
+        upper_grid_plate=grid_plate_specs(
+            axial_bounds=reactor.upper_grid_plate.axial_bounds,
+            material=reactor.upper_grid_plate.geometry.material,
+            penetration_radius=None,
+        ),
+        lower_grid_plate=grid_plate_specs(
+            axial_bounds=reactor.lower_grid_plate.axial_bounds,
+            material=reactor.lower_grid_plate.geometry.material,
+            penetration_radius=None,
+        ),
     )
+    outer_universe = build_core_element(core_cell_specs=outer_core_cell_specs)
 
     universes = []
     for ring_index, ring in enumerate(reactor.core.lattice.elements):
         ring_universes = []
-        for element_index, element in enumerate(ring):
+        for element_index, _ in enumerate(ring):
             core_location = geometry_elements_triga_netl.Core.RING_MAP[ring_index][element_index]
-            element_bottom_axial_position = reactor.get_element_bottom_axial_position(element)
-
             universe = build_core_element(
-                core_location=core_location,
-                element=element,
-                element_bottom_axial_position=element_bottom_axial_position,
-                outer_material=outer_material,
-                upper_grid_plate=reactor.upper_grid_plate,
-                lower_grid_plate=reactor.lower_grid_plate,
+                core_cell_specs=reactor.get_core_cell_specs(core_location),
             )
             ring_universes.append(universe)
         universes.append(ring_universes)
@@ -231,78 +232,51 @@ def build_core_lattice(reactor: geometry_elements_triga_netl.Reactor) -> openmc.
 
 
 def build_core_element(
-    core_location: Optional[str],
-    upper_grid_plate: geometry_elements_triga_netl.Reactor.GridPlate,
-    lower_grid_plate: geometry_elements_triga_netl.Reactor.GridPlate,
-    element: Optional[geometry_elements_triga_netl.Core.Element] = None,
-    element_bottom_axial_position: Optional[float] = None,
-    outer_material: Optional[openmc.Material] = None,
+    core_cell_specs: geometry_elements_triga_netl.Reactor.CoreCellSpecs,
 ) -> openmc.Universe:
-    """Helper to build an OpenMC universe for a single core element with optional grid plates.
+    """Build an OpenMC universe from resolved core-cell geometry specifications.
 
     Parameters
     ----------
-    element : geometry_elements_triga_netl.Core.Element, optional
-        Core element to place in the cell. When omitted, only the grid plates and outer
-        material will be present in the returned universe.
-    core_location : str, optional
-        Core location identifier (e.g., ``"C-07"``) used to look up grid plate
-        penetration radii. When ``None``, grid plates are built with no penetrations.
-    element_bottom_axial_position : float, optional
-        Axial z-position (cm) of the element bottom relative to the core centerline..
-    outer_material : openmc.Material, optional
-        Material filling the region outside the element and grid plates. If omitted
-        and ``element`` is provided, the element's ``outer_material`` is used. If
-        ``element`` is ``None``, this must be provided.
-    upper_grid_plate : geometry_elements_triga_netl.Reactor.GridPlate
-        Upper grid plate geometry and placement.
-    lower_grid_plate : geometry_elements_triga_netl.Reactor.GridPlate
-        Lower grid plate geometry and placement.
+    core_cell_specs : geometry_elements_triga_netl.Reactor.CoreCellSpecs
+        Resolved element, grid-plate, fill-material, and placement data for the
+        core cell.
 
     Returns
     -------
     openmc.Universe
-        Universe containing the element (if provided), surrounding coolant, and any
-        provided grid plates.
+        Universe containing the specified element, grid plates, and outer material.
     """
 
-    assert element is not None or outer_material is not None, (
-        "If no element is provided, outer_material must be specified."
-    )
-
-    bottom_z     = element_bottom_axial_position or 0.0
     cells        = []
     outer_region = None
     grid_regions = None
 
-    def penetration_radius(grid_plate: geometry_elements_triga_netl.Reactor.GridPlate) -> Optional[float]:
-        return None if core_location is None else grid_plate.geometry.penetration_map[core_location]
+    grid_plate_specs = (core_cell_specs.upper_grid_plate,
+                        core_cell_specs.lower_grid_plate)
 
-    region = -openmc.ZPlane(upper_grid_plate.axial_bounds.upper)
-    region &= +openmc.ZPlane(upper_grid_plate.axial_bounds.lower)
-    radius = penetration_radius(upper_grid_plate)
-    if radius is not None:
-        region &= +openmc.ZCylinder(r = radius)
+    for grid_plate in grid_plate_specs:
+        if grid_plate is None:
+            continue
 
-    cells.append(openmc.Cell(fill   = upper_grid_plate.geometry.material.openmc_material,
-                             region = region))
-    grid_regions = cells[-1].region
-    outer_region = ~cells[-1].region
+        region = +openmc.ZPlane(grid_plate.axial_bounds.lower)
+        region &= -openmc.ZPlane(grid_plate.axial_bounds.upper)
+        if grid_plate.penetration_radius is not None:
+            region &= +openmc.ZCylinder(r=grid_plate.penetration_radius,
+                                        x0=grid_plate.x0,
+                                        y0=grid_plate.y0)
 
+        grid_cell = openmc.Cell(fill   = grid_plate.material.openmc_material,
+                                region = region)
+        cells.append(grid_cell)
+        grid_regions = grid_cell.region if grid_regions is None else grid_regions | grid_cell.region
+        outer_region = ~grid_cell.region if outer_region is None else outer_region & ~grid_cell.region
 
-    region = +openmc.ZPlane(lower_grid_plate.axial_bounds.lower)
-    region &= -openmc.ZPlane(lower_grid_plate.axial_bounds.upper)
-    radius = penetration_radius(lower_grid_plate)
-    if radius is not None:
-        region &= +openmc.ZCylinder(r = radius)
-
-    cells.append(openmc.Cell(fill   = lower_grid_plate.geometry.material.openmc_material,
-                             region = region))
-    grid_regions = cells[-1].region if grid_regions is None else grid_regions | cells[-1].region
-    outer_region = ~cells[-1].region if outer_region is None else outer_region & ~cells[-1].region
-
-    if element is not None:
-        top_z          = bottom_z + element.length
+    element_specs = core_cell_specs.element
+    if element_specs is not None:
+        element       = element_specs.geometry
+        bottom_z      = element_specs.bottom_axial_position
+        top_z         = bottom_z + element.length
         bottom_plane   = openmc.ZPlane(bottom_z)
         top_plane      = openmc.ZPlane(top_z)
         element_region = +bottom_plane & -top_plane
@@ -313,10 +287,10 @@ def build_core_element(
         # CylindricalStacks and PNTs already use element.bottom_pos, so remove it from the translation
         if isinstance(element, (CylindricalStack, geometry_elements_triga_netl.PNT)):
             z_translation -= element.bottom_pos
-        element_cell.translation = (0.0, 0.0, z_translation)
+        element_cell.translation = (element_specs.x0, element_specs.y0, z_translation)
         cells.append(element_cell)
 
-    outer_fill = outer_material or element.outer_material.openmc_material
-    cells.append(openmc.Cell(fill=outer_fill, region=outer_region))
+    cells.append(openmc.Cell(fill=core_cell_specs.outer_material.openmc_material,
+                             region=outer_region))
 
     return openmc.Universe(cells=cells)

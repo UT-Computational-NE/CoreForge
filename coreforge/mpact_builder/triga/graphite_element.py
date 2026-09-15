@@ -106,8 +106,8 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
         return build(stack, stack_specs, bounds)
 
 
-    def build_stack_and_specs(self,
-                              element: geometry_elements_triga.GraphiteElement,
+    def _build_stack_and_specs(self,
+                               element: geometry_elements_triga.GraphiteElement,
     ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
 
         stack = element.as_stack(
@@ -121,7 +121,6 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
             if segment.element is element.graphite_pincell:
                 lower_end_count = idx
                 break
-
 
         mid_start = lower_end_count
         mid_end = mid_start + 1
