@@ -10,6 +10,7 @@ from coreforge.geometry_elements.triga.netl.central_thimble import CentralThimbl
 from coreforge.geometry_elements.triga.netl.fuel_follower_control_rod import FuelFollowerControlRod
 from coreforge.geometry_elements.triga.netl.pnt import PNT
 from coreforge.geometry_elements.triga.netl.source_holder import SourceHolder
+from coreforge.geometry_elements.triga.netl.three_element_irradiator import ThreeElementIrradiator
 from coreforge.geometry_elements.triga.netl.transient_rod import TransientRod
 
 
@@ -37,7 +38,8 @@ class Core(GeometryElement):
         and not in the reserved locations (A-01, C-01, C-07, D-06, D-14,
         G-01, G-07, G-13, G-19, G-25, G-31). Any unspecified, non-reserved
         locations are set to ``None``. Supported contents are fuel elements,
-        graphite elements, source holders, PNTs, and cylindrical stacks.
+        graphite elements, source holders, PNTs, three-element irradiators,
+        and cylindrical stacks.
     three_element_irradiator : Loadable, optional
         Loadable spanning locations E-11, F-13, and F-14. When provided, those
         locations are conditionally reserved and must not contain another
@@ -112,11 +114,12 @@ class Core(GeometryElement):
         ["A-01"]
     ]
 
-    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | CylindricalStack
+    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | ThreeElementIrradiator | \
+                            CylindricalStack
     ControlRod: TypeAlias = TransientRod | FuelFollowerControlRod
     Fixture:    TypeAlias = CentralThimble | TransientRod | FuelFollowerControlRod
-    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | CylindricalStack | \
-                            CentralThimble | TransientRod | FuelFollowerControlRod
+    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | ThreeElementIrradiator | \
+                            CylindricalStack | CentralThimble | TransientRod | FuelFollowerControlRod
 
     THREE_ELEMENT_LOCATIONS: ClassVar[List[str]] = ["E-11", "F-13", "F-14"]
     RESERVED_LOCATIONS: ClassVar[List[str]] = ["A-01", "C-01", "C-07", "D-06", "D-14",

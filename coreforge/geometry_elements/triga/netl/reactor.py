@@ -21,6 +21,7 @@ from .shroud import Shroud as ShroudGeometry
 from .central_thimble import CentralThimble as CentralThimbleGeometry
 from .pnt import PNT as PNTGeometry
 from .source_holder import SourceHolder as SourceHolderGeometry
+from .three_element_irradiator import ThreeElementIrradiator as ThreeElementIrradiatorGeometry
 
 
 # pylint: disable=too-many-public-methods
@@ -901,9 +902,9 @@ class Reactor(GeometryElement):
         """Return the bottom axial position for a core element.
 
         Built-in TRIGA fuel, graphite, central thimble, control rod, source
-        holder, PNT, and cylindrical stack placements are returned relative to
-        the reactor core centerline. Control rod locations use the reactor's
-        current rod-position attributes.
+        holder, PNT, three-element irradiator, and cylindrical stack placements
+        are returned relative to the reactor core centerline. Control rod
+        locations use the reactor's current rod-position attributes.
 
         Parameters
         ----------
@@ -943,6 +944,8 @@ class Reactor(GeometryElement):
         if isinstance(element, SourceHolderGeometry):
             axial_position = self.upper_grid_plate.top_to_core_centerline_distance - \
                              element.length
+        if isinstance(element, ThreeElementIrradiatorGeometry):
+            axial_position = self.lower_grid_plate.axial_bounds.upper
 
         return axial_position
 
