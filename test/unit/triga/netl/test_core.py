@@ -8,6 +8,7 @@ from .test_transient_rod import transient_rod
 from .test_fuel_follower_control_rod import control_rod
 from .test_source_holder import source_holder
 from .test_pnt import pnt
+from .test_three_element_irradiator import three_element_irradiator
 from ..test_fuel_element import fuel_element
 from ..test_graphite_element import graphite_element
 
@@ -15,7 +16,8 @@ CM_PER_INCH = 2.54
 
 
 @pytest.fixture
-def core(central_thimble, transient_rod, control_rod, source_holder, pnt, fuel_element, graphite_element):
+def core(central_thimble, transient_rod, control_rod, source_holder, pnt,
+         three_element_irradiator, fuel_element, graphite_element):
     fuel = lambda: deepcopy(fuel_element)
     graphite = lambda: deepcopy(graphite_element)
     cylindrical_stack = lambda: graphite().as_stack(
@@ -23,7 +25,6 @@ def core(central_thimble, transient_rod, control_rod, source_holder, pnt, fuel_e
     )
     source = lambda: deepcopy(source_holder)
     pneumatic_tube = lambda: deepcopy(pnt)
-    empty = lambda: None
 
     def fill(locations, factory):
         return {loc: factory() for loc in locations}
@@ -44,15 +45,12 @@ def core(central_thimble, transient_rod, control_rod, source_holder, pnt, fuel_e
                           "E-07", "E-08", "E-09", "E-10", "E-12",
                           "E-13", "E-14", "E-15", "E-16", "E-17", "E-18",
                           "E-19", "E-20", "E-21", "E-22", "E-23", "E-24"], fuel)
-    core_loading["E-11"] = empty()
 
     core_loading |= fill(["F-01", "F-02", "F-03", "F-04", "F-05", "F-06",
                           "F-07", "F-08", "F-09", "F-10", "F-11", "F-12",
                           "F-15", "F-16", "F-17", "F-18",
                           "F-19", "F-20", "F-21", "F-22", "F-23", "F-24",
                           "F-25", "F-26", "F-27", "F-28", "F-29", "F-30"], fuel)
-    core_loading["F-13"] = empty()
-    core_loading["F-14"] = empty()
 
     core_loading |= fill(["G-02", "G-03", "G-04", "G-05", "G-06",
                           "G-08", "G-09", "G-10", "G-11", "G-12",
@@ -71,6 +69,7 @@ def core(central_thimble, transient_rod, control_rod, source_holder, pnt, fuel_e
         regulating_rod=control_rod,
         shim_1_rod=deepcopy(control_rod),
         shim_2_rod=deepcopy(control_rod),
+        three_element_irradiator=three_element_irradiator,
         fill_material=fuel().outer_material,
     )
 
@@ -87,12 +86,13 @@ def unequal_core(core):
         regulating_rod=core.regulating_rod,
         shim_1_rod=deepcopy(core.shim_1_rod),
         shim_2_rod=deepcopy(core.shim_2_rod),
+        three_element_irradiator=core.three_element_irradiator,
         fill_material=core.fill_material,
     )
 
 
 def test_initialization(core, fuel_element, graphite_element, source_holder, pnt,
-                        central_thimble, transient_rod, control_rod):
+                        three_element_irradiator, central_thimble, transient_rod, control_rod):
     assert core.pitch == pytest.approx(1.714 * CM_PER_INCH)
     assert core.full_map["B-01"] == fuel_element
     assert core.full_map["C-12"] == graphite_element
@@ -106,6 +106,10 @@ def test_initialization(core, fuel_element, graphite_element, source_holder, pnt
     assert core.full_map["G-01"] is None
     assert core.full_map["G-32"] == source_holder
     assert core.full_map["G-34"] == pnt
+    assert core.three_element_irradiator is three_element_irradiator
+    assert core.full_map["E-11"] is three_element_irradiator
+    assert core.full_map["F-13"] is three_element_irradiator
+    assert core.full_map["F-14"] is three_element_irradiator
     expected = [core.fill_material]
     for element in core.full_map.values():
         if element is not None:
