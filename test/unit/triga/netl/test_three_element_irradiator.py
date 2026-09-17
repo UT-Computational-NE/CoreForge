@@ -64,6 +64,7 @@ def assert_pincell(pincell, radii, material_types):
 
 def test_initialization(three_element_irradiator):
     irradiator = three_element_irradiator
+    pincell = irradiator.pincell
     casing = irradiator.outer_casing
     sleeve = irradiator.inner_sleeve
     liner = irradiator.liner
@@ -77,33 +78,33 @@ def test_initialization(three_element_irradiator):
     assert isinstance(irradiator.outer_material, Water)
 
     assert_pincell(
-        irradiator.solid_end_pincell,
+        pincell["solid_end"],
         [casing.outer_radius],
         [Al6061T6],
     )
     assert_pincell(
-        irradiator.liner_bottom_pincell,
+        pincell["liner_bottom"],
         [liner_outer_radius, casing.inner_radius, casing.outer_radius],
         [Cd, Air, Al6061T6],
     )
     assert_pincell(
-        irradiator.inner_sleeve_bottom_pincell,
+        pincell["inner_sleeve_bottom"],
         [sleeve.outer_radius, liner_outer_radius, casing.inner_radius, casing.outer_radius],
         [Al6061T6, Cd, Air, Al6061T6],
     )
     assert_pincell(
-        irradiator.lined_pincell,
+        pincell["lined"],
         [sleeve.inner_radius, sleeve.outer_radius, liner_outer_radius,
          casing.inner_radius, casing.outer_radius],
         [Air, Al6061T6, Cd, Air, Al6061T6],
     )
     assert_pincell(
-        irradiator.inner_sleeve_pincell,
+        pincell["inner_sleeve"],
         [sleeve.inner_radius, sleeve.outer_radius, casing.inner_radius, casing.outer_radius],
         [Air, Al6061T6, Air, Al6061T6],
     )
     assert_pincell(
-        irradiator.outer_casing_pincell,
+        pincell["outer_casing"],
         [casing.inner_radius, casing.outer_radius],
         [Air, Al6061T6],
     )
@@ -127,6 +128,7 @@ def test_equality_and_hash(three_element_irradiator, unequal_three_element_irrad
 
 def test_as_stack(three_element_irradiator):
     irradiator = three_element_irradiator
+    pincell = irradiator.pincell
     stack = irradiator.as_stack()
 
     assert stack.bottom_pos == pytest.approx(0.0)
@@ -142,13 +144,13 @@ def test_as_stack(three_element_irradiator):
         3.1750,
     ])
     assert [segment.element for segment in stack.segments] == [
-        irradiator.solid_end_pincell,
-        irradiator.liner_bottom_pincell,
-        irradiator.inner_sleeve_bottom_pincell,
-        irradiator.lined_pincell,
-        irradiator.inner_sleeve_pincell,
-        irradiator.outer_casing_pincell,
-        irradiator.solid_end_pincell,
+        pincell["solid_end"],
+        pincell["liner_bottom"],
+        pincell["inner_sleeve_bottom"],
+        pincell["lined"],
+        pincell["inner_sleeve"],
+        pincell["outer_casing"],
+        pincell["solid_end"],
     ]
 
 

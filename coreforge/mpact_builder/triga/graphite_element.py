@@ -115,10 +115,11 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
             upper_end_target_axial_thickness = self.specs.upper_end_fitting.target_axial_thickness,
         )
 
+        pincell = element.pincell
         segment_specs = {}
         lower_end_count = None
         for idx, segment in enumerate(stack.segments):
-            if segment.element is element.graphite_pincell:
+            if segment.element is pincell["graphite"]:
                 lower_end_count = idx
                 break
 

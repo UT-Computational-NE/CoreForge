@@ -8,6 +8,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.materials import Air, Al6061T6, Material, unique_materials
+from coreforge.utils import TolerantEqualityMixin
 
 
 class RSRCavity(GeometryElement):
@@ -31,8 +32,8 @@ class RSRCavity(GeometryElement):
         Name for this RSR cavity.
     """
 
-    @dataclass(frozen=True)
-    class SpecimenTube:
+    @dataclass(frozen=True, eq=False)
+    class SpecimenTube(TolerantEqualityMixin):
         """Dataclass for specimen tubes.
 
         Attributes
@@ -52,23 +53,6 @@ class RSRCavity(GeometryElement):
         def __post_init__(self) -> None:
             assert self.outer_radius > 0.0, "Specimen Tube outer radius must be positive."
             assert self.thickness > 0.0, "Specimen Tube thickness must be positive."
-
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (
-                isinstance(other, RSRCavity.SpecimenTube)
-                and isclose(self.outer_radius, other.outer_radius, rel_tol=TOL)
-                and isclose(self.thickness, other.thickness, rel_tol=TOL)
-                and self.material == other.material
-            )
-
-        def __hash__(self) -> int:
-            return hash((
-                relative_round(self.outer_radius, TOL),
-                relative_round(self.thickness, TOL),
-                self.material,
-            ))
 
     @property
     def outer_radius(self) -> float:

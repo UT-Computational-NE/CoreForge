@@ -29,15 +29,18 @@ class FuelElement(Builder[geometry_elements_triga.FuelElement]):
         cells.append(openmc.Cell(fill=element.lower_end_fitting.material.openmc_material, region=-plane & fixture))
         cells.append(openmc.Cell(fill=element.outer_material.openmc_material,   region=-plane & ~fixture))
 
-        segments = [element.lower_reflector_pincell,
-                    element.moly_disc_pincell,
-                    element.fuel_pincell,
-                    element.upper_reflector_pincell,
-                    element.air_gap_pincell]
+        pincell = element.pincell
+        fuel_region_length = element.fuel_meat.length / element.fuel_meat.num_axial_regions
+        fuel_pincells = list(reversed(pincell["fuel"]))
+        segments = [pincell["lower_reflector"],
+                    pincell["moly_disc"],
+                    *fuel_pincells,
+                    pincell["upper_reflector"],
+                    pincell["air_gap"]]
 
         lengths  = [element.lower_graphite_reflector.thickness,
                     element.moly_disc.thickness,
-                    element.fuel_meat.length,
+                    *([fuel_region_length] * len(fuel_pincells)),
                     element.upper_graphite_reflector.thickness,
                     element.upper_air_gap.thickness]
 

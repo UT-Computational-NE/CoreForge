@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isclose
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
@@ -11,6 +11,7 @@ from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, B4C, Material, Water, unique_materials
+from coreforge.utils import TolerantEqualityMixin
 
 
 # pylint: disable=too-many-public-methods
@@ -58,22 +59,12 @@ class TransientRod(GeometryElement):
         Minimum thickness to retain a radial zone (defaults to ``None`` for no filtering).
     air_follower : TransientRod.AirFollower
         Air follower (axial metadata).
-    absorber_pincell : CylindricalPinCell
-        Pincell representing the absorber region.
-    air_follower_pincell : CylindricalPinCell
-        Pincell representing the air-follower region (cladding with fill gas).
-    upper_element_plug_pincell : CylindricalPinCell
-        Pincell for the upper element plug.
-    lower_element_plug_pincell : CylindricalPinCell
-        Pincell for the lower element plug.
-    upper_magneform_fitting_pincell : CylindricalPinCell
-        Pincell for the upper Magneform fitting.
-    lower_magneform_fitting_pincell : CylindricalPinCell
-        Pincell for the lower Magneform fitting.
+    pincell : TransientRod.Pincell
+        Pincells keyed by axial feature.
     """
 
-    @dataclass(frozen=True)
-    class Cladding:
+    @dataclass(frozen=True, eq=False)
+    class Cladding(TolerantEqualityMixin):
         """Transient rod cladding specification.
 
         Parameters
@@ -97,23 +88,8 @@ class TransientRod(GeometryElement):
             )
             object.__setattr__(self, "inner_radius", self.outer_radius - self.thickness)
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, TransientRod.Cladding) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL) and
-                    isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
-                    isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.thickness, TOL),
-                         relative_round(self.outer_radius, TOL),
-                         relative_round(self.inner_radius, TOL),
-                         self.material))
-
-    @dataclass(frozen=True)
-    class Absorber:
+    @dataclass(frozen=True, eq=False)
+    class Absorber(TolerantEqualityMixin):
         """Transient rod absorber specification.
 
         Parameters
@@ -133,21 +109,8 @@ class TransientRod(GeometryElement):
             assert self.radius > 0.0, "Absorber radius must be positive."
             assert self.length > 0.0, "Absorber length must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, TransientRod.Absorber) and
-                    isclose(self.radius, other.radius, rel_tol=TOL) and
-                    isclose(self.length, other.length, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.radius, TOL),
-                         relative_round(self.length, TOL),
-                         self.material))
-
-    @dataclass(frozen=True)
-    class AirFollower:
+    @dataclass(frozen=True, eq=False)
+    class AirFollower(TolerantEqualityMixin):
         """Transient rod air follower (axial length metadata).
 
         Parameters
@@ -160,17 +123,8 @@ class TransientRod(GeometryElement):
         def __post_init__(self) -> None:
             assert self.thickness > 0.0, "Air follower thickness must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, TransientRod.AirFollower) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL))
-
-        def __hash__(self) -> int:
-            return hash(relative_round(self.thickness, TOL))
-
-    @dataclass(frozen=True)
-    class ElementPlug:
+    @dataclass(frozen=True, eq=False)
+    class ElementPlug(TolerantEqualityMixin):
         """Transient rod element plug specification (axial metadata only).
 
         Parameters
@@ -186,18 +140,8 @@ class TransientRod(GeometryElement):
         def __post_init__(self) -> None:
             assert self.thickness > 0.0, "Element plug thickness must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, TransientRod.ElementPlug) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.thickness, TOL), self.material))
-
-    @dataclass(frozen=True)
-    class MagneformFitting:
+    @dataclass(frozen=True, eq=False)
+    class MagneformFitting(TolerantEqualityMixin):
         """Transient rod Magneform fitting specification (axial metadata only).
 
         Parameters
@@ -213,15 +157,15 @@ class TransientRod(GeometryElement):
         def __post_init__(self) -> None:
             assert self.thickness > 0.0, "Magneform fitting thickness must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, TransientRod.MagneformFitting) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL) and
-                    self.material == other.material)
+    class Pincell(TypedDict):
+        """Pincells used to construct the transient-rod axial stack."""
 
-        def __hash__(self) -> int:
-            return hash((relative_round(self.thickness, TOL), self.material))
+        absorber: CylindricalPinCell
+        air_follower: CylindricalPinCell
+        upper_element_plug: CylindricalPinCell
+        lower_element_plug: CylindricalPinCell
+        upper_magneform_fitting: CylindricalPinCell
+        lower_magneform_fitting: CylindricalPinCell
 
     @property
     def length(self) -> float:
@@ -268,28 +212,8 @@ class TransientRod(GeometryElement):
         return self._gap_tolerance
 
     @property
-    def absorber_pincell(self) -> CylindricalPinCell:
-        return self._absorber_pincell
-
-    @property
-    def air_follower_pincell(self) -> CylindricalPinCell:
-        return self._air_follower_pincell
-
-    @property
-    def upper_element_plug_pincell(self) -> CylindricalPinCell:
-        return self._upper_element_plug_pincell
-
-    @property
-    def lower_element_plug_pincell(self) -> CylindricalPinCell:
-        return self._lower_element_plug_pincell
-
-    @property
-    def upper_magneform_fitting_pincell(self) -> CylindricalPinCell:
-        return self._upper_magneform_fitting_pincell
-
-    @property
-    def lower_magneform_fitting_pincell(self) -> CylindricalPinCell:
-        return self._lower_magneform_fitting_pincell
+    def pincell(self) -> Pincell:
+        return self._pincell.copy()
 
     def __init__(self,
                  cladding:                Cladding,
@@ -322,7 +246,7 @@ class TransientRod(GeometryElement):
                         self.upper_magneform_fitting.thickness +
                         self.upper_element_plug.thickness)
 
-        self._absorber_pincell = self.build_absorber_pincell(
+        absorber_pincell = self.build_absorber_pincell(
             cladding=self.cladding,
             absorber=self.absorber,
             fill_gas=self.fill_gas,
@@ -331,36 +255,44 @@ class TransientRod(GeometryElement):
             name=self.name + "_absorber_pincell",
         )
 
-        self._air_follower_pincell = self.build_air_follower_pincell(
+        air_follower_pincell = self.build_air_follower_pincell(
             cladding=self.cladding,
             fill_gas=self.fill_gas,
             outer_material=self.outer_material,
             name=self.name + "_air_follower_pincell",
         )
-        self._upper_element_plug_pincell = self.build_element_plug_pincell(
+        upper_element_plug_pincell = self.build_element_plug_pincell(
             cladding=self.cladding,
             plug=self.upper_element_plug,
             outer_material=self.outer_material,
             name=self.name + "_upper_element_plug_pincell",
         )
-        self._upper_magneform_fitting_pincell = self.build_magneform_fitting_pincell(
+        upper_magneform_fitting_pincell = self.build_magneform_fitting_pincell(
             cladding=self.cladding,
             fitting=self.upper_magneform_fitting,
             outer_material=self.outer_material,
             name=self.name + "_upper_magneform_fitting_pincell",
         )
-        self._lower_element_plug_pincell = self.build_element_plug_pincell(
+        lower_element_plug_pincell = self.build_element_plug_pincell(
             cladding=self.cladding,
             plug=self.lower_element_plug,
             outer_material=self.outer_material,
             name=self.name + "_lower_element_plug_pincell",
         )
-        self._lower_magneform_fitting_pincell = self.build_magneform_fitting_pincell(
+        lower_magneform_fitting_pincell = self.build_magneform_fitting_pincell(
             cladding=self.cladding,
             fitting=self.lower_magneform_fitting,
             outer_material=self.outer_material,
             name=self.name + "_lower_magneform_fitting_pincell",
         )
+        self._pincell: TransientRod.Pincell = {
+            "absorber": absorber_pincell,
+            "air_follower": air_follower_pincell,
+            "upper_element_plug": upper_element_plug_pincell,
+            "lower_element_plug": lower_element_plug_pincell,
+            "upper_magneform_fitting": upper_magneform_fitting_pincell,
+            "lower_magneform_fitting": lower_magneform_fitting_pincell,
+        }
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -423,13 +355,14 @@ class TransientRod(GeometryElement):
             The Transient Rod as a Stack
         """
 
+        pincell = self.pincell
         return CylindricalStack(
-            segments   = [Stack.Segment(self.lower_element_plug_pincell, self.lower_element_plug.thickness),
-                          Stack.Segment(self.air_follower_pincell, self.air_follower.thickness),
-                          Stack.Segment(self.lower_magneform_fitting_pincell, self.lower_magneform_fitting.thickness),
-                          Stack.Segment(self.absorber_pincell, self.absorber.length),
-                          Stack.Segment(self.upper_magneform_fitting_pincell, self.upper_magneform_fitting.thickness),
-                          Stack.Segment(self.upper_element_plug_pincell, self.upper_element_plug.thickness)],
+            segments   = [Stack.Segment(pincell["lower_element_plug"], self.lower_element_plug.thickness),
+                          Stack.Segment(pincell["air_follower"], self.air_follower.thickness),
+                          Stack.Segment(pincell["lower_magneform_fitting"], self.lower_magneform_fitting.thickness),
+                          Stack.Segment(pincell["absorber"], self.absorber.length),
+                          Stack.Segment(pincell["upper_magneform_fitting"], self.upper_magneform_fitting.thickness),
+                          Stack.Segment(pincell["upper_element_plug"], self.upper_element_plug.thickness)],
             name       = self.name,
             bottom_pos = bottom_pos)
 

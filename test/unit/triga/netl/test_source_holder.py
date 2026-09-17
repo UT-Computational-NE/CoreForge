@@ -51,7 +51,8 @@ def unequal_source_holder(source_holder):
 
 
 def test_initialization(source_holder):
-    cavity_pin = source_holder.cavity_pincell
+    pincell = source_holder.pincell
+    cavity_pin = pincell["cavity"]
     cavity_radii = [zone.shape.outer_radius for zone in cavity_pin.zones]
     cavity_mats = [zone.material for zone in cavity_pin.zones]
 
@@ -64,7 +65,7 @@ def test_initialization(source_holder):
     assert isinstance(cavity_pin.outer_material, Water)
     assert source_holder.cavity.axial_offset == pytest.approx(-1.1934)
 
-    solid_pin = source_holder.solid_pincell
+    solid_pin = pincell["solid"]
     solid_radii = [zone.shape.outer_radius for zone in solid_pin.zones]
     solid_mats = [zone.material for zone in solid_pin.zones]
 

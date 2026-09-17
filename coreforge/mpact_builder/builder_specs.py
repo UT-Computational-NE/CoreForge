@@ -28,6 +28,7 @@ DEFAULT_MPACT_MATERIAL_SPECS: Dict[type[Material], mpactpy.Material.MPACTSpecs] 
     materials.Cd: mpactpy.Material.MPACTSpecs({'Cd106': "Cd", 'Cd108': "Cd", 'Cd110': "Cd", 'Cd111': "Cd",
                                                'Cd112': "Cd", 'Cd113': "Cd", 'Cd114': "Cd", 'Cd116': "Cd"},
                                                False, False, True, False),
+    materials.Pb: mpactpy.Material.MPACTSpecs({}, False, False, True, False),
     materials.Al6061T6: mpactpy.Material.MPACTSpecs({'Mg24': "Mg", 'Mg25': "Mg", 'Mg26': "Mg",
                                                      'Si28': "Si", 'Si29': "Si", 'Si30': "Si"},
                                                      False, False, True, False),

@@ -88,7 +88,8 @@ def multi_region_fuel_element(fuel_element):
 
 
 def test_initialization(fuel_element, multi_region_fuel_element):
-    pin = fuel_element.fuel_pincell
+    pincell = fuel_element.pincell
+    pin = pincell["fuel"][0]
     radii = [zone.shape.outer_radius for zone in pin.zones]
     materials = [zone.material for zone in pin.zones]
     assert radii == pytest.approx([
@@ -101,7 +102,7 @@ def test_initialization(fuel_element, multi_region_fuel_element):
     assert isinstance(materials[2], SS304)
     assert isinstance(pin.outer_material, Water)
 
-    moly_pin = fuel_element.moly_disc_pincell
+    moly_pin = pincell["moly_disc"]
     assert [z.shape.outer_radius for z in moly_pin.zones] == pytest.approx([
         fuel_element.moly_disc.radius,
         fuel_element.cladding.inner_radius,
@@ -109,7 +110,7 @@ def test_initialization(fuel_element, multi_region_fuel_element):
     ])
     assert isinstance(moly_pin.zones[0].material, type(fuel_element.moly_disc.material))
 
-    refl_pin = fuel_element.upper_reflector_pincell
+    refl_pin = pincell["upper_reflector"]
     assert [z.shape.outer_radius for z in refl_pin.zones] == pytest.approx([
         fuel_element.upper_graphite_reflector.radius,
         fuel_element.cladding.inner_radius,
@@ -117,7 +118,7 @@ def test_initialization(fuel_element, multi_region_fuel_element):
     ])
     assert isinstance(refl_pin.zones[0].material, Graphite)
 
-    air_pin = fuel_element.air_gap_pincell
+    air_pin = pincell["air_gap"]
     assert [z.shape.outer_radius for z in air_pin.zones] == pytest.approx([
         fuel_element.cladding.inner_radius,
         fuel_element.cladding.outer_radius,
@@ -139,12 +140,11 @@ def test_initialization(fuel_element, multi_region_fuel_element):
 
     multi_fuel = multi_region_fuel_element.fuel_meat
     assert multi_fuel.material == multi_fuel.material_regions
-    assert len(multi_region_fuel_element.fuel_pincells) == multi_fuel.num_axial_regions
-    with pytest.raises(AssertionError):
-        _ = multi_region_fuel_element.fuel_pincell
+    fuel_pincells = multi_region_fuel_element.pincell["fuel"]
+    assert len(fuel_pincells) == multi_fuel.num_axial_regions
 
-    top_pin = multi_region_fuel_element.fuel_pincells[0]
-    bottom_pin = multi_region_fuel_element.fuel_pincells[1]
+    top_pin = fuel_pincells[0]
+    bottom_pin = fuel_pincells[1]
     top_materials = [zone.material for zone in top_pin.zones]
     bottom_materials = [zone.material for zone in bottom_pin.zones]
     assert top_materials[1:3] == multi_fuel.material_regions[:2]
@@ -156,11 +156,14 @@ def test_equality_and_hash(fuel_element, multi_region_fuel_element):
     assert hash(fuel_element) == hash(deepcopy(fuel_element))
     assert hash(fuel_element) != hash(multi_region_fuel_element)
 
-def test_openmc_builder(fuel_element):
+def test_openmc_builder(fuel_element, multi_region_fuel_element):
     geom_element = fuel_element
     universe = openmc_builder.build(geom_element)
     assert universe.name == "fuel_element"
     assert len(universe.cells) == 9
+
+    multi_region_universe = openmc_builder.build(multi_region_fuel_element)
+    assert len(multi_region_universe.cells) == 10
 
 def test_mpact_builder(fuel_element, multi_region_fuel_element):
     geom_element = fuel_element

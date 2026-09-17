@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isclose
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
@@ -12,6 +12,7 @@ from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.geometry_elements.triga.end_fitting import EndFitting as BaseEndFitting
 from coreforge.materials import Air, Al6061T6, Graphite, Material, Water, unique_materials
+from coreforge.utils import TolerantEqualityMixin
 
 
 class GraphiteElement(GeometryElement):
@@ -53,12 +54,12 @@ class GraphiteElement(GeometryElement):
         Total axial length including upper and lower end fittings.
     gap_tolerance : float, optional
         Minimum thickness to retain a radial gap (defaults to 1e-8).
-    graphite_pincell : CylindricalPinCell
-        Pincell representing the graphite meat radial region.
+    pincell : GraphiteElement.Pincell
+        Pincells keyed by axial feature.
     """
 
-    @dataclass(frozen=True)
-    class GraphiteMeat:
+    @dataclass(frozen=True, eq=False)
+    class GraphiteMeat(TolerantEqualityMixin):
         """Graphite meat specification.
 
         Attributes
@@ -78,21 +79,8 @@ class GraphiteElement(GeometryElement):
             assert self.outer_radius > 0.0, "Graphite Meat outer radius must be positive."
             assert self.length > 0.0, "Graphite Meat length must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, GraphiteElement.GraphiteMeat) and
-                    isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
-                    isclose(self.length, other.length, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.outer_radius, TOL),
-                         relative_round(self.length, TOL),
-                         self.material))
-
-    @dataclass(frozen=True)
-    class Cladding:
+    @dataclass(frozen=True, eq=False)
+    class Cladding(TolerantEqualityMixin):
         """Cladding specification.
 
         Attributes
@@ -118,21 +106,6 @@ class GraphiteElement(GeometryElement):
             )
             object.__setattr__(self, "inner_radius", self.outer_radius - self.thickness)
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, GraphiteElement.Cladding) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL) and
-                    isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
-                    isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.thickness, TOL),
-                         relative_round(self.outer_radius, TOL),
-                         relative_round(self.inner_radius, TOL),
-                         self.material))
-
     @dataclass(frozen=True, eq=False)
     class EndFitting(BaseEndFitting):
         """Graphite element end fitting specification.
@@ -155,6 +128,11 @@ class GraphiteElement(GeometryElement):
             Fitting material. Defaults to ``Al6061T6``.
         """
         material: Material = field(default_factory=Al6061T6)
+
+    class Pincell(TypedDict):
+        """Pincells used to construct the graphite-element axial stack."""
+
+        graphite: CylindricalPinCell
 
     @property
     def cladding(self) -> Cladding:
@@ -193,8 +171,8 @@ class GraphiteElement(GeometryElement):
         return self._length
 
     @property
-    def graphite_pincell(self) -> CylindricalPinCell:
-        return self._graphite_pincell
+    def pincell(self) -> Pincell:
+        return self._pincell.copy()
 
     def __init__(self,
                  cladding:          Cladding,
@@ -219,7 +197,7 @@ class GraphiteElement(GeometryElement):
                         + self._upper_end_fitting.length
                         + self._lower_end_fitting.length)
 
-        self._graphite_pincell = self.build_graphite_meat_pincell(
+        graphite_pincell = self.build_graphite_meat_pincell(
             cladding       = self.cladding,
             graphite_meat  = self.graphite_meat,
             fill_gas       = self.fill_gas,
@@ -227,6 +205,7 @@ class GraphiteElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_graphite_meat_pincell",
         )
+        self._pincell: GraphiteElement.Pincell = {"graphite": graphite_pincell}
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -306,7 +285,7 @@ class GraphiteElement(GeometryElement):
         )
 
         mid_stack = CylindricalStack(segments=[
-            Stack.Segment(self.graphite_pincell, self.graphite_meat.length),
+            Stack.Segment(self.pincell["graphite"], self.graphite_meat.length),
         ])
 
         stack = lower_end_stack + mid_stack + upper_end_stack

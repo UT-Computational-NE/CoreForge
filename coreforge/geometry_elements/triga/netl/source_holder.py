@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isclose
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
@@ -11,6 +11,7 @@ from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, Material, Water, unique_materials
+from coreforge.utils import TolerantEqualityMixin
 
 
 class SourceHolder(GeometryElement):
@@ -43,14 +44,12 @@ class SourceHolder(GeometryElement):
         Exterior/coolant material.
     gap_tolerance : float, optional
         Minimum thickness to retain a radial zone (defaults to ``None`` for no filtering).
-    cavity_pincell : CylindricalPinCell
-        Pincell representing the cavity and cladding cross section.
-    solid_pincell : CylindricalPinCell
-        Pincell representing the solid cladding without a cavity.
+    pincell : SourceHolder.Pincell
+        Pincells keyed by axial feature.
     """
 
-    @dataclass(frozen=True)
-    class Cavity:
+    @dataclass(frozen=True, eq=False)
+    class Cavity(TolerantEqualityMixin):
         """Source holder cavity specification.
 
         Parameters
@@ -74,23 +73,8 @@ class SourceHolder(GeometryElement):
             assert self.radius > 0.0, "Source Holder cavity radius must be positive."
             assert self.length > 0.0, "Source Holder cavity length must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, SourceHolder.Cavity) and
-                    isclose(self.radius, other.radius, rel_tol=TOL) and
-                    isclose(self.length, other.length, rel_tol=TOL) and
-                    isclose(self.axial_offset, other.axial_offset, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.radius, TOL),
-                         relative_round(self.length, TOL),
-                         relative_round(self.axial_offset, TOL),
-                         self.material))
-
-    @dataclass(frozen=True)
-    class Cladding:
+    @dataclass(frozen=True, eq=False)
+    class Cladding(TolerantEqualityMixin):
         """Source holder cladding specification.
 
         Parameters
@@ -106,15 +90,11 @@ class SourceHolder(GeometryElement):
         def __post_init__(self) -> None:
             assert self.outer_radius > 0.0, "Source Holder cladding outer radius must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, SourceHolder.Cladding) and
-                    isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
-                    self.material == other.material)
+    class Pincell(TypedDict):
+        """Pincells used to construct the source-holder axial stack."""
 
-        def __hash__(self) -> int:
-            return hash((relative_round(self.outer_radius, TOL), self.material))
+        cavity: CylindricalPinCell
+        solid: CylindricalPinCell
 
     @property
     def length(self) -> float:
@@ -137,12 +117,8 @@ class SourceHolder(GeometryElement):
         return self._gap_tolerance
 
     @property
-    def cavity_pincell(self) -> CylindricalPinCell:
-        return self._cavity_pincell
-
-    @property
-    def solid_pincell(self) -> CylindricalPinCell:
-        return self._solid_pincell
+    def pincell(self) -> Pincell:
+        return self._pincell.copy()
 
     def __init__(self,
                  length:         float,
@@ -159,18 +135,22 @@ class SourceHolder(GeometryElement):
         self._outer_material = outer_material or Water()
         self._gap_tolerance = gap_tolerance
 
-        self._cavity_pincell = self.build_cavity_pincell(
+        cavity_pincell = self.build_cavity_pincell(
             cavity=self.cavity,
             cladding=self.cladding,
             outer_material=self.outer_material,
             gap_tolerance=self.gap_tolerance,
             name=self.name + "_cavity_pincell",
         )
-        self._solid_pincell = self.build_solid_pincell(
+        solid_pincell = self.build_solid_pincell(
             cladding=self.cladding,
             outer_material=self.outer_material,
             name=self.name + "_solid_pincell",
         )
+        self._pincell: SourceHolder.Pincell = {
+            "cavity": cavity_pincell,
+            "solid": solid_pincell,
+        }
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -220,9 +200,10 @@ class SourceHolder(GeometryElement):
         below_cavity_length = (self.length / 2.0) + self.cavity.axial_offset - (self.cavity.length / 2.0)
         above_cavity_length = (self.length / 2.0) - self.cavity.axial_offset - (self.cavity.length / 2.0)
 
-        return CylindricalStack(segments   = [Stack.Segment(self.solid_pincell, below_cavity_length),
-                                              Stack.Segment(self.cavity_pincell, self.cavity.length),
-                                              Stack.Segment(self.solid_pincell, above_cavity_length)],
+        pincell = self.pincell
+        return CylindricalStack(segments   = [Stack.Segment(pincell["solid"], below_cavity_length),
+                                              Stack.Segment(pincell["cavity"], self.cavity.length),
+                                              Stack.Segment(pincell["solid"], above_cavity_length)],
                                 name       = self.name,
                                 bottom_pos = bottom_pos)
 

@@ -10,6 +10,7 @@ from .rsr_cavity import RSRCavity
 from .shroud import Shroud
 from .reflector import Reflector
 from .three_element_irradiator import ThreeElementIrradiator
+from .modified_three_element_irradiator import ModifiedThreeElementIrradiator
 from .core import Core
 from .reactor import Reactor
 
@@ -26,6 +27,7 @@ __all__ = [
     "Shroud",
     "Reflector",
     "ThreeElementIrradiator",
+    "ModifiedThreeElementIrradiator",
     "Core",
     "Reactor",
 ]

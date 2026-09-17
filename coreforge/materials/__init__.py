@@ -12,6 +12,7 @@ from .uzrh import UZrH
 from .zr import Zr
 from .mo import Mo
 from .cd import Cd
+from .pb import Pb
 from .al_6061_t6 import Al6061T6
 
 __all__ = [
@@ -30,5 +31,6 @@ __all__ = [
     "Zr",
     "Mo",
     "Cd",
+    "Pb",
     "Al6061T6"
 ]

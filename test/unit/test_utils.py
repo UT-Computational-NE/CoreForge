@@ -1,6 +1,37 @@
-import pytest
+from dataclasses import dataclass, field
 
-from coreforge.utils import remove_none_2D, offset_to_ring
+import pytest
+from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE as TOL
+
+from coreforge.utils import TolerantEqualityMixin, remove_none_2D, offset_to_ring
+
+
+@dataclass(frozen=True, eq=False)
+class TolerantSpecification(TolerantEqualityMixin):
+    length: float
+    count: int
+    label: str = field(compare=False)
+
+
+@dataclass(frozen=True, eq=False)
+class OtherTolerantSpecification(TolerantEqualityMixin):
+    length: float
+    count: int
+
+
+def test_tolerant_equality_mixin():
+    specification = TolerantSpecification(length=1.0, count=2, label="first")
+    close_specification = TolerantSpecification(
+        length=1.0 + 0.1 * TOL,
+        count=2,
+        label="second",
+    )
+
+    assert specification == close_specification
+    assert hash(specification) == hash(close_specification)
+    assert specification != TolerantSpecification(length=1.0, count=3, label="first")
+    assert specification != OtherTolerantSpecification(length=1.0, count=2)
+
 
 def test_remove_none_2D():
     input_map = [[None, None, None, None],

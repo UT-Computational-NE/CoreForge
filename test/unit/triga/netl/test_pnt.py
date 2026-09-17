@@ -66,6 +66,7 @@ def pnt():
 
 
 def test_initialization(pnt):
+    pincell = pnt.pincell
     assert pnt.length == pytest.approx(MODEL_TOP - PNT_BOTTOM_POS)
     assert pnt.bottom_pos == pytest.approx(PNT_BOTTOM_POS)
     assert pnt.tube.length == pytest.approx(MODEL_TOP - TUBE_BOTTOM_POS)
@@ -75,17 +76,18 @@ def test_initialization(pnt):
     assert all(isinstance(segment.element.outer_material, Water)
                for segment in pnt.terminus.segments)
 
-    tube_radii = [zone.shape.outer_radius for zone in pnt.tube_pincell.zones]
-    tube_materials = [zone.material for zone in pnt.tube_pincell.zones]
+    tube_radii = [zone.shape.outer_radius for zone in pincell["tube"].zones]
+    tube_materials = [zone.material for zone in pincell["tube"].zones]
     assert tube_radii == pytest.approx([0.5 * 0.685 * CM_PER_INCH,
                                         0.5 * 0.875 * CM_PER_INCH])
     assert isinstance(tube_materials[0], Air)
     assert isinstance(tube_materials[1], Al6061T6)
-    assert isinstance(pnt.tube_pincell.outer_material, Water)
+    assert isinstance(pincell["tube"].outer_material, Water)
 
-    assert pnt.wrapped_tube_pincell is not None
-    wrapped_radii = [zone.shape.outer_radius for zone in pnt.wrapped_tube_pincell.zones]
-    wrapped_materials = [zone.material for zone in pnt.wrapped_tube_pincell.zones]
+    wrapped_tube = pincell["wrapped_tube"]
+    assert wrapped_tube is not None
+    wrapped_radii = [zone.shape.outer_radius for zone in wrapped_tube.zones]
+    wrapped_materials = [zone.material for zone in wrapped_tube.zones]
     assert wrapped_radii == pytest.approx([
         0.5 * 0.685 * CM_PER_INCH,
         0.5 * 0.875 * CM_PER_INCH,
@@ -98,7 +100,7 @@ def test_initialization(pnt):
         pnt.tube.material,
         *[zone.material for zone in pnt.wrapper.cross_section.zones],
     ]
-    assert isinstance(pnt.wrapped_tube_pincell.outer_material, Water)
+    assert isinstance(wrapped_tube.outer_material, Water)
 
     expected_materials = list(pnt.terminus.get_materials())
     expected_materials.extend([
@@ -152,18 +154,18 @@ def test_as_stack(pnt):
         UPPER_GRID_PLATE_TOP - TUBE_BOTTOM_POS,
         MODEL_TOP - UPPER_GRID_PLATE_TOP,
     ])
-    assert stack.segments[-2].element == pnt.wrapped_tube_pincell
-    assert stack.segments[-1].element == pnt.tube_pincell
+    assert stack.segments[-2].element == pnt.pincell["wrapped_tube"]
+    assert stack.segments[-1].element == pnt.pincell["tube"]
 
 
 def test_as_stack_without_wrapper(pnt):
     unwrapped_pnt = PNT(tube=pnt.tube, terminus=pnt.terminus)
     stack = unwrapped_pnt.as_stack()
 
-    assert unwrapped_pnt.wrapped_tube_pincell is None
+    assert unwrapped_pnt.pincell["wrapped_tube"] is None
     assert len(stack.segments) == len(pnt.terminus.segments) + 1
     assert isclose(stack.segments[-1].length, pnt.tube.length)
-    assert stack.segments[-1].element == unwrapped_pnt.tube_pincell
+    assert stack.segments[-1].element == unwrapped_pnt.pincell["tube"]
 
 
 def test_as_stack_with_full_length_wrapper(pnt):
@@ -180,7 +182,7 @@ def test_as_stack_with_full_length_wrapper(pnt):
     stack = fully_wrapped_pnt.as_stack()
 
     assert len(stack.segments) == len(pnt.terminus.segments) + 1
-    assert stack.segments[-1].element == fully_wrapped_pnt.wrapped_tube_pincell
+    assert stack.segments[-1].element == fully_wrapped_pnt.pincell["wrapped_tube"]
     assert stack.segments[-1].length == pytest.approx(pnt.tube.length)
 
 

@@ -1,8 +1,60 @@
+from dataclasses import fields
+from math import isclose
+from numbers import Integral, Real
 from typing import List, TypeVar
 
 import numpy as np
+from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 T = TypeVar('T')
+
+
+class TolerantEqualityMixin:
+    """Provide tolerance-aware equality and hashing for frozen dataclasses.
+
+    Floating-point fields are compared with :func:`math.isclose` using the
+    project-wide relative tolerance and are rounded consistently when hashed.
+    Other fields use their normal equality and hashing behavior. Fields marked
+    with ``dataclasses.field(compare=False)`` are ignored by both operations.
+
+    Subclasses must be dataclasses declared with ``eq=False`` so the dataclass
+    decorator does not replace these methods. They should also be frozen when
+    instances are intended to be hashable.
+    """
+
+    @staticmethod
+    def _is_inexact_real(value: object) -> bool:
+        return isinstance(value, Real) and not isinstance(value, Integral)
+
+    def __eq__(self, other: object) -> bool:
+        if self is other:
+            return True
+        if type(self) is not type(other):
+            return False
+
+        for dataclass_field in fields(self):
+            if not dataclass_field.compare:
+                continue
+            value = getattr(self, dataclass_field.name)
+            other_value = getattr(other, dataclass_field.name)
+            if self._is_inexact_real(value) or self._is_inexact_real(other_value):
+                if not (isinstance(value, Real) and isinstance(other_value, Real) and
+                        isclose(value, other_value, rel_tol=TOL)):
+                    return False
+            elif value != other_value:
+                return False
+        return True
+
+    def __hash__(self) -> int:
+        values = []
+        for dataclass_field in fields(self):
+            if not dataclass_field.compare or dataclass_field.hash is False:
+                continue
+            value = getattr(self, dataclass_field.name)
+            values.append(relative_round(value, TOL)
+                          if self._is_inexact_real(value) else value)
+        return hash(tuple(values))
+
 
 def remove_none_2D(map_2D: List[List[T]]) -> List[List[T]]:
     """ Helper function for pruning those rows and columns of the 2D Map that are all None values

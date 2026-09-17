@@ -90,7 +90,8 @@ def multi_region_control_rod(control_rod):
 
 
 def test_initialization(control_rod, multi_region_control_rod):
-    abs_pin = control_rod.absorber_pincell
+    pincell = control_rod.pincell
+    abs_pin = pincell["absorber"]
     abs_radii = [z.shape.outer_radius for z in abs_pin.zones]
     abs_mats = [z.material for z in abs_pin.zones]
 
@@ -102,7 +103,7 @@ def test_initialization(control_rod, multi_region_control_rod):
     assert isinstance(abs_mats[2], SS304)
     assert isinstance(abs_pin.outer_material, Water)
 
-    follower_pin = control_rod.fuel_follower_pincell
+    follower_pin = pincell["fuel_follower"][0]
     follower_radii = [z.shape.outer_radius for z in follower_pin.zones]
     follower_mats = [z.material for z in follower_pin.zones]
 
@@ -116,8 +117,8 @@ def test_initialization(control_rod, multi_region_control_rod):
     assert isinstance(follower_mats[2], SS304)
     assert isinstance(follower_pin.outer_material, Water)
 
-    upper_plug_pin = control_rod.upper_element_plug_pincell
-    lower_plug_pin = control_rod.lower_element_plug_pincell
+    upper_plug_pin = pincell["upper_element_plug"]
+    lower_plug_pin = pincell["lower_element_plug"]
     for pin in (upper_plug_pin, lower_plug_pin):
         assert [z.shape.outer_radius for z in pin.zones] == pytest.approx([
             control_rod.cladding.inner_radius,
@@ -125,9 +126,9 @@ def test_initialization(control_rod, multi_region_control_rod):
         ])
         assert all(isinstance(m, SS304) for m in [pin.zones[0].material, pin.zones[1].material])
 
-    upper_mag_pin = control_rod.upper_magneform_fitting_pincell
-    middle_mag_pin = control_rod.middle_magneform_fitting_pincell
-    lower_mag_pin = control_rod.lower_magneform_fitting_pincell
+    upper_mag_pin = pincell["upper_magneform_fitting"]
+    middle_mag_pin = pincell["middle_magneform_fitting"]
+    lower_mag_pin = pincell["lower_magneform_fitting"]
     for pin in (upper_mag_pin, middle_mag_pin, lower_mag_pin):
         assert [z.shape.outer_radius for z in pin.zones] == pytest.approx([
             control_rod.cladding.inner_radius,
@@ -135,7 +136,7 @@ def test_initialization(control_rod, multi_region_control_rod):
         ])
         assert all(isinstance(m, SS304) for m in [pin.zones[0].material, pin.zones[1].material])
 
-    air_pin = control_rod.air_gap_pincell
+    air_pin = pincell["air_gap"]
     assert [z.shape.outer_radius for z in air_pin.zones] == pytest.approx([
         control_rod.cladding.inner_radius,
         control_rod.cladding.outer_radius,
@@ -175,12 +176,11 @@ def test_initialization(control_rod, multi_region_control_rod):
 
     multi_follower = multi_region_control_rod.fuel_follower
     assert multi_follower.material == multi_follower.material_regions
-    assert len(multi_region_control_rod.fuel_follower_pincells) == multi_follower.num_axial_regions
-    with pytest.raises(AssertionError):
-        _ = multi_region_control_rod.fuel_follower_pincell
+    fuel_follower_pincells = multi_region_control_rod.pincell["fuel_follower"]
+    assert len(fuel_follower_pincells) == multi_follower.num_axial_regions
 
-    top_pin = multi_region_control_rod.fuel_follower_pincells[0]
-    bottom_pin = multi_region_control_rod.fuel_follower_pincells[1]
+    top_pin = fuel_follower_pincells[0]
+    bottom_pin = fuel_follower_pincells[1]
     top_materials = [zone.material for zone in top_pin.zones]
     bottom_materials = [zone.material for zone in bottom_pin.zones]
     assert top_materials[1:3] == multi_follower.material_regions[:2]
@@ -203,8 +203,9 @@ def test_as_stack(control_rod, multi_region_control_rod):
     multi_stack = multi_region_control_rod.as_stack()
     assert len(multi_stack.segments) == 12
     assert isclose(multi_stack.length, multi_region_control_rod.length)
-    assert multi_stack.segments[3].element == multi_region_control_rod.fuel_follower_pincells[1]
-    assert multi_stack.segments[4].element == multi_region_control_rod.fuel_follower_pincells[0]
+    fuel_follower_pincells = multi_region_control_rod.pincell["fuel_follower"]
+    assert multi_stack.segments[3].element == fuel_follower_pincells[1]
+    assert multi_stack.segments[4].element == fuel_follower_pincells[0]
 
 
 def test_openmc_builder(control_rod):

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isclose
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
@@ -11,6 +11,7 @@ from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, Material, Water, unique_materials
+from coreforge.utils import TolerantEqualityMixin
 
 
 class PNT(GeometryElement):
@@ -50,14 +51,12 @@ class PNT(GeometryElement):
         Minimum radial-zone thickness to retain.
     length : float
         Total PNT length, including the terminus and transport tube [cm].
-    tube_pincell : CylindricalPinCell
-        Pincell representing the unwrapped transport tube.
-    wrapped_tube_pincell : CylindricalPinCell, optional
-        Pincell representing the wrapped transport tube.
+    pincell : PNT.Pincell
+        Pincells keyed by axial feature.
     """
 
-    @dataclass(frozen=True)
-    class Tube:
+    @dataclass(frozen=True, eq=False)
+    class Tube(TolerantEqualityMixin):
         """PNT transport tube specification.
 
         Parameters
@@ -86,23 +85,6 @@ class PNT(GeometryElement):
                 "PNT tube outer radius must exceed its inner radius."
             )
             assert self.length > 0.0, "PNT tube length must be positive."
-
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, PNT.Tube) and
-                    isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
-                    isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
-                    isclose(self.length, other.length, rel_tol=TOL) and
-                    self.material == other.material and
-                    self.fill_material == other.fill_material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.inner_radius, TOL),
-                         relative_round(self.outer_radius, TOL),
-                         relative_round(self.length, TOL),
-                         self.material,
-                         self.fill_material))
 
     @dataclass(frozen=True)
     class Wrapper:
@@ -139,6 +121,12 @@ class PNT(GeometryElement):
             return hash((relative_round(self.length, TOL),
                          tuple(self.cross_section.zones)))
 
+    class Pincell(TypedDict):
+        """Pincells used to construct the PNT axial stack."""
+
+        tube: CylindricalPinCell
+        wrapped_tube: Optional[CylindricalPinCell]
+
     @property
     def tube(self) -> Tube:
         return self._tube
@@ -168,12 +156,8 @@ class PNT(GeometryElement):
         return self._length
 
     @property
-    def tube_pincell(self) -> CylindricalPinCell:
-        return self._tube_pincell
-
-    @property
-    def wrapped_tube_pincell(self) -> Optional[CylindricalPinCell]:
-        return self._wrapped_tube_pincell
+    def pincell(self) -> Pincell:
+        return self._pincell.copy()
 
     def __init__(self,
                  tube:           Tube,
@@ -207,21 +191,25 @@ class PNT(GeometryElement):
         )
         self._length = self.terminus.length + self.tube.length
 
-        self._tube_pincell = self.build_tube_pincell(
+        tube_pincell = self.build_tube_pincell(
             tube=self.tube,
             outer_material=self.outer_material,
             gap_tolerance=self.gap_tolerance,
             name=self.name + "_tube_pincell",
         )
-        self._wrapped_tube_pincell = None
+        wrapped_tube_pincell = None
         if self.wrapper is not None:
-            self._wrapped_tube_pincell = self.build_wrapped_tube_pincell(
+            wrapped_tube_pincell = self.build_wrapped_tube_pincell(
                 tube=self.tube,
                 wrapper=self.wrapper,
                 outer_material=self.outer_material,
                 gap_tolerance=self.gap_tolerance,
                 name=self.name + "_wrapped_tube_pincell",
             )
+        self._pincell: PNT.Pincell = {
+            "tube": tube_pincell,
+            "wrapped_tube": wrapped_tube_pincell,
+        }
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -272,14 +260,16 @@ class PNT(GeometryElement):
         segments = [Stack.Segment(segment.element, segment.length)
                     for segment in self.terminus.segments]
 
+        pincell = self.pincell
         if self.wrapper is None:
-            segments.append(Stack.Segment(self.tube_pincell, self.tube.length))
+            segments.append(Stack.Segment(pincell["tube"], self.tube.length))
         else:
-            assert self.wrapped_tube_pincell is not None
-            segments.append(Stack.Segment(self.wrapped_tube_pincell, self.wrapper.length))
+            wrapped_tube = pincell["wrapped_tube"]
+            assert wrapped_tube is not None
+            segments.append(Stack.Segment(wrapped_tube, self.wrapper.length))
             if self.wrapper.length < self.tube.length:
                 segments.append(Stack.Segment(
-                    self.tube_pincell,
+                    pincell["tube"],
                     self.tube.length - self.wrapper.length,
                 ))
 

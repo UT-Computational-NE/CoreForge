@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from math import isclose
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
@@ -11,6 +10,7 @@ from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Al6061T6, Material, Water, unique_materials
+from coreforge.utils import TolerantEqualityMixin
 
 
 class CentralThimble(GeometryElement):
@@ -39,12 +39,12 @@ class CentralThimble(GeometryElement):
         Material filling the thimble interior.
     outer_material : Material
         Coolant/exterior material.
-    thimble_pincell : CylindricalPinCell
-        Pincell representing the thimble cross section.
+    pincell : CentralThimble.Pincell
+        Pincells keyed by axial feature.
     """
 
-    @dataclass(frozen=True)
-    class Cladding:
+    @dataclass(frozen=True, eq=False)
+    class Cladding(TolerantEqualityMixin):
         """Central thimble wall specification.
 
         Attributes
@@ -70,20 +70,10 @@ class CentralThimble(GeometryElement):
             )
             object.__setattr__(self, "inner_radius", self.outer_radius - self.thickness)
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, CentralThimble.Cladding) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL) and
-                    isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
-                    isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
-                    self.material == other.material)
+    class Pincell(TypedDict):
+        """Pincells used to construct the central-thimble axial stack."""
 
-        def __hash__(self) -> int:
-            return hash((relative_round(self.thickness, TOL),
-                         relative_round(self.outer_radius, TOL),
-                         relative_round(self.inner_radius, TOL),
-                         self.material))
+        thimble: CylindricalPinCell
 
     @property
     def cladding(self) -> Cladding:
@@ -102,8 +92,8 @@ class CentralThimble(GeometryElement):
         return self._outer_material
 
     @property
-    def thimble_pincell(self) -> CylindricalPinCell:
-        return self._thimble_pincell
+    def pincell(self) -> Pincell:
+        return self._pincell.copy()
 
     def __init__(self,
                  cladding:       Cladding,
@@ -117,12 +107,13 @@ class CentralThimble(GeometryElement):
         self._fill_material = fill_material or Water()
         self._outer_material = outer_material or Water()
 
-        self._thimble_pincell = self.build_thimble_pincell(
+        thimble_pincell = self.build_thimble_pincell(
             cladding=self.cladding,
             fill_material=self.fill_material,
             outer_material=self.outer_material,
             name=self.name + "_pincell",
         )
+        self._pincell: CentralThimble.Pincell = {"thimble": thimble_pincell}
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -166,7 +157,7 @@ class CentralThimble(GeometryElement):
             The Central Thimble as a Stack
         """
 
-        return CylindricalStack(segments   = [Stack.Segment(self.thimble_pincell, self.length)],
+        return CylindricalStack(segments   = [Stack.Segment(self.pincell["thimble"], self.length)],
                                 name       = self.name,
                                 bottom_pos = bottom_pos)
 

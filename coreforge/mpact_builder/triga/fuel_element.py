@@ -144,16 +144,17 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
             upper_end_target_axial_thickness = self.specs.upper_end_fitting.target_axial_thickness,
         )
 
+        pincell = element.pincell
         segment_specs = {}
         lower_end_count = None
         for idx, segment in enumerate(stack.segments):
-            if segment.element is element.lower_reflector_pincell:
+            if segment.element is pincell["lower_reflector"]:
                 lower_end_count = idx
                 break
 
         mid_specs = [self.specs.lower_reflector,
                      self.specs.moly_disc,
-                     self.specs.fuel,
+                     *([self.specs.fuel] * element.fuel_meat.num_axial_regions),
                      self.specs.upper_reflector,
                      self.specs.air_gap]
 

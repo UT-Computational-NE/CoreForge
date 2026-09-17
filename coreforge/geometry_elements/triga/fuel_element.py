@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import List, Optional, Union
+from typing import List, Optional, TypedDict, Union
 from math import isclose
 
 from mpactpy.utils import (
@@ -17,6 +17,7 @@ from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.geometry_elements.triga.end_fitting import EndFitting as BaseEndFitting
 from coreforge.materials import Air, Graphite, Material, Mo, SS304, UZrH, Water, Zr, unique_materials
+from coreforge.utils import TolerantEqualityMixin
 
 
 # pylint: disable=too-many-public-methods
@@ -84,16 +85,8 @@ class FuelElement(GeometryElement):
         Total axial length including upper and lower end fittings.
     gap_tolerance : float, optional
         Minimum thickness to retain a radial gap (defaults to 1e-8).
-    fuel_pincell : CylindricalPinCell
-        Pincell representing the fuel meat radial region.
-    moly_disc_pincell : CylindricalPinCell
-        Pincell representing the molybdenum disc region.
-    upper_reflector_pincell : CylindricalPinCell
-        Pincell representing the upper graphite reflector region.
-    lower_reflector_pincell : CylindricalPinCell
-        Pincell representing the lower graphite reflector region.
-    air_gap_pincell : CylindricalPinCell
-        Pincell representing the upper air gap region.
+    pincell : FuelElement.Pincell
+        Pincells keyed by axial feature.
     References
     ----------
     .. [1] D. R. Redhouse, et al., "Radiation Characterization Summary: NETL Beam Port
@@ -101,8 +94,8 @@ class FuelElement(GeometryElement):
            (NETL-FF-BP1/5-128-cca).", Nov. 2022. https://doi.org/10.2172/1898256
     """
 
-    @dataclass(frozen=True)
-    class ZrFillRod:
+    @dataclass(frozen=True, eq=False)
+    class ZrFillRod(TolerantEqualityMixin):
         """Zirconium fill rod specification.
 
         Attributes
@@ -117,16 +110,6 @@ class FuelElement(GeometryElement):
 
         def __post_init__(self) -> None:
             assert self.radius > 0.0, "Zr Fill Rod radius must be positive."
-
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, FuelElement.ZrFillRod) and
-                    isclose(self.radius, other.radius, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.radius, TOL), self.material))
 
     class FuelMeat:
         """Fuel meat specification.
@@ -239,8 +222,8 @@ class FuelElement(GeometryElement):
                          self.num_axial_regions,
                          tuple(self._material_regions)))
 
-    @dataclass(frozen=True)
-    class Cladding:
+    @dataclass(frozen=True, eq=False)
+    class Cladding(TolerantEqualityMixin):
         """Cladding specification.
 
         Attributes
@@ -266,23 +249,8 @@ class FuelElement(GeometryElement):
             )
             object.__setattr__(self, "inner_radius", self.outer_radius - self.thickness)
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, FuelElement.Cladding) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL) and
-                    isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
-                    isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.thickness, TOL),
-                         relative_round(self.outer_radius, TOL),
-                         relative_round(self.inner_radius, TOL),
-                         self.material))
-
-    @dataclass(frozen=True)
-    class GraphiteReflector:
+    @dataclass(frozen=True, eq=False)
+    class GraphiteReflector(TolerantEqualityMixin):
         """Graphite reflector specification.
 
         Attributes
@@ -302,21 +270,8 @@ class FuelElement(GeometryElement):
             assert self.radius > 0.0, "Graphite Reflector radius must be positive."
             assert self.thickness > 0.0, "Graphite Reflector thickness must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, FuelElement.GraphiteReflector) and
-                    isclose(self.radius, other.radius, rel_tol=TOL) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.radius, TOL),
-                         relative_round(self.thickness, TOL),
-                         self.material))
-
-    @dataclass(frozen=True)
-    class MolyDisc:
+    @dataclass(frozen=True, eq=False)
+    class MolyDisc(TolerantEqualityMixin):
         """Molybdenum disc specification.
 
         Attributes
@@ -336,21 +291,8 @@ class FuelElement(GeometryElement):
             assert self.radius > 0.0, "Moly Disc radius must be positive."
             assert self.thickness > 0.0, "Moly Disc thickness must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, FuelElement.MolyDisc) and
-                    isclose(self.radius, other.radius, rel_tol=TOL) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.radius, TOL),
-                         relative_round(self.thickness, TOL),
-                         self.material))
-
-    @dataclass(frozen=True)
-    class AirGap:
+    @dataclass(frozen=True, eq=False)
+    class AirGap(TolerantEqualityMixin):
         """Axial air gap specification above the upper reflector.
 
         Attributes
@@ -362,15 +304,6 @@ class FuelElement(GeometryElement):
 
         def __post_init__(self) -> None:
             assert self.thickness > 0.0, "Air Gap thickness must be positive."
-
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, FuelElement.AirGap) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL))
-
-        def __hash__(self) -> int:
-            return hash(relative_round(self.thickness, TOL))
 
     @dataclass(frozen=True, eq=False)
     class EndFitting(BaseEndFitting):
@@ -393,6 +326,15 @@ class FuelElement(GeometryElement):
             Fitting material. Defaults to ``SS304``.
         """
         material: Material = field(default_factory=SS304)
+
+    class Pincell(TypedDict):
+        """Pincells used to construct the fuel-element axial stack."""
+
+        fuel: List[CylindricalPinCell]
+        moly_disc: CylindricalPinCell
+        upper_reflector: CylindricalPinCell
+        lower_reflector: CylindricalPinCell
+        air_gap: CylindricalPinCell
 
     @property
     def cladding(self) -> Cladding:
@@ -451,32 +393,10 @@ class FuelElement(GeometryElement):
         return self._length
 
     @property
-    def fuel_pincell(self) -> CylindricalPinCell:
-        assert len(self._fuel_pincells) == 1, (
-            "FuelElement.fuel_pincell is only available for fuel meat with one "
-            "axial region. Use FuelElement.fuel_pincells for regioned fuel meat."
-        )
-        return self._fuel_pincells[0]
-
-    @property
-    def fuel_pincells(self) -> List[CylindricalPinCell]:
-        return list(self._fuel_pincells)
-
-    @property
-    def moly_disc_pincell(self) -> CylindricalPinCell:
-        return self._moly_disc_pincell
-
-    @property
-    def upper_reflector_pincell(self) -> CylindricalPinCell:
-        return self._upper_reflector_pincell
-
-    @property
-    def lower_reflector_pincell(self) -> CylindricalPinCell:
-        return self._lower_reflector_pincell
-
-    @property
-    def air_gap_pincell(self) -> CylindricalPinCell:
-        return self._air_gap_pincell
+    def pincell(self) -> Pincell:
+        pincell = self._pincell.copy()
+        pincell["fuel"] = list(self._pincell["fuel"])
+        return pincell
 
 
     def __init__(self,
@@ -516,7 +436,7 @@ class FuelElement(GeometryElement):
                         + self._upper_end_fitting.length
                         + self._lower_end_fitting.length)
 
-        self._fuel_pincells = self.build_fuel_meat_pincells(
+        fuel_pincells = self.build_fuel_meat_pincells(
             cladding       = self.cladding,
             fuel_meat      = self.fuel_meat,
             zr_fill_rod    = self.zr_fill_rod,
@@ -525,7 +445,7 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_fuel_meat_pincell",
         )
-        self._moly_disc_pincell = self.build_moly_disc_pincell(
+        moly_disc_pincell = self.build_moly_disc_pincell(
             cladding       = self.cladding,
             moly_disc      = self.moly_disc,
             fill_gas       = self.fill_gas,
@@ -533,7 +453,7 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_moly_disc_pincell",
         )
-        self._upper_reflector_pincell = self.build_graphite_reflector_pincell(
+        upper_reflector_pincell = self.build_graphite_reflector_pincell(
             cladding       = self.cladding,
             reflector      = self.upper_graphite_reflector,
             fill_gas       = self.fill_gas,
@@ -541,7 +461,7 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_upper_graphite_reflector_pincell",
         )
-        self._lower_reflector_pincell = self.build_graphite_reflector_pincell(
+        lower_reflector_pincell = self.build_graphite_reflector_pincell(
             cladding       = self.cladding,
             reflector      = self.lower_graphite_reflector,
             fill_gas       = self.fill_gas,
@@ -549,13 +469,20 @@ class FuelElement(GeometryElement):
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_lower_graphite_reflector_pincell",
         )
-        self._air_gap_pincell = self.build_air_gap_pincell(
+        air_gap_pincell = self.build_air_gap_pincell(
             cladding       = self.cladding,
             fill_gas       = self.fill_gas,
             outer_material = self.outer_material,
             gap_tolerance  = self.gap_tolerance,
             name           = self.name + "_air_gap_pincell",
         )
+        self._pincell: FuelElement.Pincell = {
+            "fuel": fuel_pincells,
+            "moly_disc": moly_disc_pincell,
+            "upper_reflector": upper_reflector_pincell,
+            "lower_reflector": lower_reflector_pincell,
+            "air_gap": air_gap_pincell,
+        }
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -647,16 +574,17 @@ class FuelElement(GeometryElement):
             name                    = self.name + "_upper_end_fitting",
         )
 
+        pincell = self.pincell
         fuel_region_thickness = self.fuel_meat.length / self.fuel_meat.num_axial_regions
-        fuel_segments         = [Stack.Segment(pincell, fuel_region_thickness)
-                                 for pincell in reversed(self.fuel_pincells)]
+        fuel_segments         = [Stack.Segment(fuel_pincell, fuel_region_thickness)
+                                 for fuel_pincell in reversed(pincell["fuel"])]
 
         mid_stack = CylindricalStack(segments=[
-            Stack.Segment(self.lower_reflector_pincell, self.lower_graphite_reflector.thickness),
-            Stack.Segment(self.moly_disc_pincell, self.moly_disc.thickness),
+            Stack.Segment(pincell["lower_reflector"], self.lower_graphite_reflector.thickness),
+            Stack.Segment(pincell["moly_disc"], self.moly_disc.thickness),
             *fuel_segments,
-            Stack.Segment(self.upper_reflector_pincell, self.upper_graphite_reflector.thickness),
-            Stack.Segment(self.air_gap_pincell, self.upper_air_gap.thickness),
+            Stack.Segment(pincell["upper_reflector"], self.upper_graphite_reflector.thickness),
+            Stack.Segment(pincell["air_gap"], self.upper_air_gap.thickness),
         ])
 
         stack = lower_end_stack + mid_stack + upper_end_stack

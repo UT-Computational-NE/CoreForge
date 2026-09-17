@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from math import isclose
-from typing import List, Optional
+from typing import List, Optional, TypedDict
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
@@ -11,6 +11,7 @@ from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, Material, Water, unique_materials
+from coreforge.utils import TolerantEqualityMixin
 
 
 class ThreeElementIrradiator(GeometryElement):
@@ -34,8 +35,8 @@ class ThreeElementIrradiator(GeometryElement):
         Name for the irradiator.
     """
 
-    @dataclass(frozen=True)
-    class OuterCasing:
+    @dataclass(frozen=True, eq=False)
+    class OuterCasing(TolerantEqualityMixin):
         """Outer casing specification.
 
         Parameters
@@ -78,29 +79,8 @@ class ThreeElementIrradiator(GeometryElement):
                 "Outer casing solid ends must not consume its full length."
             )
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, ThreeElementIrradiator.OuterCasing) and
-                    isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
-                    isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
-                    isclose(self.length, other.length, rel_tol=TOL) and
-                    isclose(self.solid_upper_end_thickness,
-                            other.solid_upper_end_thickness, rel_tol=TOL) and
-                    isclose(self.solid_lower_end_thickness,
-                            other.solid_lower_end_thickness, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.inner_radius, TOL),
-                         relative_round(self.outer_radius, TOL),
-                         relative_round(self.length, TOL),
-                         relative_round(self.solid_upper_end_thickness, TOL),
-                         relative_round(self.solid_lower_end_thickness, TOL),
-                         self.material))
-
-    @dataclass(frozen=True)
-    class InnerSleeve:
+    @dataclass(frozen=True, eq=False)
+    class InnerSleeve(TolerantEqualityMixin):
         """Inner sleeve specification.
 
         Parameters
@@ -132,25 +112,8 @@ class ThreeElementIrradiator(GeometryElement):
             assert self.sidewall_length > 0.0, "Inner sleeve sidewall length must be positive."
             assert self.bottom_thickness > 0.0, "Inner sleeve bottom thickness must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, ThreeElementIrradiator.InnerSleeve) and
-                    isclose(self.inner_radius, other.inner_radius, rel_tol=TOL) and
-                    isclose(self.outer_radius, other.outer_radius, rel_tol=TOL) and
-                    isclose(self.sidewall_length, other.sidewall_length, rel_tol=TOL) and
-                    isclose(self.bottom_thickness, other.bottom_thickness, rel_tol=TOL) and
-                    self.material == other.material)
-
-        def __hash__(self) -> int:
-            return hash((relative_round(self.inner_radius, TOL),
-                         relative_round(self.outer_radius, TOL),
-                         relative_round(self.sidewall_length, TOL),
-                         relative_round(self.bottom_thickness, TOL),
-                         self.material))
-
-    @dataclass(frozen=True)
-    class Liner:
+    @dataclass(frozen=True, eq=False)
+    class Liner(TolerantEqualityMixin):
         """Liner specification.
 
         Parameters
@@ -176,20 +139,15 @@ class ThreeElementIrradiator(GeometryElement):
             assert self.sidewall_length > 0.0, "Liner sidewall length must be positive."
             assert self.bottom_thickness > 0.0, "Liner bottom thickness must be positive."
 
-        def __eq__(self, other: object) -> bool:
-            if self is other:
-                return True
-            return (isinstance(other, ThreeElementIrradiator.Liner) and
-                    isclose(self.thickness, other.thickness, rel_tol=TOL) and
-                    isclose(self.sidewall_length, other.sidewall_length, rel_tol=TOL) and
-                    isclose(self.bottom_thickness, other.bottom_thickness, rel_tol=TOL) and
-                    self.material == other.material)
+    class Pincell(TypedDict):
+        """Pincells used to construct the irradiator axial stack."""
 
-        def __hash__(self) -> int:
-            return hash((relative_round(self.thickness, TOL),
-                         relative_round(self.sidewall_length, TOL),
-                         relative_round(self.bottom_thickness, TOL),
-                         self.material))
+        solid_end: CylindricalPinCell
+        liner_bottom: CylindricalPinCell
+        inner_sleeve_bottom: CylindricalPinCell
+        lined: CylindricalPinCell
+        inner_sleeve: CylindricalPinCell
+        outer_casing: CylindricalPinCell
 
     @property
     def outer_casing(self) -> OuterCasing:
@@ -220,28 +178,8 @@ class ThreeElementIrradiator(GeometryElement):
         return self.outer_casing.length
 
     @property
-    def solid_end_pincell(self) -> CylindricalPinCell:
-        return self._solid_end_pincell
-
-    @property
-    def liner_bottom_pincell(self) -> CylindricalPinCell:
-        return self._liner_bottom_pincell
-
-    @property
-    def inner_sleeve_bottom_pincell(self) -> CylindricalPinCell:
-        return self._inner_sleeve_bottom_pincell
-
-    @property
-    def lined_pincell(self) -> CylindricalPinCell:
-        return self._lined_pincell
-
-    @property
-    def inner_sleeve_pincell(self) -> CylindricalPinCell:
-        return self._inner_sleeve_pincell
-
-    @property
-    def outer_casing_pincell(self) -> CylindricalPinCell:
-        return self._outer_casing_pincell
+    def pincell(self) -> Pincell:
+        return self._pincell.copy()
 
     def __init__(self,
                  outer_casing:  OuterCasing,
@@ -287,42 +225,50 @@ class ThreeElementIrradiator(GeometryElement):
                                       name=f"{self.name}_{suffix}_pincell",
                                       min_zone_thickness=self.gap_tolerance)
 
-        self._solid_end_pincell = pincell(
+        solid_end_pincell = pincell(
             [outer_casing.outer_radius],
             [outer_casing.material, self.outer_material],
             "solid_end",
         )
-        self._liner_bottom_pincell = pincell(
+        liner_bottom_pincell = pincell(
             [liner_outer_radius, outer_casing.inner_radius, outer_casing.outer_radius],
             [liner.material, self.fill_material, outer_casing.material, self.outer_material],
             "liner_bottom",
         )
-        self._inner_sleeve_bottom_pincell = pincell(
+        inner_sleeve_bottom_pincell = pincell(
             [inner_sleeve.outer_radius, liner_outer_radius,
              outer_casing.inner_radius, outer_casing.outer_radius],
             [inner_sleeve.material, liner.material, self.fill_material,
              outer_casing.material, self.outer_material],
             "inner_sleeve_bottom",
         )
-        self._lined_pincell = pincell(
+        lined_pincell = pincell(
             [inner_sleeve.inner_radius, inner_sleeve.outer_radius, liner_outer_radius,
              outer_casing.inner_radius, outer_casing.outer_radius],
             [self.fill_material, inner_sleeve.material, liner.material,
              self.fill_material, outer_casing.material, self.outer_material],
             "lined",
         )
-        self._inner_sleeve_pincell = pincell(
+        inner_sleeve_pincell = pincell(
             [inner_sleeve.inner_radius, inner_sleeve.outer_radius,
              outer_casing.inner_radius, outer_casing.outer_radius],
             [self.fill_material, inner_sleeve.material, self.fill_material,
              outer_casing.material, self.outer_material],
             "inner_sleeve",
         )
-        self._outer_casing_pincell = pincell(
+        outer_casing_pincell = pincell(
             [outer_casing.inner_radius, outer_casing.outer_radius],
             [self.fill_material, outer_casing.material, self.outer_material],
             "outer_casing",
         )
+        self._pincell: ThreeElementIrradiator.Pincell = {
+            "solid_end": solid_end_pincell,
+            "liner_bottom": liner_bottom_pincell,
+            "inner_sleeve_bottom": inner_sleeve_bottom_pincell,
+            "lined": lined_pincell,
+            "inner_sleeve": inner_sleeve_pincell,
+            "outer_casing": outer_casing_pincell,
+        }
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -375,18 +321,19 @@ class ThreeElementIrradiator(GeometryElement):
                               self.inner_sleeve.sidewall_length -
                               self.outer_casing.solid_upper_end_thickness)
 
+        pincell = self.pincell
         return CylindricalStack(
             segments=[
-                Stack.Segment(self.solid_end_pincell,
+                Stack.Segment(pincell["solid_end"],
                               self.outer_casing.solid_lower_end_thickness),
-                Stack.Segment(self.liner_bottom_pincell,
+                Stack.Segment(pincell["liner_bottom"],
                               self.liner.bottom_thickness),
-                Stack.Segment(self.inner_sleeve_bottom_pincell,
+                Stack.Segment(pincell["inner_sleeve_bottom"],
                               self.inner_sleeve.bottom_thickness),
-                Stack.Segment(self.lined_pincell, lined_length),
-                Stack.Segment(self.inner_sleeve_pincell, sleeve_only_length),
-                Stack.Segment(self.outer_casing_pincell, casing_only_length),
-                Stack.Segment(self.solid_end_pincell,
+                Stack.Segment(pincell["lined"], lined_length),
+                Stack.Segment(pincell["inner_sleeve"], sleeve_only_length),
+                Stack.Segment(pincell["outer_casing"], casing_only_length),
+                Stack.Segment(pincell["solid_end"],
                               self.outer_casing.solid_upper_end_thickness),
             ],
             name=self.name,
