@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from math import isclose
-from typing import Dict, List, Optional, TypedDict
+from math import isclose, sqrt
+from typing import Dict, List, Optional, TypedDict, Union
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
@@ -15,7 +15,7 @@ from coreforge.utils import TolerantEqualityMixin
 
 
 class ModifiedThreeElementIrradiator(GeometryElement):
-    """Detailed NETL modified three-element irradiation facility geometry.
+    """NETL modified three-element irradiation facility geometry.
 
     The geometry follows the component topology of the detailed modified 3-EL
     specification. Its outer casing begins at the facility bottom, while the
@@ -47,6 +47,9 @@ class ModifiedThreeElementIrradiator(GeometryElement):
         Material surrounding the outer casing (defaults to ``Water``).
     gap_tolerance : float, optional
         Minimum radial-zone thickness to retain. Defaults to ``None``.
+    simplified : bool, optional
+        Whether to use the axially simplified, volume-preserving geometry.
+        Defaults to ``False``.
     name : str, optional
         Name for the irradiator.
     """
@@ -397,6 +400,20 @@ class ModifiedThreeElementIrradiator(GeometryElement):
         b4c_canister_top_cap: List[CylindricalPinCell]
         outer_casing_solid_upper_end: List[CylindricalPinCell]
 
+    class SimplifiedPincell(TypedDict):
+        """Pincells for the ten simplified axial features, bottom to top."""
+
+        bottom_air: List[CylindricalPinCell]
+        solid_spacer: List[CylindricalPinCell]
+        hollow_spacer: List[CylindricalPinCell]
+        cadmium_disk: List[CylindricalPinCell]
+        silver_disk: List[CylindricalPinCell]
+        lower_b10_solid_section: List[CylindricalPinCell]
+        lower_b10_region: List[CylindricalPinCell]
+        b10_canister_top_cap: List[CylindricalPinCell]
+        b4c_region: List[CylindricalPinCell]
+        outer_casing_solid_upper_end: List[CylindricalPinCell]
+
     @property
     def outer_casing(self) -> OuterCasing:
         return self._outer_casing
@@ -442,13 +459,21 @@ class ModifiedThreeElementIrradiator(GeometryElement):
         return self._gap_tolerance
 
     @property
+    def simplified(self) -> bool:
+        return self._simplified
+
+    @property
     def length(self) -> float:
         """Return the complete outer-casing length [cm]."""
         return self.outer_casing.tube_1_length + self.outer_casing.tube_2_end_cap_thickness
 
     @property
-    def pincell(self) -> Pincell:
-        """Return copies of the detailed axial-feature pincell lists."""
+    def pincell(self) -> Union[Pincell, SimplifiedPincell]:
+        """Return copies of the selected axial-feature pincell lists."""
+        if self.simplified:
+            pincell, _ = self._get_simplified_geometry()
+            return {name: list(region) for name, region in pincell.items()}
+
         return {
             "bottom_air": list(self._pincell["bottom_air"]),
             "solid_spacer": list(self._pincell["solid_spacer"]),
@@ -475,11 +500,14 @@ class ModifiedThreeElementIrradiator(GeometryElement):
 
     @property
     def axial_region_lengths(self) -> Dict[str, List[float]]:
-        """Return copies of the detailed axial-feature subdivision lengths.
+        """Return copies of the selected axial-feature subdivision lengths.
 
         Each list aligns one-to-one with the pincells under the corresponding
         key in :attr:`pincell`.
         """
+        if self.simplified:
+            _, lengths = self._get_simplified_geometry()
+            return {name: list(region) for name, region in lengths.items()}
         return {name: list(lengths) for name, lengths in self._axial_region_lengths.items()}
 
     def __init__(
@@ -495,6 +523,7 @@ class ModifiedThreeElementIrradiator(GeometryElement):
         fill_material: Optional[Material] = None,
         outer_material: Optional[Material] = None,
         gap_tolerance: Optional[float] = None,
+        simplified: bool = False,
         name: str = "modified_three_element_irradiator",
     ) -> None:
         super().__init__(name)
@@ -514,6 +543,7 @@ class ModifiedThreeElementIrradiator(GeometryElement):
         self._fill_material = fill_material or Air()
         self._outer_material = outer_material or Water()
         self._gap_tolerance = gap_tolerance
+        self._simplified = simplified
 
         self._validate_radial_geometry()
         base_lengths = self._calculate_axial_region_lengths()
@@ -524,6 +554,10 @@ class ModifiedThreeElementIrradiator(GeometryElement):
             base_pincell,
             base_lengths,
         )
+        self._simplified_pincell: Optional[
+            ModifiedThreeElementIrradiator.SimplifiedPincell
+        ] = None
+        self._simplified_axial_region_lengths: Optional[Dict[str, List[float]]] = None
 
     def _validate_radial_geometry(self) -> None:
         casing = self.outer_casing
@@ -824,6 +858,378 @@ class ModifiedThreeElementIrradiator(GeometryElement):
             "outer_casing_solid_upper_end": regions["outer_casing_solid_upper_end"],
         }
 
+    def _build_simplified_geometry(
+        self,
+    ) -> tuple[SimplifiedPincell, Dict[str, List[float]]]:
+        """Return the ten-region, volume-preserving simplified geometry."""
+
+        casing = self.outer_casing
+        pneumatic = self.pneumatic_system
+        b4c = self.b4c_canister
+        b10 = self.b10_canister
+        detailed_lengths = self._calculate_axial_region_lengths()
+
+        # Replace the overlapping casing tubes with one constant-radius tube
+        # and retain the original solid-upper-region height.
+        casing_aluminum_area_length = (
+            (casing.tube_1_outer_radius**2 - casing.tube_1_inner_radius**2)
+            * casing.tube_1_length
+            + (casing.tube_2_outer_radius**2 - casing.tube_1_outer_radius**2)
+            * casing.tube_2_annulus_length
+            + casing.tube_2_outer_radius**2 * casing.tube_2_end_cap_thickness
+        )
+        casing_outer_radius = sqrt(
+            (
+                casing_aluminum_area_length
+                + casing.tube_1_inner_radius**2 * casing.tube_1_length
+            )
+            / (casing.tube_1_length + casing.tube_2_end_cap_thickness)
+        )
+
+        # Extend the open pneumatic tube and sleeve through their lower caps
+        # and the B-10 interior-wall lower cap.
+        interior_wall_lower_cap_thickness = detailed_lengths[
+            "b10_interior_wall_lower_cap"
+        ]
+        pneumatic_length = (
+            pneumatic.open_tube_length
+            + pneumatic.tube_lower_end_cap_thickness
+            + pneumatic.sleeve_lower_end_cap_thickness
+            + interior_wall_lower_cap_thickness
+        )
+        tube_aluminum_area_length = (
+            (pneumatic.tube_outer_radius**2 - pneumatic.tube_inner_radius**2)
+            * pneumatic.open_tube_length
+            + pneumatic.tube_outer_radius**2
+            * pneumatic.tube_lower_end_cap_thickness
+        )
+        tube_inner_radius = sqrt(
+            pneumatic.tube_outer_radius**2
+            - tube_aluminum_area_length / pneumatic_length
+        )
+
+        sleeve_aluminum_area_length = (
+            (pneumatic.sleeve_outer_radius**2 - pneumatic.sleeve_inner_radius**2)
+            * (
+                pneumatic.open_tube_length
+                + pneumatic.tube_lower_end_cap_thickness
+            )
+            + pneumatic.sleeve_outer_radius**2
+            * pneumatic.sleeve_lower_end_cap_thickness
+        )
+        b10_interior_wall_length = (
+            b10.upper_b10_region_thickness + b10.lower_b10_region_thickness
+        )
+        b10_interior_wall_area_length = (
+            (b10.b10_annulus_inner_radius**2 - pneumatic.sleeve_outer_radius**2)
+            * (b10_interior_wall_length - interior_wall_lower_cap_thickness)
+            + b10.b10_annulus_inner_radius**2
+            * interior_wall_lower_cap_thickness
+        )
+        sleeve_inner_radius = sqrt(
+            pneumatic.sleeve_outer_radius**2
+            - (
+                sleeve_aluminum_area_length
+                + b10_interior_wall_area_length
+                - (
+                    b10.b10_annulus_inner_radius**2
+                    - pneumatic.sleeve_outer_radius**2
+                )
+                * b10_interior_wall_length
+            )
+            / pneumatic_length
+        )
+
+        # Extend the B4C-bearing cross section through both canister caps.
+        b4c_length = b4c.length
+        b4c_outer_radius = sqrt(
+            b4c.b4c_region_inner_radius**2
+            + (
+                b4c.b4c_region_outer_radius**2
+                - b4c.b4c_region_inner_radius**2
+            )
+            * b4c.b4c_region_thickness
+            / b4c_length
+        )
+
+        # Join the upper and lower B-10 annuli, absorb the adjacent gap and
+        # lower end cap, and preserve B-10, aluminum, and cadmium volumes.
+        b10_top_cap_thickness = (
+            b10.top_cap_thickness + b10.gap_to_b4c_canister
+        )
+        b10_annulus_thickness = (
+            b10.upper_b10_region_thickness
+            + b10.lower_b10_region_thickness
+            - b10.lower_b10_solid_section_thickness
+        )
+        b10_solid_thickness = (
+            b10.lower_b10_solid_section_thickness
+            + b10.exterior_wall_lower_end_cap_thickness
+        )
+        b10_area_length = (
+            (b10.upper_b10_outer_radius**2 - b10.b10_annulus_inner_radius**2)
+            * b10.upper_b10_region_thickness
+            + (b10.lower_b10_outer_radius**2 - b10.b10_annulus_inner_radius**2)
+            * (
+                b10.lower_b10_region_thickness
+                - b10.lower_b10_solid_section_thickness
+            )
+            + b10.lower_b10_outer_radius**2
+            * b10.lower_b10_solid_section_thickness
+        )
+        b10_outer_radius = sqrt(
+            (
+                b10_area_length
+                + b10.b10_annulus_inner_radius**2 * b10_annulus_thickness
+            )
+            / (b10_annulus_thickness + b10_solid_thickness)
+        )
+
+        canister_aluminum_area_length = (
+            (b10.canister_exterior_wall_radius**2 - pneumatic.sleeve_outer_radius**2)
+            * b10.top_cap_thickness
+            + (
+                b10.b10_annulus_inner_radius**2
+                - pneumatic.sleeve_outer_radius**2
+                + b10.canister_exterior_wall_radius**2
+                - b10.upper_b10_outer_radius**2
+            )
+            * b10.upper_b10_region_thickness
+            + (
+                b10.b10_annulus_inner_radius**2
+                - pneumatic.sleeve_outer_radius**2
+                + b10.canister_exterior_wall_radius**2
+                - b10.lower_b10_outer_radius**2
+            )
+            * (
+                b10.lower_b10_region_thickness
+                - b10.lower_b10_solid_section_thickness
+            )
+            + (
+                b10.canister_exterior_wall_radius**2
+                - b10.lower_b10_outer_radius**2
+            )
+            * b10.lower_b10_solid_section_thickness
+            + b10.canister_exterior_wall_radius**2
+            * b10.exterior_wall_lower_end_cap_thickness
+        )
+        b10_canister_length = (
+            b10_top_cap_thickness
+            + b10_annulus_thickness
+            + b10_solid_thickness
+        )
+        canister_exterior_wall_radius = sqrt(
+            (
+                canister_aluminum_area_length
+                + pneumatic.sleeve_outer_radius**2 * b10_top_cap_thickness
+                - (
+                    b10.b10_annulus_inner_radius**2
+                    - pneumatic.sleeve_outer_radius**2
+                    - b10_outer_radius**2
+                )
+                * b10_annulus_thickness
+                + b10_outer_radius**2 * b10_solid_thickness
+            )
+            / b10_canister_length
+        )
+        detailed_cadmium_length = (
+            b10.top_cap_thickness
+            + b10.upper_b10_region_thickness
+            + b10.lower_b10_region_thickness
+        )
+        cadmium_area_length = (
+            b10.cadmium_sleeve_outer_radius**2
+            - b10.canister_exterior_wall_radius**2
+        ) * detailed_cadmium_length
+        cadmium_sleeve_outer_radius = sqrt(
+            canister_exterior_wall_radius**2
+            + cadmium_area_length / b10_canister_length
+        )
+
+        # Extend the hollow spacer through its former upper cap.
+        hollow_spacer_thickness = (
+            self.hollow_spacer.hollow_section_thickness
+            + self.hollow_spacer.solid_upper_cap_thickness
+        )
+        spacer_aluminum_area_length = (
+            (
+                casing.tube_1_inner_radius**2
+                - self.hollow_spacer.hollow_section_radius**2
+            )
+            * self.hollow_spacer.hollow_section_thickness
+            + casing.tube_1_inner_radius**2
+            * self.hollow_spacer.solid_upper_cap_thickness
+        )
+        hollow_spacer_radius = sqrt(
+            casing.tube_1_inner_radius**2
+            - spacer_aluminum_area_length / hollow_spacer_thickness
+        )
+
+        def pincell(
+            radii: List[float],
+            materials: List[Material],
+            suffix: str,
+        ) -> CylindricalPinCell:
+            return CylindricalPinCell(
+                radii=radii,
+                materials=materials,
+                name=f"{self.name}_simplified_{suffix}_pincell",
+                min_zone_thickness=self.gap_tolerance,
+            )
+
+        pneumatic_radii = [
+            tube_inner_radius,
+            pneumatic.tube_outer_radius,
+            sleeve_inner_radius,
+            pneumatic.sleeve_outer_radius,
+        ]
+        pneumatic_materials = [
+            pneumatic.fill_material,
+            pneumatic.material,
+            pneumatic.fill_material,
+            pneumatic.material,
+        ]
+
+        simplified_pincell: ModifiedThreeElementIrradiator.SimplifiedPincell = {
+            "bottom_air": [pincell(
+                [casing.tube_1_inner_radius, casing_outer_radius],
+                [self.fill_material, casing.material, self.outer_material],
+                "bottom_air",
+            )],
+            "solid_spacer": [pincell(
+                [casing.tube_1_inner_radius, casing_outer_radius],
+                [self.solid_spacer.material, casing.material, self.outer_material],
+                "solid_spacer",
+            )],
+            "hollow_spacer": [pincell(
+                [
+                    hollow_spacer_radius,
+                    casing.tube_1_inner_radius,
+                    casing_outer_radius,
+                ],
+                [
+                    self.hollow_spacer.fill_material,
+                    self.hollow_spacer.material,
+                    casing.material,
+                    self.outer_material,
+                ],
+                "hollow_spacer",
+            )],
+            "cadmium_disk": [pincell(
+                [casing.tube_1_inner_radius, casing_outer_radius],
+                [self.cadmium_disk.material, casing.material, self.outer_material],
+                "cadmium_disk",
+            )],
+            "silver_disk": [pincell(
+                [casing.tube_1_inner_radius, casing_outer_radius],
+                [self.silver_disk.material, casing.material, self.outer_material],
+                "silver_disk",
+            )],
+            "lower_b10_solid_section": [pincell(
+                [
+                    b10_outer_radius,
+                    canister_exterior_wall_radius,
+                    cadmium_sleeve_outer_radius,
+                    casing.tube_1_inner_radius,
+                    casing_outer_radius,
+                ],
+                [
+                    b10.b10_material,
+                    b10.canister_material,
+                    b10.cadmium_sleeve_material,
+                    self.fill_material,
+                    casing.material,
+                    self.outer_material,
+                ],
+                "lower_b10_solid_section",
+            )],
+            "lower_b10_region": [pincell(
+                pneumatic_radii + [
+                    b10.b10_annulus_inner_radius,
+                    b10_outer_radius,
+                    canister_exterior_wall_radius,
+                    cadmium_sleeve_outer_radius,
+                    casing.tube_1_inner_radius,
+                    casing_outer_radius,
+                ],
+                pneumatic_materials + [
+                    b10.canister_material,
+                    b10.b10_material,
+                    b10.canister_material,
+                    b10.cadmium_sleeve_material,
+                    self.fill_material,
+                    casing.material,
+                    self.outer_material,
+                ],
+                "b10_region",
+            )],
+            "b10_canister_top_cap": [pincell(
+                pneumatic_radii + [
+                    canister_exterior_wall_radius,
+                    cadmium_sleeve_outer_radius,
+                    casing.tube_1_inner_radius,
+                    casing_outer_radius,
+                ],
+                pneumatic_materials + [
+                    b10.canister_material,
+                    b10.cadmium_sleeve_material,
+                    self.fill_material,
+                    casing.material,
+                    self.outer_material,
+                ],
+                "b10_canister_top_cap",
+            )],
+            "b4c_region": [pincell(
+                pneumatic_radii + [
+                    b4c.b4c_region_inner_radius,
+                    b4c_outer_radius,
+                    b4c.canister_outer_radius,
+                    casing.tube_1_inner_radius,
+                    casing_outer_radius,
+                ],
+                pneumatic_materials + [
+                    b4c.canister_material,
+                    b4c.b4c_material,
+                    b4c.canister_material,
+                    self.fill_material,
+                    casing.material,
+                    self.outer_material,
+                ],
+                "b4c_region",
+            )],
+            "outer_casing_solid_upper_end": [pincell(
+                [casing_outer_radius],
+                [casing.material, self.outer_material],
+                "outer_casing_solid_upper_end",
+            )],
+        }
+        simplified_lengths = {
+            "bottom_air": [detailed_lengths["bottom_air"]],
+            "solid_spacer": [self.solid_spacer.thickness],
+            "hollow_spacer": [hollow_spacer_thickness],
+            "cadmium_disk": [self.cadmium_disk.thickness],
+            "silver_disk": [self.silver_disk.thickness],
+            "lower_b10_solid_section": [b10_solid_thickness],
+            "lower_b10_region": [b10_annulus_thickness],
+            "b10_canister_top_cap": [b10_top_cap_thickness],
+            "b4c_region": [b4c_length],
+            "outer_casing_solid_upper_end": [casing.tube_2_end_cap_thickness],
+        }
+        return simplified_pincell, simplified_lengths
+
+    def _get_simplified_geometry(
+        self,
+    ) -> tuple[SimplifiedPincell, Dict[str, List[float]]]:
+        """Return the cached simplified pincells and axial lengths."""
+
+        if self._simplified_pincell is None:
+            (
+                self._simplified_pincell,
+                self._simplified_axial_region_lengths,
+            ) = self._build_simplified_geometry()
+        assert self._simplified_axial_region_lengths is not None
+        return self._simplified_pincell, self._simplified_axial_region_lengths
+
     def _build_tube_2_pincell(self, pincell: CylindricalPinCell) -> CylindricalPinCell:
         """Return a copy of a Tube #1 cross section surrounded by Tube #2."""
 
@@ -920,6 +1326,7 @@ class ModifiedThreeElementIrradiator(GeometryElement):
             self.solid_spacer == other.solid_spacer and
             self.fill_material == other.fill_material and
             self.outer_material == other.outer_material and
+            self.simplified == other.simplified and
             ((self.gap_tolerance is None and other.gap_tolerance is None) or
              (self.gap_tolerance is not None and other.gap_tolerance is not None and
               isclose(self.gap_tolerance, other.gap_tolerance, rel_tol=TOL)))
@@ -937,6 +1344,7 @@ class ModifiedThreeElementIrradiator(GeometryElement):
             self.solid_spacer,
             self.fill_material,
             self.outer_material,
+            self.simplified,
             None if self.gap_tolerance is None else relative_round(self.gap_tolerance, TOL),
         ))
 
@@ -959,7 +1367,30 @@ class ModifiedThreeElementIrradiator(GeometryElement):
             self.outer_material,
         ])
 
-    def as_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+    def _as_stack(
+        self,
+        pincell: Union[Pincell, SimplifiedPincell],
+        lengths: Dict[str, List[float]],
+        bottom_pos: float,
+    ) -> CylindricalStack:
+        """Return a cylindrical stack from ordered pincell and length mappings."""
+
+        segments = [
+            Stack.Segment(region_pincell, region_length)
+            for name, region_pincells in pincell.items()
+            for region_pincell, region_length in zip(region_pincells, lengths[name])
+        ]
+        assert all(
+            len(region_pincells) == len(lengths[name])
+            for name, region_pincells in pincell.items()
+        )
+        return CylindricalStack(
+            segments=segments,
+            name=self.name,
+            bottom_pos=bottom_pos,
+        )
+
+    def as_detailed_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
         """Return the detailed irradiator as a bottom-to-top cylindrical stack.
 
         Parameters
@@ -968,45 +1399,33 @@ class ModifiedThreeElementIrradiator(GeometryElement):
             Axial position of the facility bottom [cm]. Defaults to 0.0.
         """
 
-        pincell = self.pincell
-        lengths = self.axial_region_lengths
-        segments: List[Stack.Segment] = []
-
-        def extend(
-            region_pincells: List[CylindricalPinCell],
-            region_lengths: List[float],
-        ) -> None:
-            assert len(region_pincells) == len(region_lengths)
-            segments.extend(
-                Stack.Segment(region_pincell, region_length)
-                for region_pincell, region_length in zip(region_pincells, region_lengths)
-            )
-
-        extend(pincell["bottom_air"], lengths["bottom_air"])
-        extend(pincell["solid_spacer"], lengths["solid_spacer"])
-        extend(pincell["hollow_spacer"], lengths["hollow_spacer"])
-        extend(pincell["hollow_spacer_upper_cap"], lengths["hollow_spacer_upper_cap"])
-        extend(pincell["cadmium_disk"], lengths["cadmium_disk"])
-        extend(pincell["silver_disk"], lengths["silver_disk"])
-        extend(pincell["b10_canister_lower_end_cap"], lengths["b10_canister_lower_end_cap"])
-        extend(pincell["lower_b10_solid_section"], lengths["lower_b10_solid_section"])
-        extend(pincell["b10_interior_wall_lower_cap"], lengths["b10_interior_wall_lower_cap"])
-        extend(pincell["pneumatic_sleeve_lower_cap"], lengths["pneumatic_sleeve_lower_cap"])
-        extend(pincell["pneumatic_tube_lower_cap"], lengths["pneumatic_tube_lower_cap"])
-        extend(pincell["lower_b10_region"], lengths["lower_b10_region"])
-        extend(pincell["upper_b10_region"], lengths["upper_b10_region"])
-        extend(pincell["b10_canister_top_cap"], lengths["b10_canister_top_cap"])
-        extend(pincell["inter_canister_gap"], lengths["inter_canister_gap"])
-        extend(pincell["b4c_canister_bottom_cap"], lengths["b4c_canister_bottom_cap"])
-        extend(pincell["b4c_region"], lengths["b4c_region"])
-        extend(pincell["b4c_canister_top_cap"], lengths["b4c_canister_top_cap"])
-        extend(
-            pincell["outer_casing_solid_upper_end"],
-            lengths["outer_casing_solid_upper_end"],
+        return self._as_stack(
+            self._pincell,
+            self._axial_region_lengths,
+            bottom_pos,
         )
 
-        return CylindricalStack(
-            segments=segments,
-            name=self.name,
-            bottom_pos=bottom_pos,
-        )
+    def as_simplified_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+        """Return the simplified irradiator as a ten-region cylindrical stack.
+
+        Parameters
+        ----------
+        bottom_pos : float, optional
+            Axial position of the facility bottom [cm]. Defaults to 0.0.
+        """
+
+        pincell, lengths = self._get_simplified_geometry()
+        return self._as_stack(pincell, lengths, bottom_pos)
+
+    def as_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+        """Return the selected irradiator geometry as a cylindrical stack.
+
+        Parameters
+        ----------
+        bottom_pos : float, optional
+            Axial position of the facility bottom [cm]. Defaults to 0.0.
+        """
+
+        if self.simplified:
+            return self.as_simplified_stack(bottom_pos)
+        return self.as_detailed_stack(bottom_pos)

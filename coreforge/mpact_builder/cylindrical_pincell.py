@@ -133,6 +133,9 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
             Modules rather than just one. Default value is False.
         material_specs : Optional[MaterialSpecs]
             Specifications for how materials should be treated in MPACT.
+        outer_bounding_radius : Optional[float]
+            Radius used as the common outer endpoint when subdividing the
+            implicit outer region.
 
         Attributes
         ----------
@@ -148,6 +151,9 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
             Default value is False
         material_specs : MaterialSpecs
             Specifications for how materials should be treated in MPACT
+        outer_bounding_radius : Optional[float]
+            Radius used as the common outer endpoint when subdividing the
+            implicit outer region.
         """
 
         zone_specs:            Optional[
@@ -155,17 +161,23 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         ]
         divide_into_quadrants: bool
         material_specs:        MaterialSpecs
+        outer_bounding_radius: Optional[float]
 
         def __init__(self,
                      zone_specs:            Optional[CylindricalPinCell.ZoneSpecs |
                                             List[CylindricalPinCell.ZoneSpecs]] = None,
                      divide_into_quadrants: bool = False,
                      material_specs:        Optional[MaterialSpecs] = None,
+                     outer_bounding_radius: Optional[float] = None,
         ) -> None:
             zone_specs = zone_specs if zone_specs is not None else CylindricalPinCell.ZoneSpecs()
+            if outer_bounding_radius is not None:
+                assert outer_bounding_radius > 0.0, \
+                    f"outer_bounding_radius = {outer_bounding_radius}"
 
             self.zone_specs            = zone_specs
             self.divide_into_quadrants = divide_into_quadrants
+            self.outer_bounding_radius = outer_bounding_radius
             self.material_specs        = material_specs if material_specs is not None else {}
 
 
@@ -249,9 +261,10 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         pin = mpactpy.Pin(pinmesh, materials)
 
         subdivisions = mpactpy.GeneralCylindricalPinMesh.Subdivisions(
-            subd_r      = [zone_spec.ndivr_mat for zone_spec in zone_specs],
-            div_type    = [zone_spec.ndivr_mat_type for zone_spec in zone_specs],
-            outer_ndivr = zone_specs[-1].ndivr_fsr,
+            subd_r                = [zone_spec.ndivr_mat for zone_spec in zone_specs],
+            div_type              = [zone_spec.ndivr_mat_type for zone_spec in zone_specs],
+            outer_ndivr           = zone_specs[-1].ndivr_fsr,
+            outer_bounding_radius = specs.outer_bounding_radius,
         )
         pin = pin.subdivide(subdivisions)
 

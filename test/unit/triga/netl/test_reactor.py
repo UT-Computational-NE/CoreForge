@@ -44,6 +44,32 @@ def sind(deg: float) -> float:
     return sin(radians(deg))
 
 
+def _three_element_irradiator_specs(reactor: Reactor):
+    reactor_builder = mpact_builder.triga.netl.Reactor
+    irradiator_builder = mpact_builder.triga.netl.ThreeElementIrradiator
+    core_element_builder = mpact_builder.triga.CoreElement
+    pincell_builder = mpact_builder.CylindricalPinCell
+
+    assert reactor.core.three_element_irradiator is not None
+
+    def segment_specs():
+        return core_element_builder.SegmentSpecs(
+            builder_specs=pincell_builder.Specs(
+                zone_specs=pincell_builder.ZoneSpecs(ndivr_mat=2),
+            ),
+        )
+
+    element_specs = irradiator_builder.Specs(
+        solid_end=segment_specs(),
+        liner_bottom=segment_specs(),
+        inner_sleeve_bottom=segment_specs(),
+        lined=segment_specs(),
+        inner_sleeve=segment_specs(),
+        outer_casing=segment_specs(),
+    )
+    return reactor_builder.CoreCellSpecs(element_specs=element_specs)
+
+
 @pytest.fixture
 def reactor(pool, reflector, shroud, rsr_cavity, beam_port, grid_plate, core):
     reflector_wrap = Reactor.Reflector(geometry=reflector,
@@ -302,7 +328,11 @@ def test_openmc_builder(reactor):
 
 
 def test_mpact_builder_without_excore(reactor, num_procs):
-    specs = mpact_builder.triga.netl.Reactor.Specs(exclude_excore=True, num_procs=num_procs)
+    specs = mpact_builder.triga.netl.Reactor.Specs(
+        three_element_irradiator_specs=_three_element_irradiator_specs(reactor),
+        exclude_excore=True,
+        num_procs=num_procs,
+    )
     core = mpact_builder.build(reactor, specs)
     assert core.nx > 0
     assert core.ny > 0
@@ -317,12 +347,16 @@ def test_mpact_builder_with_excore(reactor, num_procs):
     voxelization_specs = reactor_builder.VoxelationSpecs(
         target_thicknesses={"radial": reactor.core.pitch},
     )
-    empty_core_specs = {
+    core_specs = {
         location: reactor_builder.CoreCellSpecs(voxelization_specs=voxelization_specs)
         for location, element in reactor.core.full_map.items()
         if element is None
     }
-    specs = reactor_builder.Specs(core_specs=empty_core_specs, num_procs=num_procs)
+    specs = reactor_builder.Specs(
+        core_specs=core_specs,
+        three_element_irradiator_specs=_three_element_irradiator_specs(reactor),
+        num_procs=num_procs,
+    )
     core = mpact_builder.build(reactor, specs)
     assert core.nx > 0
     assert core.ny > 0

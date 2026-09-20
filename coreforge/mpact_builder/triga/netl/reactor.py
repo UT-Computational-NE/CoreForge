@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Dict, List, Optional, Tuple, TypeAlias, TypedDict, cast
 from dataclasses import dataclass, field, replace
-from math import ceil, inf, isclose, isfinite, isinf
+from math import ceil, hypot, inf, isclose, isfinite, isinf, sqrt
 
 import openmc
 import mpactpy
@@ -16,6 +16,7 @@ from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs, DEFAULT_MPACT_MATERIAL_SPECS
 from coreforge.mpact_builder.hex_lattice import HexLattice
 from coreforge.mpact_builder.infinite_medium import InfiniteMedium
+from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
 import coreforge.mpact_builder.stack as stack_builder
 from coreforge.mpact_builder.mpact_builder import build, get_builder, register_builder
@@ -25,14 +26,14 @@ from coreforge.mpact_builder.triga.fuel_element import FuelElement
 from coreforge.mpact_builder.triga.graphite_element import GraphiteElement
 from .central_thimble import CentralThimble
 from .fuel_follower_control_rod import FuelFollowerControlRod
+from .modified_three_element_irradiator import ModifiedThreeElementIrradiator
 from .pnt import PNT
 from .source_holder import SourceHolder
 from .three_element_irradiator import ThreeElementIrradiator
 from .transient_rod import TransientRod
 
-CoreGeometrySpecs: TypeAlias = geometry_elements_triga_netl.Reactor.CoreCellSpecs
-CoreGridPlateSpecs: TypeAlias = CoreGeometrySpecs.GridPlateSpecs
-
+GeometryElementCoreCellSpecs: TypeAlias = geometry_elements_triga_netl.Reactor.CoreCellSpecs
+GeometryElementGridPlateSpecs: TypeAlias = GeometryElementCoreCellSpecs.GridPlateSpecs
 
 def _default_voxelation_specs() -> "Reactor.VoxelationSpecs":
     return Reactor.VoxelationSpecs()
@@ -61,6 +62,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                                    GraphiteElement.Specs |
                                    CentralThimble.Specs |
                                    CylindricalStack.Specs |
+                                   ModifiedThreeElementIrradiator.Specs |
                                    PNT.Specs |
                                    SourceHolder.Specs |
                                    ThreeElementIrradiator.Specs |
@@ -90,13 +92,18 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         unionize_radial_mesh : bool
             Whether to unionize the radial mesh across stack segments when a core
             element is present.  Only applicable for cells with core elements.
+        outer_bounding_radius : Optional[float]
+            Radius used as the common outer endpoint when subdividing translated
+            cylindrical pin-cell outer regions. This does not change the number
+            of requested outer-region material divisions.
         """
 
-        element_specs:      Optional[Reactor.CoreElementSpecs] = None
-        outer_region_specs: Optional[Reactor.VoxelationSpecs | CoreElement.SegmentSpecs] = None
-        voxelization_specs: Optional[Reactor.VoxelationSpecs] = None
-        axial_bounds:       Optional[Interval | Tuple[float, float]] = None
+        element_specs:        Optional[Reactor.CoreElementSpecs] = None
+        outer_region_specs:   Optional[Reactor.VoxelationSpecs | CoreElement.SegmentSpecs] = None
+        voxelization_specs:   Optional[Reactor.VoxelationSpecs] = None
+        axial_bounds:         Optional[Interval | Tuple[float, float]] = None
         unionize_radial_mesh: bool = False
+        outer_bounding_radius: Optional[float] = None
 
         def __post_init__(self) -> None:
             if self.axial_bounds is not None:
@@ -105,6 +112,45 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                 assert self.axial_bounds.upper > self.axial_bounds.lower, \
                     (f"Upper axial bound {self.axial_bounds.upper} must be greater than lower axial bound "
                      f"{self.axial_bounds.lower}.")
+            if self.outer_bounding_radius is not None:
+                assert self.outer_bounding_radius > 0.0, \
+                    f"outer_bounding_radius = {self.outer_bounding_radius}"
+
+        def apply_outer_bounding_radius(
+            self,
+            stack:       geometry_elements.CylindricalStack,
+            stack_specs: Stack.Specs,
+        ) -> Stack.Specs:
+            """Apply the requested outer radial mesh to translated stack segments."""
+
+            if self.outer_bounding_radius is None:
+                return stack_specs
+
+            updated_segment_specs = dict(stack_specs.segment_specs)
+            for segment in stack.segments:
+                pincell = segment.element
+                if (isclose(pincell.x0, 0.0, rel_tol=TOL, abs_tol=TOL) and
+                        isclose(pincell.y0, 0.0, rel_tol=TOL, abs_tol=TOL)):
+                    continue
+
+                segment_specs = updated_segment_specs.get(segment) or CoreElement.SegmentSpecs()
+
+                pincell_specs = segment_specs.builder_specs or CylindricalPinCell.Specs()
+                pincell_specs = CylindricalPinCell.Specs(
+                    zone_specs=pincell_specs.zone_specs,
+                    divide_into_quadrants=pincell_specs.divide_into_quadrants,
+                    material_specs=pincell_specs.material_specs,
+                    outer_bounding_radius=self.outer_bounding_radius,
+                )
+                updated_segment_specs[segment] = replace(
+                    segment_specs,
+                    builder_specs=pincell_specs,
+                )
+
+            return Stack.Specs(
+                segment_specs=updated_segment_specs,
+                num_procs=stack_specs.num_procs,
+            )
 
     @dataclass
     class VoxelationSpecs:
@@ -187,6 +233,9 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         ----------
         core_specs : Dict[str, Reactor.CoreCellSpecs]
             Per-location overrides for core element specs.
+        three_element_irradiator_specs : Optional[Reactor.CoreCellSpecs]
+            Builder specifications shared by the three core locations occupied
+            by the three-element irradiator.
         excore_specs : Reactor.ExcoreSpecs
             Specifications for excore region construction.
         min_thickness : float
@@ -210,14 +259,15 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             is not centered at the origin.  Otherwise, will be determined automatically.
         """
 
-        core_specs:      Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
-        excore_specs:    Reactor.ExcoreSpecs = field(default_factory=_default_excore_specs)
-        min_thickness:   float = 0.0
-        material_specs:  MaterialSpecs = field(default_factory=dict)
+        core_specs: Dict[str, Reactor.CoreCellSpecs] = field(default_factory=dict)
+        three_element_irradiator_specs: Optional[Reactor.CoreCellSpecs] = None
+        excore_specs: Reactor.ExcoreSpecs = field(default_factory=_default_excore_specs)
+        min_thickness: float = 0.0
+        material_specs: MaterialSpecs = field(default_factory=dict)
         openmc_universe: Optional[openmc.Universe] = None
-        num_procs:       int = 1
-        exclude_excore:  bool = False
-        offset:          Optional[Tuple[float, float, float]] = None
+        num_procs: int = 1
+        exclude_excore: bool = False
+        offset: Optional[Tuple[float, float, float]] = None
 
         def __post_init__(self) -> None:
             valid_locations = {loc for ring in geometry_elements_triga_netl.Core.RING_MAP for loc in ring}
@@ -262,12 +312,22 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
         """
         reactor = element
 
+        R = reactor.core.pitch
+        r = 0.5 * sqrt(3.0) * R
+        core_cell_corner_radius = 0.5 * hypot(R, r)
+
         elements = []
         element_specs = {}
         for ring in geometry_elements_triga_netl.Core.RING_MAP:
             elements.append([])
             for loc in ring:
-                core_cell_specs = self.specs.core_specs.get(loc, None)
+                is_three_element_location = (reactor.core.three_element_irradiator is not None
+                                             and loc in reactor.core.THREE_ELEMENT_LOCATIONS)
+                core_cell_specs = (
+                    self.specs.three_element_irradiator_specs
+                    if is_three_element_location
+                    else self.specs.core_specs.get(loc, None)
+                )
                 if core_cell_specs is None:
                     core_cell_specs = Reactor.CoreCellSpecs(axial_bounds=reactor.pool.axial_bounds)
                 else:
@@ -277,8 +337,17 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                         voxelization_specs   = core_cell_specs.voxelization_specs,
                         axial_bounds         = reactor.pool.axial_bounds,
                         unionize_radial_mesh = core_cell_specs.unionize_radial_mesh,
+                        outer_bounding_radius = core_cell_specs.outer_bounding_radius,
                     )
                 geometry_specs = reactor.get_core_cell_specs(loc)
+                if is_three_element_location:
+                    core_cell_specs = replace(
+                        core_cell_specs,
+                        outer_bounding_radius=(
+                            core_cell_corner_radius
+                            + hypot(geometry_specs.element.x0, geometry_specs.element.y0)
+                        ),
+                    )
                 stack, stack_specs = build_core_element(geometry_specs=geometry_specs,
                                                         builder_specs=core_cell_specs)
                 stack_specs.apply_material_specs(stack, self.specs.material_specs)
@@ -300,6 +369,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         has_incore_overlay = any(core_cell_specs.voxelization_specs is not None
                                  for core_cell_specs in self.specs.core_specs.values())
+
         if self.specs.exclude_excore and not has_incore_overlay:
             return mpact_core
 
@@ -557,7 +627,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
 
 def build_core_element(
-    geometry_specs: CoreGeometrySpecs,
+    geometry_specs: GeometryElementCoreCellSpecs,
     builder_specs: Optional[Reactor.CoreCellSpecs] = None,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
     """Build an MPACT core cell from resolved geometry specifications.
@@ -647,19 +717,21 @@ def build_core_element(
                          for new_segment, old_segment in zip(stack.segments, old_segments)}
         specs = Stack.Specs(segment_specs=segment_specs, num_procs=old_specs.num_procs)
 
+    specs = builder_specs.apply_outer_bounding_radius(stack, specs)
+
     return stack, specs
 
 
 def _get_grid_plate_specs(
-    geometry_specs: CoreGeometrySpecs,
-) -> Tuple[CoreGridPlateSpecs, CoreGridPlateSpecs]:
-    upper_grid_plate = cast(CoreGridPlateSpecs, geometry_specs.upper_grid_plate)
-    lower_grid_plate = cast(CoreGridPlateSpecs, geometry_specs.lower_grid_plate)
+    geometry_specs: GeometryElementCoreCellSpecs,
+) -> Tuple[GeometryElementGridPlateSpecs, GeometryElementGridPlateSpecs]:
+    upper_grid_plate = cast(GeometryElementGridPlateSpecs, geometry_specs.upper_grid_plate)
+    lower_grid_plate = cast(GeometryElementGridPlateSpecs, geometry_specs.lower_grid_plate)
     return upper_grid_plate, lower_grid_plate
 
 
 def _build_voxelized_core_location(
-    geometry_specs: CoreGeometrySpecs,
+    geometry_specs: GeometryElementCoreCellSpecs,
     builder_specs:  Reactor.CoreCellSpecs,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
     upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
@@ -741,14 +813,17 @@ def _build_voxelized_core_location(
 
 
 def _build_core_location_with_water_hole(
-    geometry_specs: CoreGeometrySpecs,
+    geometry_specs: GeometryElementCoreCellSpecs,
     builder_specs:  Reactor.CoreCellSpecs,
 ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
     upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
     axial_bounds = cast(Interval, builder_specs.axial_bounds)
     outer_region_specs = cast(CoreElement.SegmentSpecs, builder_specs.outer_region_specs)
 
-    outer_pincell = _build_outer_pincell(geometry_specs)
+    outer_pincell = _build_outer_pincell(
+        geometry_specs,
+        (lower_grid_plate, upper_grid_plate),
+    )
 
     buffer       = axial_bounds.length
     stack_bottom = lower_grid_plate.axial_bounds.lower - buffer
@@ -770,18 +845,27 @@ def _build_core_location_with_water_hole(
 
 
 def _build_core_location_with_element(
-    geometry_specs: CoreGeometrySpecs,
+    geometry_specs: GeometryElementCoreCellSpecs,
     builder_specs:  Reactor.CoreCellSpecs,
 ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
     upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
-    element_placement = cast(CoreGeometrySpecs.ElementSpecs, geometry_specs.element)
+    element_placement = cast(GeometryElementCoreCellSpecs.ElementSpecs, geometry_specs.element)
     element = element_placement.geometry
     element_bottom_axial_position = element_placement.bottom_axial_position
 
     axial_bounds = cast(Interval, builder_specs.axial_bounds)
     outer_region_specs = cast(CoreElement.SegmentSpecs, builder_specs.outer_region_specs)
 
-    outer_pincell = _build_outer_pincell(geometry_specs)
+    lower_outer_pincell = _build_outer_pincell(
+        geometry_specs,
+        (lower_grid_plate,),
+        name_suffix="lower_outer_pincell",
+    )
+    upper_outer_pincell = _build_outer_pincell(
+        geometry_specs,
+        (upper_grid_plate,),
+        name_suffix="upper_outer_pincell",
+    )
 
     builder_cls: CoreElement = get_builder(element)
     element_stack, element_stack_specs = builder_cls(builder_specs.element_specs).build_stack_and_specs(
@@ -796,11 +880,11 @@ def _build_core_location_with_element(
     stack_top    = max(upper_grid_plate.axial_bounds.upper, element_top) + buffer
 
     bottom_segment = geometry_elements.Stack.Segment(
-        element = outer_pincell,
+        element = lower_outer_pincell,
         length  = element_bottom_axial_position - stack_bottom,
     )
     top_segment = geometry_elements.Stack.Segment(
-        element = outer_pincell,
+        element = upper_outer_pincell,
         length  = stack_top - element_top,
     )
 
@@ -822,16 +906,28 @@ def _build_core_location_with_element(
 
 
 def _build_outer_pincell(
-    geometry_specs: CoreGeometrySpecs,
+    geometry_specs:   GeometryElementCoreCellSpecs,
+    grid_plate_specs: Tuple[GeometryElementGridPlateSpecs, ...],
+    name_suffix:      str = "outer_pincell",
 ) -> geometry_elements.CylindricalPinCell:
-    upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
-    radii = sorted({cast(float, upper_grid_plate.penetration_radius),
-                    cast(float, lower_grid_plate.penetration_radius)})
+    assert grid_plate_specs, "At least one grid plate is required to build an outer pin cell."
+
+    x0 = grid_plate_specs[0].x0
+    y0 = grid_plate_specs[0].y0
+    assert all(isclose(grid_plate.x0, x0, rel_tol=TOL, abs_tol=TOL) and
+               isclose(grid_plate.y0, y0, rel_tol=TOL, abs_tol=TOL)
+               for grid_plate in grid_plate_specs), \
+        "Grid plates represented by one outer pin cell must have a common center."
+
+    radii = sorted({cast(float, grid_plate.penetration_radius)
+                    for grid_plate in grid_plate_specs})
 
     outer_pincell = geometry_elements.CylindricalPinCell(
         radii     = radii,
         materials = [geometry_specs.outer_material for _ in range(len(radii) + 1)],
-        name      = f"{geometry_specs.location}_outer_pincell")
+        name      = f"{geometry_specs.location}_{name_suffix}",
+        x0        = x0,
+        y0        = y0)
 
     return outer_pincell
 
@@ -839,7 +935,7 @@ def _build_outer_pincell(
 def _add_grid_plates_to_stack(
     stack:          geometry_elements.CylindricalStack,
     stack_specs:    Stack.Specs,
-    geometry_specs: CoreGeometrySpecs,
+    geometry_specs: GeometryElementCoreCellSpecs,
 ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
     upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
 
@@ -882,7 +978,7 @@ def _add_grid_plates_to_stack(
 def _build_grid_stack_and_specs(
     stack:            geometry_elements.CylindricalStack,
     stack_specs:      Stack.Specs,
-    grid_plate_specs: CoreGridPlateSpecs,
+    grid_plate_specs: GeometryElementGridPlateSpecs,
 ) -> Optional[Tuple[geometry_elements.CylindricalStack, Stack.Specs]]:
 
     plate_top = grid_plate_specs.axial_bounds.upper
