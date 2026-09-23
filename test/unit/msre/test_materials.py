@@ -1,5 +1,4 @@
 import pytest
-from math import isclose
 
 import mpactpy
 
@@ -26,14 +25,16 @@ def control_rod_poison():
 def test_salt(salt):
     material = mpact_builder.build_material(salt)
 
-    num_dens = {'Li6' : 1.7431446223252428e-06, 'Li7' : 0.02988796955594127,   'F19' : 0.05218107467967278,
-                'Be9' : 0.00898964129413786,    'Zr90': 0.00047974094545786845,'Zr91': 0.00010461989131267802,
-                'Zr92': 0.00015991364848595618, 'Zr94': 0.00016205826301375617,'Zr96': 2.6108350773217338e-05,
-                'U234': 4.115361955751947e-07,  'U235': 4.604270687345431e-05, 'U236': 2.1089771252934387e-07,
-                'U238': 9.891360788333172e-05}
-    expected_material = mpactpy.material.Material(temperature                 = 900.,
-                                                  number_densities            = num_dens,
-                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Salt])
+    num_dens = {'Li6' : 1.275735187868613e-06,  'Li7' : 0.021873764212173234,   'F19' : 0.049502055565221276,
+                'Be9' : 0.009868717929396724,   'Zr90': 0.000877756207579554,  'Zr91': 0.00019141738870831094,
+                'Zr92': 0.000292585402526518,   'Zr94': 0.0002965092883913052, 'Zr96': 4.776904531045193e-05,
+                'U234': 7.529656447502962e-07,  'U235': 8.424186460334052e-05,
+                'U236': 3.858682025989735e-07,  'U238': 0.00018097690879985385}
+    expected_material = mpactpy.material.Material(
+        temperature      = 900.,
+        number_densities = num_dens,
+        mpact_specs      = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Salt]
+    )
 
     assert materials_are_close(material, expected_material)
 
