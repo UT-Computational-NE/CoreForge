@@ -1,4 +1,5 @@
 import pytest
+from math import isclose
 
 import mpactpy
 
@@ -37,6 +38,23 @@ def test_salt(salt):
     )
 
     assert materials_are_close(material, expected_material)
+
+    def element_density(symbol):
+        return sum(density for isotope, density in material.number_densities.items()
+                   if isotope.startswith(symbol))
+
+    li_density = element_density('Li')
+    be_density = element_density('Be')
+    zr_density = element_density('Zr')
+    u_density  = element_density('U')
+    f_density  = element_density('F')
+
+    cation_density = li_density + be_density + zr_density + u_density
+    assert isclose(li_density / cation_density, salt.composition['LiF'])
+    assert isclose(be_density / cation_density, salt.composition['BeF2'])
+    assert isclose(zr_density / cation_density, salt.composition['ZrF4'])
+    assert isclose(u_density  / cation_density, salt.composition['UF4'])
+    assert isclose(f_density, li_density + 2.*be_density + 4.*zr_density + 4.*u_density)
 
 def test_thimble_gas(thimble_gas):
     material = mpact_builder.build_material(thimble_gas)
