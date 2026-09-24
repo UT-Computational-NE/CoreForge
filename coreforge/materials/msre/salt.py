@@ -123,8 +123,18 @@ class Salt(Material):
         f.add_element('F', 1.)
         uf4  = openmc.Material.mix_materials([u,f], [0.2, 0.8], 'ao')
 
-        fractions = [self.composition[i] if i in self.composition else 0.0 for i in ["LiF", "BeF2", "ZrF4", "UF4"]]
-        openmc_material = openmc.Material.mix_materials([lif, bef2, zrf4, uf4], fractions, 'ao')
+        compounds              = ["LiF", "BeF2", "ZrF4", "UF4"]
+        atoms_per_formula_unit = [2, 3, 5, 5]
+        mole_fractions         = [self.composition[i] if i in self.composition else 0.0 for i in compounds]
+
+        # OpenMC mixes compound materials by their constituent atom fractions, so
+        # convert the requested formula-unit mole fractions before mixing.
+        atom_fractions         = [fraction * num_atoms
+                                  for fraction, num_atoms in zip(mole_fractions, atoms_per_formula_unit)]
+        total_atom_fraction    = sum(atom_fractions)
+        atom_fractions         = [fraction / total_atom_fraction for fraction in atom_fractions]
+
+        openmc_material = openmc.Material.mix_materials([lif, bef2, zrf4, uf4], atom_fractions, 'ao')
 
         openmc_material.set_density('g/cm3', density)
         openmc_material.temperature = temperature
