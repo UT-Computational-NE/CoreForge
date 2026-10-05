@@ -5,9 +5,11 @@ from typing import ClassVar, Dict, List, Tuple, TypeAlias
 
 from coreforge.geometry_elements import CylindricalStack, GeometryElement, HexLattice
 from coreforge.materials import Material, unique_materials
-from coreforge.geometry_elements.triga import FuelElement, GraphiteElement
+from coreforge.geometry_elements.triga import CoreElement, FuelElement, GraphiteElement
 from coreforge.geometry_elements.triga.netl.central_thimble import CentralThimble
 from coreforge.geometry_elements.triga.netl.fuel_follower_control_rod import FuelFollowerControlRod
+from coreforge.geometry_elements.triga.netl.modified_three_element_irradiator import \
+    ModifiedThreeElementIrradiator
 from coreforge.geometry_elements.triga.netl.pnt import PNT
 from coreforge.geometry_elements.triga.netl.source_holder import SourceHolder
 from coreforge.geometry_elements.triga.netl.three_element_irradiator import ThreeElementIrradiator
@@ -115,11 +117,10 @@ class Core(GeometryElement):
     ]
 
     Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | ThreeElementIrradiator | \
-                            CylindricalStack
+                            ModifiedThreeElementIrradiator | CylindricalStack
     ControlRod: TypeAlias = TransientRod | FuelFollowerControlRod
     Fixture:    TypeAlias = CentralThimble | TransientRod | FuelFollowerControlRod
-    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | ThreeElementIrradiator | \
-                            CylindricalStack | CentralThimble | TransientRod | FuelFollowerControlRod
+    Element:    TypeAlias = CoreElement | CylindricalStack
 
     THREE_ELEMENT_LOCATIONS: ClassVar[List[str]] = ["E-11", "F-13", "F-14"]
     RESERVED_LOCATIONS: ClassVar[List[str]] = ["A-01", "C-01", "C-07", "D-06", "D-14",

@@ -11,7 +11,7 @@ from mpactpy.utils import (
     ROUNDING_RELATIVE_TOLERANCE as TOL,
 )
 
-from coreforge.geometry_elements.geometry_element import GeometryElement
+from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
@@ -21,7 +21,7 @@ from coreforge.utils import TolerantEqualityMixin
 
 
 # pylint: disable=too-many-public-methods
-class FuelElement(GeometryElement):
+class FuelElement(CoreElement):
     """TRIGA fuel element definitions and pincell builder.
 
     Parameters

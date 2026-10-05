@@ -12,8 +12,9 @@ CM_PER_INCH = 2.54
 def grid_plate():
     fuel_radius = 1.505 * 0.5 * CM_PER_INCH
     control_radius = 1.505 * 0.5 * CM_PER_INCH
+    pnt_radius = 1.505 * 0.5 * CM_PER_INCH
     central_thimble_radius = 1.5 * 0.5 * CM_PER_INCH
-    penetration_map = grid_plate_penetration_map(fuel_radius, control_radius, central_thimble_radius)
+    penetration_map = grid_plate_penetration_map(fuel_radius, control_radius, pnt_radius, central_thimble_radius)
     return GridPlate(
         thickness=0.62 * CM_PER_INCH,
         penetration_map=penetration_map,

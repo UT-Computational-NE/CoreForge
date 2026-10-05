@@ -8,13 +8,13 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
-from coreforge.geometry_elements.geometry_element import GeometryElement
+from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, Cd, Material, Water, unique_materials
 from coreforge.utils import TolerantEqualityMixin
 
 
-class ModifiedThreeElementIrradiator(GeometryElement):
+class ModifiedThreeElementIrradiator(CoreElement):
     """NETL modified three-element irradiation facility geometry.
 
     The geometry follows the component topology of the detailed modified 3-EL

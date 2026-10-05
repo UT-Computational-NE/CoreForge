@@ -7,7 +7,7 @@ from typing import List, Optional, TypedDict, Union
 
 from mpactpy.utils import equal_volume_ring_radii, relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
-from coreforge.geometry_elements.geometry_element import GeometryElement
+from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
@@ -16,7 +16,7 @@ from coreforge.utils import TolerantEqualityMixin
 
 
 # pylint: disable=too-many-public-methods
-class FuelFollowerControlRod(GeometryElement):
+class FuelFollowerControlRod(CoreElement):
     """TRIGA NETL fuel-follower control rod definitions and pincell builders.
 
     Parameters

@@ -6,7 +6,7 @@ from typing import List, Optional, TypedDict
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
-from coreforge.geometry_elements.geometry_element import GeometryElement
+from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
 from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
 from coreforge.geometry_elements.stack import Stack
@@ -14,7 +14,7 @@ from coreforge.materials import Air, Al6061T6, Material, Water, unique_materials
 from coreforge.utils import TolerantEqualityMixin
 
 
-class PNT(GeometryElement):
+class PNT(CoreElement):
     """TRIGA NETL pneumatic neutron transport system geometry.
 
     Parameters
@@ -199,7 +199,7 @@ class PNT(GeometryElement):
         )
         wrapped_tube_pincell = None
         if self.wrapper is not None:
-            wrapped_tube_pincell = self.build_wrapped_tube_pincell(
+            wrapped_tube_pincell = self.build_tube_pincell(
                 tube=self.tube,
                 wrapper=self.wrapper,
                 outer_material=self.outer_material,
@@ -277,53 +277,19 @@ class PNT(GeometryElement):
 
     @staticmethod
     def build_tube_pincell(tube:           Tube,
+                           wrapper:        Optional[Wrapper] = None,
                            outer_material: Optional[Material] = None,
                            gap_tolerance:  Optional[float] = None,
                            name:           str = "pnt_tube") -> CylindricalPinCell:
-        """Build the unwrapped PNT tube cross section.
+        """Build a PNT tube cross section with an optional wrapper.
 
         Parameters
         ----------
         tube : PNT.Tube
             Inner transport tube specification.
-        outer_material : Material, optional
-            Exterior/coolant material (defaults to ``Water``).
-        gap_tolerance : float, optional
-            Minimum radial-zone thickness to retain (defaults to ``None``).
-        name : str, optional
-            Name for the pincell.
-
-        Returns
-        -------
-        CylindricalPinCell
-            Concentric pincell representing the unwrapped transport tube.
-        """
-
-        outer_material = outer_material or Water()
-        radii = [tube.inner_radius, tube.outer_radius]
-        materials = [tube.fill_material, tube.material, outer_material]
-        return CylindricalPinCell(
-            radii=radii,
-            materials=materials,
-            name=name,
-            min_zone_thickness=gap_tolerance,
-        )
-
-    @staticmethod
-    def build_wrapped_tube_pincell(tube:           Tube,
-                                   wrapper:        Wrapper,
-                                   outer_material: Optional[Material] = None,
-                                   gap_tolerance:  Optional[float] = None,
-                                   name:           str = "pnt_wrapped_tube") -> CylindricalPinCell:
-        """Build the wrapped PNT tube cross section.
-
-        Parameters
-        ----------
-        tube : PNT.Tube
-            Inner transport tube specification.
-        wrapper : PNT.Wrapper
+        wrapper : PNT.Wrapper, optional
             Wrapper specification containing the radial zones outside the
-            transport tube.
+            transport tube. If omitted, only the transport tube is modeled.
         outer_material : Material, optional
             Exterior/coolant material (defaults to ``Water``).
         gap_tolerance : float, optional
@@ -334,18 +300,20 @@ class PNT(GeometryElement):
         Returns
         -------
         CylindricalPinCell
-            Concentric pincell representing the wrapped transport tube.
+            Concentric pincell representing the transport tube and optional
+            wrapper.
         """
 
         outer_material = outer_material or Water()
-        first_wrapper_radius = wrapper.cross_section.zones[0].shape.outer_radius
-        assert first_wrapper_radius > tube.outer_radius, (
-            "PNT wrapper cross-section innermost radius must exceed the tube outer radius."
-        )
         radii = [tube.inner_radius, tube.outer_radius]
-        radii.extend(zone.shape.outer_radius for zone in wrapper.cross_section.zones)
         materials = [tube.fill_material, tube.material]
-        materials.extend(zone.material for zone in wrapper.cross_section.zones)
+        if wrapper is not None:
+            first_wrapper_radius = wrapper.cross_section.zones[0].shape.outer_radius
+            assert first_wrapper_radius > tube.outer_radius, (
+                "PNT wrapper cross-section innermost radius must exceed the tube outer radius."
+            )
+            radii.extend(zone.shape.outer_radius for zone in wrapper.cross_section.zones)
+            materials.extend(zone.material for zone in wrapper.cross_section.zones)
         materials.append(outer_material)
         return CylindricalPinCell(
             radii=radii,
