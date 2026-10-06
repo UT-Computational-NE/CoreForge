@@ -2,10 +2,11 @@ import pytest
 from copy import deepcopy
 from math import isclose, sqrt
 
+import openmc
 from numpy.testing import assert_allclose
-from mpactpy import RectangularPinMesh, Pin
+from mpactpy import RectangularPinMesh, GeneralCylindricalPinMesh, Pin
 
-from coreforge.geometry_elements import RectLattice, HexLattice
+from coreforge.geometry_elements import RectLattice, HexLattice, CylindricalPinCell
 from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
@@ -216,8 +217,68 @@ def test_hex_lattice_mpact_ring_positions(hex_x_lattice, hex_y_lattice):
         (0, 2), (1, 4), (3, 4), (4, 2), (3, 0), (1, 0), (2, 2)
     ]
     assert builder._ring_to_offset_positions(hex_x_lattice) == [
-        (2, 4), (4, 2), (4, 0), (2, 0), (0, 0), (0, 2), (2, 2)
+        (2, 4), (4, 3), (4, 1), (2, 0), (0, 1), (0, 3), (2, 2)
     ]
+
+
+def _cylinder_radii(universe):
+    radii = []
+    for cell in universe.cells.values():
+        if cell.region is not None:
+            radii += [s.r for s in cell.region.get_surfaces().values()
+                      if isinstance(s, (openmc.Cylinder, openmc.ZCylinder))]
+        if isinstance(cell.fill, openmc.UniverseBase):
+            radii += _cylinder_radii(cell.fill)
+    return radii
+
+
+@pytest.mark.parametrize("orientation", ["x", "y"])
+def test_hex_lattice_mpact_builder_matches_openmc(salt, graphite, orientation):
+    """ Every element must be placed in MPACT at the centre of the OpenMC lattice cell that holds it """
+
+    num_rings, pitch = 4, 6.0
+    ring_sizes = [6 * (num_rings - 1 - i) for i in range(num_rings - 1)] + [1]
+    element_by_radius, rings = {}, []
+    for size in ring_sizes:
+        ring = []
+        for _ in range(size):
+            radius = round(0.5 + 0.05 * len(element_by_radius), 6)
+            element_by_radius[radius] = len(element_by_radius)
+            ring.append(CylindricalPinCell(radii=[radius], materials=[salt, graphite],
+                                           name=f"pin{element_by_radius[radius]}"))
+        rings.append(ring)
+    lattice = HexLattice(pitch=pitch, outer_material=graphite, elements=rings,
+                         orientation=orientation, map_type='ring')
+
+    core = mpact_builder.build(lattice)
+    quad_width, quad_height = core.mod_dim['X'], core.mod_dim['Y']
+    num_rows, num_cols = len(core.assembly_map), len(core.assembly_map[0])
+    mpact_centres = {}
+    for i, row in enumerate(core.assembly_map):
+        for j, assembly in enumerate(row):
+            if assembly is None:
+                continue
+            for pin in assembly.pins:
+                mesh = pin.pinmesh
+                if isinstance(mesh, GeneralCylindricalPinMesh):
+                    # MPACT core is centred on the lattice centre; gcyl bounds are relative to the hex centre
+                    x = (j - 0.5 * num_cols) * quad_width - mesh.xMin
+                    y = (num_rows - 1 - i - 0.5 * num_rows) * quad_height - mesh.yMin
+                    element = element_by_radius[round(mesh.r[-1], 6)]
+                    mpact_centres.setdefault(element, set()).add((round(x, 6), round(y, 6)))
+
+    assert len(mpact_centres) == len(element_by_radius)
+    openmc_lattice = next(iter(openmc_builder.build(lattice).cells.values())).fill
+    for element, centres in mpact_centres.items():
+        assert len(centres) == 1, f"quadrants of element {element} disagree on its centre: {centres}"
+        x, y = next(iter(centres))
+        (ix, ia, *_), local = openmc_lattice.find_element((x, y, 0.0))
+        assert isclose(local[0], 0.0, abs_tol=1e-6) and isclose(local[1], 0.0, abs_tol=1e-6), \
+            f"element {element} at ({x}, {y}) is not on an OpenMC lattice cell centre"
+        universe = openmc_lattice.get_universe((ix, ia))
+        radii = {round(r, 6) for r in _cylinder_radii(universe)}
+        assert {element_by_radius.get(r) for r in radii} == {element}, \
+            f"element {element} at ({x}, {y}) is element(s) {radii} in OpenMC"
 
 def test_hex_lattice_mpact_builder_x_oriented(hex_x_lattice, hex_lattice_mpact_specs, stack):
     geom_element = hex_x_lattice
