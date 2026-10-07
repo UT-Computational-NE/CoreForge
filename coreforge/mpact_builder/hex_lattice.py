@@ -174,12 +174,12 @@ class HexLattice(Builder[geometry_elements.HexLattice]):
                           (-2,  0),  # W face
                           (-1,  2)]  # NW face
         else:
-            face_steps = [( 2, -2),  # SE face
+            face_steps = [( 2, -1),  # SE face
                           ( 0, -2),  # S face
-                          (-2,  0),  # SW face
-                          (-2,  0),  # NW face
+                          (-2, -1),  # SW face
+                          (-2,  1),  # NW face
                           ( 0,  2),  # N face
-                          ( 2,  2)]  # NE face
+                          ( 2,  1)]  # NE face
 
         for ring_index, _ in enumerate(element.elements):
             radius = num_rings - ring_index - 1

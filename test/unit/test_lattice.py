@@ -2,10 +2,11 @@ import pytest
 from copy import deepcopy
 from math import isclose, sqrt
 
+import openmc
 from numpy.testing import assert_allclose
-from mpactpy import RectangularPinMesh, Pin
+from mpactpy import RectangularPinMesh, GeneralCylindricalPinMesh, Pin
 
-from coreforge.geometry_elements import RectLattice, HexLattice
+from coreforge.geometry_elements import RectLattice, HexLattice, CylindricalPinCell
 from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
@@ -216,8 +217,9 @@ def test_hex_lattice_mpact_ring_positions(hex_x_lattice, hex_y_lattice):
         (0, 2), (1, 4), (3, 4), (4, 2), (3, 0), (1, 0), (2, 2)
     ]
     assert builder._ring_to_offset_positions(hex_x_lattice) == [
-        (2, 4), (4, 2), (4, 0), (2, 0), (0, 0), (0, 2), (2, 2)
+        (2, 4), (4, 3), (4, 1), (2, 0), (0, 1), (0, 3), (2, 2)
     ]
+
 
 def test_hex_lattice_mpact_builder_x_oriented(hex_x_lattice, hex_lattice_mpact_specs, stack):
     geom_element = hex_x_lattice
