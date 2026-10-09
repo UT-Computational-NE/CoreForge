@@ -8,7 +8,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
+from coreforge.geometry_elements.pincell_stack import PinCellStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, Material, Water, unique_materials
 from coreforge.utils import TolerantEqualityMixin
@@ -21,7 +21,7 @@ class PNT(CoreElement):
     ----------
     tube : PNT.Tube
         Inner transport tube specification.
-    terminus : CylindricalStack
+    terminus : PinCellStack
         Cylindrical segments below the transport tube, ordered from bottom to top.
         The terminus ``bottom_pos`` and outer material are ignored.
     bottom_pos : float, optional
@@ -39,7 +39,7 @@ class PNT(CoreElement):
     ----------
     tube : PNT.Tube
         Inner transport tube specification.
-    terminus : CylindricalStack
+    terminus : PinCellStack
         Cylindrical terminus segments.
     bottom_pos : float
         Axial position of the bottom of the complete PNT [cm].
@@ -132,7 +132,7 @@ class PNT(CoreElement):
         return self._tube
 
     @property
-    def terminus(self) -> CylindricalStack:
+    def terminus(self) -> PinCellStack:
         return self._terminus
 
     @property
@@ -161,7 +161,7 @@ class PNT(CoreElement):
 
     def __init__(self,
                  tube:           Tube,
-                 terminus:       CylindricalStack,
+                 terminus:       PinCellStack,
                  bottom_pos:     float = 0.0,
                  wrapper:        Optional[Wrapper] = None,
                  outer_material: Optional[Material] = None,
@@ -248,12 +248,12 @@ class PNT(CoreElement):
         materials.append(self.outer_material)
         return unique_materials(materials)
 
-    def as_stack(self) -> CylindricalStack:
+    def as_stack(self) -> PinCellStack:
         """Return the PNT as a cylindrical stack.
 
         Returns
         -------
-        CylindricalStack
+        PinCellStack
             PNT segments ordered from bottom to top.
         """
 
@@ -273,7 +273,7 @@ class PNT(CoreElement):
                     self.tube.length - self.wrapper.length,
                 ))
 
-        return CylindricalStack(segments=segments, name=self.name, bottom_pos=self.bottom_pos)
+        return PinCellStack(segments=segments, name=self.name, bottom_pos=self.bottom_pos)
 
     @staticmethod
     def build_tube_pincell(tube:           Tube,
@@ -323,14 +323,14 @@ class PNT(CoreElement):
         )
 
     @staticmethod
-    def build_terminus_stack(terminus:       CylindricalStack,
+    def build_terminus_stack(terminus:       PinCellStack,
                              outer_material: Optional[Material] = None,
-                             name:           str = "pnt_terminus") -> CylindricalStack:
+                             name:           str = "pnt_terminus") -> PinCellStack:
         """Build a PNT-local copy of the terminus.
 
         Parameters
         ----------
-        terminus : CylindricalStack
+        terminus : PinCellStack
             Source terminus segments. Its ``bottom_pos`` and segment outer
             materials are ignored.
         outer_material : Material, optional
@@ -341,7 +341,7 @@ class PNT(CoreElement):
 
         Returns
         -------
-        CylindricalStack
+        PinCellStack
             Terminus with its original bounded zones and lengths, a zero local
             bottom position, and the supplied common outer material.
         """
@@ -359,4 +359,4 @@ class PNT(CoreElement):
             )
             segments.append(Stack.Segment(pincell, segment.length))
 
-        return CylindricalStack(segments=segments, name=name, bottom_pos=0.0)
+        return PinCellStack(segments=segments, name=name, bottom_pos=0.0)

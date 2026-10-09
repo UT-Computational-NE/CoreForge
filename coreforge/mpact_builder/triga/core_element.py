@@ -56,8 +56,10 @@ class CoreElement(Builder[TCoreElement], ABC):
         element: TCoreElement,
         x0: float = 0.0,
         y0: float = 0.0,
-    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+    ) -> Tuple[geometry_elements.PinCellStack, Stack.Specs]:
         """Build the element stack and corresponding stack specs.
+
+        Source pin cells are not modified when applying placement offsets.
 
         Parameters
         ----------
@@ -70,7 +72,7 @@ class CoreElement(Builder[TCoreElement], ABC):
 
         Returns
         -------
-        Tuple[geometry_elements.CylindricalStack, Stack.Specs]
+        Tuple[geometry_elements.PinCellStack, Stack.Specs]
             The stack representation of the element and corresponding stack specs.
         """
         stack, stack_specs = self._build_stack_and_specs(element)
@@ -78,7 +80,7 @@ class CoreElement(Builder[TCoreElement], ABC):
         if x0 == 0.0 and y0 == 0.0:
             return stack, stack_specs
 
-        translated_stack = stack.translate(x0, y0)
+        translated_stack = stack.translate(dx=x0, dy=y0)
         translated_segment_specs = {
             translated_segment: stack_specs.segment_specs.get(original_segment)
             for original_segment, translated_segment
@@ -92,6 +94,6 @@ class CoreElement(Builder[TCoreElement], ABC):
     def _build_stack_and_specs(
         self,
         element: TCoreElement,
-    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+    ) -> Tuple[geometry_elements.PinCellStack, Stack.Specs]:
         """Build an untranslated element stack and its corresponding specs."""
         raise NotImplementedError

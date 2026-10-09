@@ -7,7 +7,7 @@ from typing import Dict, List, Optional, TypedDict, Union
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
+from coreforge.geometry_elements.pincell_stack import PinCellStack
 from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, Cd, Material, Water, unique_materials
@@ -1372,7 +1372,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
         pincell: Union[Pincell, SimplifiedPincell],
         lengths: Dict[str, List[float]],
         bottom_pos: float,
-    ) -> CylindricalStack:
+    ) -> PinCellStack:
         """Return a cylindrical stack from ordered pincell and length mappings."""
 
         segments = [
@@ -1384,13 +1384,13 @@ class ModifiedThreeElementIrradiator(CoreElement):
             len(region_pincells) == len(lengths[name])
             for name, region_pincells in pincell.items()
         )
-        return CylindricalStack(
+        return PinCellStack(
             segments=segments,
             name=self.name,
             bottom_pos=bottom_pos,
         )
 
-    def as_detailed_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+    def as_detailed_stack(self, bottom_pos: float = 0.0) -> PinCellStack:
         """Return the detailed irradiator as a bottom-to-top cylindrical stack.
 
         Parameters
@@ -1405,7 +1405,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
             bottom_pos,
         )
 
-    def as_simplified_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+    def as_simplified_stack(self, bottom_pos: float = 0.0) -> PinCellStack:
         """Return the simplified irradiator as a ten-region cylindrical stack.
 
         Parameters
@@ -1417,7 +1417,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
         pincell, lengths = self._get_simplified_geometry()
         return self._as_stack(pincell, lengths, bottom_pos)
 
-    def as_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+    def as_stack(self, bottom_pos: float = 0.0) -> PinCellStack:
         """Return the selected irradiator geometry as a cylindrical stack.
 
         Parameters

@@ -102,7 +102,7 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
 
     def _build_stack_and_specs(self,
                                element: geometry_elements_triga_netl.SourceHolder,
-    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+    ) -> Tuple[geometry_elements.PinCellStack, Stack.Specs]:
 
         stack = element.as_stack()
 

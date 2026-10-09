@@ -7,7 +7,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
+from coreforge.geometry_elements.pincell_stack import PinCellStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Al6061T6, Material, Water, unique_materials
 from coreforge.utils import TolerantEqualityMixin
@@ -143,7 +143,7 @@ class CentralThimble(CoreElement):
         ]
         return unique_materials(materials)
 
-    def as_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+    def as_stack(self, bottom_pos: float = 0.0) -> PinCellStack:
         """ A method for getting a copy of the Central Thimble as a Stack
 
         Parameters
@@ -153,11 +153,11 @@ class CentralThimble(CoreElement):
 
         Returns
         -------
-        CylindricalStack
+        PinCellStack
             The Central Thimble as a Stack
         """
 
-        return CylindricalStack(segments   = [Stack.Segment(self.pincell["thimble"], self.length)],
+        return PinCellStack(segments   = [Stack.Segment(self.pincell["thimble"], self.length)],
                                 name       = self.name,
                                 bottom_pos = bottom_pos)
 

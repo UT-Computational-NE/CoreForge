@@ -8,7 +8,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
+from coreforge.geometry_elements.pincell_stack import PinCellStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, Material, Water, unique_materials
 from coreforge.utils import TolerantEqualityMixin
@@ -184,7 +184,7 @@ class SourceHolder(CoreElement):
         ]
         return unique_materials(materials)
 
-    def as_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+    def as_stack(self, bottom_pos: float = 0.0) -> PinCellStack:
         """ A method for getting a copy of the Source Holder as a Stack
 
         Parameters
@@ -194,14 +194,14 @@ class SourceHolder(CoreElement):
 
         Returns
         -------
-        CylindricalStack
+        PinCellStack
             The Source Holder as a Stack
         """
         below_cavity_length = (self.length / 2.0) + self.cavity.axial_offset - (self.cavity.length / 2.0)
         above_cavity_length = (self.length / 2.0) - self.cavity.axial_offset - (self.cavity.length / 2.0)
 
         pincell = self.pincell
-        return CylindricalStack(segments   = [Stack.Segment(pincell["solid"], below_cavity_length),
+        return PinCellStack(segments   = [Stack.Segment(pincell["solid"], below_cavity_length),
                                               Stack.Segment(pincell["cavity"], self.cavity.length),
                                               Stack.Segment(pincell["solid"], above_cavity_length)],
                                 name       = self.name,

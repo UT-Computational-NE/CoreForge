@@ -3,7 +3,7 @@ from __future__ import annotations
 from math import sqrt
 from typing import ClassVar, Dict, List, Tuple, TypeAlias
 
-from coreforge.geometry_elements import CylindricalStack, GeometryElement, HexLattice
+from coreforge.geometry_elements import PinCellStack, GeometryElement, HexLattice
 from coreforge.materials import Material, unique_materials
 from coreforge.geometry_elements.triga import CoreElement, FuelElement, GraphiteElement
 from coreforge.geometry_elements.triga.netl.central_thimble import CentralThimble
@@ -41,7 +41,7 @@ class Core(GeometryElement):
         G-01, G-07, G-13, G-19, G-25, G-31). Any unspecified, non-reserved
         locations are set to ``None``. Supported contents are fuel elements,
         graphite elements, source holders, PNTs, three-element irradiators,
-        and cylindrical stacks.
+        and pin-cell stacks.
     three_element_irradiator : Loadable, optional
         Loadable spanning locations E-11, F-13, and F-14. When provided, those
         locations are conditionally reserved and must not contain another
@@ -117,10 +117,10 @@ class Core(GeometryElement):
     ]
 
     Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | ThreeElementIrradiator | \
-                            ModifiedThreeElementIrradiator | CylindricalStack
+                            ModifiedThreeElementIrradiator | PinCellStack
     ControlRod: TypeAlias = TransientRod | FuelFollowerControlRod
     Fixture:    TypeAlias = CentralThimble | TransientRod | FuelFollowerControlRod
-    Element:    TypeAlias = CoreElement | CylindricalStack
+    Element:    TypeAlias = CoreElement | PinCellStack
 
     THREE_ELEMENT_LOCATIONS: ClassVar[List[str]] = ["E-11", "F-13", "F-14"]
     RESERVED_LOCATIONS: ClassVar[List[str]] = ["A-01", "C-01", "C-07", "D-06", "D-14",

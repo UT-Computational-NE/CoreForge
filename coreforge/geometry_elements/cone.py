@@ -7,7 +7,7 @@ from typing import Any, List, Optional
 from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
+from coreforge.geometry_elements.pincell_stack import PinCellStack
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Material, unique_materials
@@ -155,7 +155,7 @@ class OneSidedCone(GeometryElement):
                  bottom_pos:    float = 0.0,
                  stack_options: Optional[StackOptions] = None,
                  direction:     str = "up",
-    ) -> CylindricalStack:
+    ) -> PinCellStack:
         """Convert the cone into a volume-preserving stack of cylinders.
 
         The cone is approximated by Z-axis aligned cylinders, one per axial slice.
@@ -175,7 +175,7 @@ class OneSidedCone(GeometryElement):
 
         Returns
         -------
-        CylindricalStack
+        PinCellStack
             Stack approximating the cone.
         """
 
@@ -203,7 +203,7 @@ class OneSidedCone(GeometryElement):
         if direction == "down":
             segments = list(reversed(segments))
 
-        return CylindricalStack(segments=segments, name=self.name, bottom_pos=bottom_pos)
+        return PinCellStack(segments=segments, name=self.name, bottom_pos=bottom_pos)
 
 
     def _determine_segment_lengths(self, stack_options: StackOptions) -> List[float]:

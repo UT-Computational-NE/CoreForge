@@ -174,7 +174,7 @@ class ModifiedThreeElementIrradiator(
     def _build_stack_and_specs(
         self,
         element: geometry_elements_triga_netl.ModifiedThreeElementIrradiator,
-    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+    ) -> Tuple[geometry_elements.PinCellStack, Stack.Specs]:
         """Return the irradiator stack and its segment specifications."""
 
         stack = element.as_stack(bottom_pos=0.0)

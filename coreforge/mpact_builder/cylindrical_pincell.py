@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing import Optional, List
-from dataclasses import dataclass
+from typing import Dict, Optional, List
+from dataclasses import dataclass, field
 
 import mpactpy
 from mpactpy.utils import RadialDivisionType
@@ -117,7 +117,7 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
 
 
     class Specs(BuilderSpecs):
-        """Building specifications for CylindricalPinCells.
+        """Building specifications for CylindricalPinCell.
 
         Parameters
         ----------
@@ -277,3 +277,75 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         core     = mpactpy.Core([[assembly]])
 
         return core
+
+
+@register_builder(geometry_elements.CylindricalPinCells)
+class CylindricalPinCells(Builder[geometry_elements.CylindricalPinCells]):
+    """An MPACT builder for a collection of cylindrical pin cells.
+
+    Currently only the first pin cell is built. Later layers and their overlap
+    precedence are ignored.
+
+    TODO: Construction of multiple pin cells is future work.
+
+    Parameters
+    ----------
+    specs : Optional[Specs]
+        Specifications for building the constituent pin cells.
+
+    Attributes
+    ----------
+    specs : Specs
+        Specifications retained for the constituent pin cells.
+    """
+
+    @dataclass
+    class Specs(BuilderSpecs):
+        """Building specifications for a collection of cylindrical pin cells.
+
+        Attributes
+        ----------
+        pincell_specs : Dict[geometry_elements.CylindricalPinCell, CylindricalPinCell.Specs]
+            Specifications keyed by constituent pin cell. Missing entries use
+            the single-pin builder defaults.
+        """
+
+        pincell_specs: Dict[
+            geometry_elements.CylindricalPinCell, CylindricalPinCell.Specs
+        ] = field(default_factory=dict)
+
+    def __init__(self, specs: Optional[Specs] = None):
+        super().__init__(specs)
+
+    def default_specs(self) -> Specs:
+        return self.Specs()
+
+    @property
+    def specs(self) -> Specs:
+        return self._specs
+
+    @specs.setter
+    def specs(self, specs: Optional[Specs]) -> None:
+        self._specs = specs if specs is not None else self.Specs()
+
+    def build(self,
+              element: geometry_elements.CylindricalPinCells,
+              bounds: Optional[Bounds] = None) -> mpactpy.Core:
+        """Build only the first constituent pin cell using its specifications.
+
+        Parameters
+        ----------
+        element : geometry_elements.CylindricalPinCells
+            Ordered pin-cell layers. All layers after the first are ignored.
+        bounds : Optional[Bounds]
+            Bounds passed to the single-pin builder. If omitted, that builder's
+            defaults apply to the first pin cell.
+
+        Returns
+        -------
+        mpactpy.Core
+            Geometry representing only the first pin cell, not the full layered
+            collection.
+        """
+        pincell = element.pincells[0]
+        return CylindricalPinCell(self.specs.pincell_specs.get(pincell)).build(pincell, bounds)

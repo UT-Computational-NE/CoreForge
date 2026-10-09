@@ -1,6 +1,6 @@
 from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any, List, TypeVar
+from typing import Any, List, Optional, TypeVar
 
 from coreforge.materials import Material
 
@@ -26,6 +26,30 @@ class GeometryElement(ABC):
 
     def __init__(self, name: str = ""):
         self.name = name
+
+    def overlay(self, other: Optional[GeometryElement]) -> GeometryElement:
+        """Return new geometry with ``other`` overlaid onto this element.
+
+        Parameters
+        ----------
+        other : GeometryElement, optional
+            Higher-priority geometry element. ``None`` returns a deep copy
+            of this element.
+
+        Returns
+        -------
+        GeometryElement
+            New geometry produced by the registered rule for the ordered
+            operand types, using deep copies of the inputs.
+
+        Raises
+        ------
+        NotImplementedError
+            If no overlay rule supports the ordered pair of geometry types.
+        """
+        from coreforge.geometry_elements.overlay import overlay
+
+        return overlay(self, other)
 
     @abstractmethod
     def __eq__(self: T, other: Any) -> bool:

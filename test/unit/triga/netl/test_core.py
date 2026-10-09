@@ -20,7 +20,7 @@ def core(central_thimble, transient_rod, control_rod, source_holder, pnt,
          three_element_irradiator, fuel_element, graphite_element):
     fuel = lambda: deepcopy(fuel_element)
     graphite = lambda: deepcopy(graphite_element)
-    cylindrical_stack = lambda: graphite().as_stack(
+    pincell_stack = lambda: graphite().as_stack(
         bottom_pos = -0.5 * graphite_element.graphite_meat.length - graphite_element.lower_end_fitting.length
     )
     source = lambda: deepcopy(source_holder)
@@ -39,7 +39,7 @@ def core(central_thimble, transient_rod, control_rod, source_holder, pnt,
     core_loading |= fill(["D-01", "D-02", "D-04", "D-05",
                           "D-07", "D-08", "D-09", "D-10", "D-11", "D-12",
                           "D-13", "D-15", "D-16", "D-17", "D-18"], fuel)
-    core_loading["D-03"] = cylindrical_stack()
+    core_loading["D-03"] = pincell_stack()
 
     core_loading |= fill(["E-01", "E-02", "E-03", "E-04", "E-05", "E-06",
                           "E-07", "E-08", "E-09", "E-10", "E-12",

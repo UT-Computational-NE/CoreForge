@@ -9,7 +9,7 @@ from mpactpy.utils import equal_volume_ring_radii, relative_round, ROUNDING_RELA
 
 from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
+from coreforge.geometry_elements.pincell_stack import PinCellStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, B4C, Material, SS304, UZrH, Water, Zr, unique_materials
 from coreforge.utils import TolerantEqualityMixin
@@ -575,7 +575,7 @@ class FuelFollowerControlRod(CoreElement):
         ]
         return unique_materials(materials)
 
-    def as_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+    def as_stack(self, bottom_pos: float = 0.0) -> PinCellStack:
         """ A method for getting a copy of the Fuel Follower Control Rod as a Stack
 
         Parameters
@@ -585,7 +585,7 @@ class FuelFollowerControlRod(CoreElement):
 
         Returns
         -------
-        CylindricalStack
+        PinCellStack
             The Fuel Follower Control Rod as a Stack
         """
 
@@ -594,7 +594,7 @@ class FuelFollowerControlRod(CoreElement):
         fuel_segments = [Stack.Segment(fuel_pincell, fuel_region_thickness)
                          for fuel_pincell in reversed(pincell["fuel_follower"])]
 
-        return CylindricalStack(name       = self.name,
+        return PinCellStack(name       = self.name,
                                 bottom_pos = bottom_pos,
                                 segments   = [
             Stack.Segment(pincell["lower_element_plug"], self.lower_element_plug.thickness),

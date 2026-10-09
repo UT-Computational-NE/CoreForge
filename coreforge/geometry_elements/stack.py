@@ -5,6 +5,7 @@ from math import isclose
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
+from coreforge.geometry_elements.overlay import register_overlay
 from coreforge.materials import Material, unique_materials
 
 TStack = TypeVar("TStack", bound="Stack")
@@ -219,3 +220,59 @@ class Stack(GeometryElement):
             return None
         sliced_stack, _ = result
         return sliced_stack
+
+
+@register_overlay(Stack, Stack)
+def _overlay_stacks(lower: Stack, upper: Stack) -> Stack:
+    """Overlay stacks on the union of their absolute axial boundaries.
+
+    Parameters
+    ----------
+    lower : Stack
+        Lower-priority stack, deep-copied by the overlay dispatcher.
+    upper : Stack
+        Higher-priority stack, deep-copied by the overlay dispatcher.
+
+    Returns
+    -------
+    Stack
+        New ordinary stack spanning both inputs.
+
+    Raises
+    ------
+    AssertionError
+        If an axial interval is covered by neither stack, or an overlapping
+        segment's overlay rule rejects the geometry.
+    NotImplementedError
+        If no overlay rule supports an overlapping pair of segment elements.
+    """
+    regions_by_stack = []
+    for stack in (lower, upper):
+        regions = []
+        start = stack.bottom_pos
+        for segment in stack.segments:
+            stop = start + segment.length
+            regions.append((start, stop, segment.element))
+            start = stop
+        regions_by_stack.append(regions)
+
+    boundaries = sorted({position for regions in regions_by_stack
+                         for start, stop, _ in regions for position in (start, stop)})
+    lower_regions, upper_regions = regions_by_stack
+    segments = []
+    for start, stop in zip(boundaries, boundaries[1:]):
+        lower_element = next((element for bottom, top, element in lower_regions
+                              if bottom <= start and stop <= top), None)
+        upper_element = next((element for bottom, top, element in upper_regions
+                              if bottom <= start and stop <= top), None)
+        if lower_element is None:
+            element = upper_element
+        elif upper_element is None:
+            element = lower_element
+        else:
+            element = lower_element.overlay(upper_element)
+        assert element is not None, \
+            f"Stacks leave an disjointed (non-overlapping) axial interval [{start}, {stop}]."
+        segments.append(Stack.Segment(element=element, length=stop - start))
+
+    return Stack(segments=segments, name=lower.name, bottom_pos=boundaries[0])

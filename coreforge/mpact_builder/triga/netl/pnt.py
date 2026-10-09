@@ -110,7 +110,7 @@ class PNT(CoreElement[geometry_elements_triga_netl.PNT]):
     def _build_stack_and_specs(
         self,
         element: geometry_elements_triga_netl.PNT,
-    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+    ) -> Tuple[geometry_elements.PinCellStack, Stack.Specs]:
         """Return the PNT stack and its corresponding segment specifications."""
 
         stack = element.as_stack()

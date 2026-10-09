@@ -2,7 +2,7 @@ from typing import Tuple
 
 import openmc
 
-from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
+from coreforge.geometry_elements.pincell_stack import PinCellStack
 from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder, build
 from coreforge.shapes import Hexagon
@@ -284,8 +284,8 @@ def build_core_element(
         element_region = element_region & ~grid_regions if grid_regions else element_region
         element_cell   = openmc.Cell(fill=build(element), region=element_region)
         z_translation  = bottom_z
-        # CylindricalStacks and PNTs already use element.bottom_pos, so remove it from the translation
-        if isinstance(element, (CylindricalStack, geometry_elements_triga_netl.PNT)):
+        # PinCellStacks and PNTs already use element.bottom_pos, so remove it from the translation
+        if isinstance(element, (PinCellStack, geometry_elements_triga_netl.PNT)):
             z_translation -= element.bottom_pos
         element_cell.translation = (element_specs.x0, element_specs.y0, z_translation)
         cells.append(element_cell)

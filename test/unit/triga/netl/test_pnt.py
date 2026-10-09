@@ -3,7 +3,7 @@ from math import isclose
 
 import pytest
 
-from coreforge.geometry_elements import CylindricalPinCell, CylindricalStack, Stack
+from coreforge.geometry_elements import CylindricalPinCell, PinCellStack, Stack
 from coreforge.geometry_elements.triga.netl import PNT
 from coreforge.materials import Air, Al6061T6, Cd, Water, unique_materials
 import coreforge.mpact_builder as mpact_builder
@@ -31,7 +31,7 @@ def pnt():
 
     narrow_radius = 0.5 * 1.250 * CM_PER_INCH
     wide_radius = 0.5 * 1.435 * CM_PER_INCH
-    terminus = CylindricalStack(
+    terminus = PinCellStack(
         segments=[
             Stack.Segment(solid_section(wide_radius, aluminum, "lower_section"), 8.3259),
             Stack.Segment(solid_section(narrow_radius, aluminum, "terminus_connecting_tube"), 4.1725),

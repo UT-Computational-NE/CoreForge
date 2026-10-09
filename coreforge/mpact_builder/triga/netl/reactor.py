@@ -5,7 +5,7 @@ from math import ceil, hypot, inf, isclose, isfinite, isinf, sqrt
 
 import openmc
 import mpactpy
-from mpactpy.utils import ROUNDING_RELATIVE_TOLERANCE as TOL
+from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge import geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
@@ -21,7 +21,7 @@ from coreforge.mpact_builder.stack import Stack
 import coreforge.mpact_builder.stack as stack_builder
 from coreforge.mpact_builder.mpact_builder import build, get_builder, register_builder
 from coreforge.mpact_builder.triga.core_element import CoreElement
-from coreforge.mpact_builder.triga.cylindrical_stack import CylindricalStack
+from coreforge.mpact_builder.triga.pincell_stack import PinCellStack
 from coreforge.mpact_builder.triga.fuel_element import FuelElement
 from coreforge.mpact_builder.triga.graphite_element import GraphiteElement
 from .central_thimble import CentralThimble
@@ -61,7 +61,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
     CoreElementSpecs: TypeAlias = (FuelElement.Specs |
                                    GraphiteElement.Specs |
                                    CentralThimble.Specs |
-                                   CylindricalStack.Specs |
+                                   PinCellStack.Specs |
                                    ModifiedThreeElementIrradiator.Specs |
                                    PNT.Specs |
                                    SourceHolder.Specs |
@@ -118,7 +118,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
 
         def apply_outer_bounding_radius(
             self,
-            stack:       geometry_elements.CylindricalStack,
+            stack:       geometry_elements.Stack,
             stack_specs: Stack.Specs,
         ) -> Stack.Specs:
             """Apply the requested outer radial mesh to translated stack segments."""
@@ -712,7 +712,7 @@ def build_core_element(
     if builder_specs.unionize_radial_mesh:
         old_segments = stack.segments
         old_specs = specs
-        stack = stack.unionize_radial_mesh()
+        stack = _unionize_radial_mesh(stack)
         segment_specs = {new_segment: old_specs.segment_specs.get(old_segment)
                          for new_segment, old_segment in zip(stack.segments, old_segments)}
         specs = Stack.Specs(segment_specs=segment_specs, num_procs=old_specs.num_procs)
@@ -720,6 +720,32 @@ def build_core_element(
     specs = builder_specs.apply_outer_bounding_radius(stack, specs)
 
     return stack, specs
+
+
+# TODO: Revisit radial-unionization ownership; this should not live in the reactor builder.
+def _unionize_radial_mesh(stack: geometry_elements.Stack) -> geometry_elements.Stack:
+    """Unionize coaxial groups in a reactor-cell stack without moving segments.
+
+    Complete core cells need not be coaxial: a three-element irradiator and its
+    upper grid penetration are translated, but the lower penetration is not.
+    Each center group therefore receives its own common radial mesh.
+    """
+    segments_by_center = {}
+    for index, segment in enumerate(stack.segments):
+        pincell = segment.element
+        center = (relative_round(pincell.x0, TOL), relative_round(pincell.y0, TOL))
+        segments_by_center.setdefault(center, []).append((index, segment))
+
+    segments = list(stack.segments)
+    for indexed_segments in segments_by_center.values():
+        coaxial_stack = geometry_elements.PinCellStack(
+            segments=[segment for _, segment in indexed_segments],
+            name=stack.name,
+        ).unionize_radial_mesh()
+        for (index, _), segment in zip(indexed_segments, coaxial_stack.segments):
+            segments[index] = segment
+
+    return type(stack)(segments=segments, name=stack.name, bottom_pos=stack.bottom_pos)
 
 
 def _get_grid_plate_specs(
@@ -815,7 +841,7 @@ def _build_voxelized_core_location(
 def _build_core_location_with_water_hole(
     geometry_specs: GeometryElementCoreCellSpecs,
     builder_specs:  Reactor.CoreCellSpecs,
-) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+) -> Tuple[geometry_elements.Stack, Stack.Specs]:
     upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
     axial_bounds = cast(Interval, builder_specs.axial_bounds)
     outer_region_specs = cast(CoreElement.SegmentSpecs, builder_specs.outer_region_specs)
@@ -833,7 +859,7 @@ def _build_core_location_with_water_hole(
         length  = upper_grid_plate.axial_bounds.upper - lower_grid_plate.axial_bounds.lower + 2 * buffer,
     )
 
-    stack = geometry_elements.CylindricalStack(
+    stack = geometry_elements.Stack(
         segments   = [segment],
         name       = f"{geometry_specs.location}_outer_stack",
         bottom_pos = stack_bottom)
@@ -847,7 +873,7 @@ def _build_core_location_with_water_hole(
 def _build_core_location_with_element(
     geometry_specs: GeometryElementCoreCellSpecs,
     builder_specs:  Reactor.CoreCellSpecs,
-) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+) -> Tuple[geometry_elements.Stack, Stack.Specs]:
     upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
     element_placement = cast(GeometryElementCoreCellSpecs.ElementSpecs, geometry_specs.element)
     element = element_placement.geometry
@@ -889,7 +915,7 @@ def _build_core_location_with_element(
     )
 
     segments = [bottom_segment] + element_stack.segments + [top_segment]
-    stack = geometry_elements.CylindricalStack(
+    stack = geometry_elements.Stack(
         segments   = segments,
         name       = f"{geometry_specs.location}_element_stack",
         bottom_pos = stack_bottom)
@@ -933,10 +959,10 @@ def _build_outer_pincell(
 
 
 def _add_grid_plates_to_stack(
-    stack:          geometry_elements.CylindricalStack,
+    stack:          geometry_elements.Stack,
     stack_specs:    Stack.Specs,
     geometry_specs: GeometryElementCoreCellSpecs,
-) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+) -> Tuple[geometry_elements.Stack, Stack.Specs]:
     upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
 
     for grid_plate in (lower_grid_plate, upper_grid_plate):
@@ -976,10 +1002,10 @@ def _add_grid_plates_to_stack(
 
 
 def _build_grid_stack_and_specs(
-    stack:            geometry_elements.CylindricalStack,
+    stack:            geometry_elements.Stack,
     stack_specs:      Stack.Specs,
     grid_plate_specs: GeometryElementGridPlateSpecs,
-) -> Optional[Tuple[geometry_elements.CylindricalStack, Stack.Specs]]:
+) -> Optional[Tuple[geometry_elements.Stack, Stack.Specs]]:
 
     plate_top = grid_plate_specs.axial_bounds.upper
     plate_bottom = grid_plate_specs.axial_bounds.lower

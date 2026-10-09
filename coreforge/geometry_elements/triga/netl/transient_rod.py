@@ -8,7 +8,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
+from coreforge.geometry_elements.pincell_stack import PinCellStack
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, B4C, Material, Water, unique_materials
 from coreforge.utils import TolerantEqualityMixin
@@ -341,7 +341,7 @@ class TransientRod(CoreElement):
         ]
         return unique_materials(materials)
 
-    def as_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+    def as_stack(self, bottom_pos: float = 0.0) -> PinCellStack:
         """ A method for getting a copy of the Transient Rod as a Stack
 
         Parameters
@@ -351,12 +351,12 @@ class TransientRod(CoreElement):
 
         Returns
         -------
-        CylindricalStack
+        PinCellStack
             The Transient Rod as a Stack
         """
 
         pincell = self.pincell
-        return CylindricalStack(
+        return PinCellStack(
             segments   = [Stack.Segment(pincell["lower_element_plug"], self.lower_element_plug.thickness),
                           Stack.Segment(pincell["air_follower"], self.air_follower.thickness),
                           Stack.Segment(pincell["lower_magneform_fitting"], self.lower_magneform_fitting.thickness),

@@ -7,6 +7,7 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.lattice import Lattice
 from coreforge.materials.material import Material
+from coreforge.shapes import Rectangle
 
 class RectLattice(Lattice):
     """ A concrete lattice class for rectangular lattices
@@ -36,6 +37,12 @@ class RectLattice(Lattice):
     elements : List[List[GeometryElement]]
         The geometry elements which fill the lattice.  The first dimension corresponds
         to the rows (top-to-bottom) and the second dimension correspond to the columns of a row.
+    cell_centers : List[List[Tuple[float, float]]]
+        Cell-center coordinates [cm] relative to the lattice origin, in the
+        same row/column order as ``elements``.
+    cell_shapes : List[List[Shape_2D]]
+        Rectangular cell footprints centered at their local origins, in the
+        same row/column order as ``elements``.
     """
 
     @property
@@ -47,6 +54,7 @@ class RectLattice(Lattice):
         pitch = (pitch, pitch) if isinstance(pitch, float) else pitch
         assert pitch[0] > 0.0 and pitch[1] > 0.0, f"pitch = {pitch}"
         self._pitch = pitch
+        self._update_cell_geometry()
 
     @property
     def shape(self) -> Tuple[int, int]:
@@ -68,7 +76,22 @@ class RectLattice(Lattice):
 
         self._elements = elements
         self._shape = shape
+        self._update_cell_geometry()
 
+    def _update_cell_geometry(self) -> None:
+        if not hasattr(self, '_elements'):
+            return  # Pitch is assigned before elements during initialization.
+
+        rows, columns = self.shape
+        pitch_x, pitch_y = self.pitch
+        self._cell_centers = [
+            [((column - 0.5 * (columns - 1)) * pitch_x,
+              (0.5 * (rows - 1) - row) * pitch_y)
+             for column in range(columns)]
+            for row in range(rows)
+        ]
+        cell_shape = Rectangle(w=pitch_x, h=pitch_y)
+        self._cell_shapes = [[cell_shape for _ in row] for row in self.elements]
 
     def __init__(self,
                  pitch:             Union[float, Tuple[float, float]],

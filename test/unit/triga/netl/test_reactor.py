@@ -190,9 +190,9 @@ def test_initialization(reactor, pool, reflector, shroud, rsr_cavity):
     assert reactor.get_materials() == unique_materials(expected)
 
 
-def test_cylindrical_stack_bottom_axial_position(reactor, fuel_element):
-    cylindrical_stack = fuel_element.as_stack(bottom_pos=-10.0)
-    assert reactor.get_element_bottom_axial_position(cylindrical_stack) == pytest.approx(-10.0)
+def test_pincell_stack_bottom_axial_position(reactor, fuel_element):
+    pincell_stack = fuel_element.as_stack(bottom_pos=-10.0)
+    assert reactor.get_element_bottom_axial_position(pincell_stack) == pytest.approx(-10.0)
 
 
 def test_equality_and_hash(reactor, unequal_reactor):

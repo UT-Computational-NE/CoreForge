@@ -7,7 +7,7 @@ from typing import List, Optional, TypedDict
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.cylindrical_pincell import CylindricalPinCell
-from coreforge.geometry_elements.cylindrical_stack import CylindricalStack
+from coreforge.geometry_elements.pincell_stack import PinCellStack
 from coreforge.geometry_elements.triga.core_element import CoreElement
 from coreforge.geometry_elements.stack import Stack
 from coreforge.materials import Air, Al6061T6, Material, Water, unique_materials
@@ -301,7 +301,7 @@ class ThreeElementIrradiator(CoreElement):
             self.outer_material,
         ])
 
-    def as_stack(self, bottom_pos: float = 0.0) -> CylindricalStack:
+    def as_stack(self, bottom_pos: float = 0.0) -> PinCellStack:
         """Return the irradiator as a cylindrical stack, ordered bottom to top.
 
         Parameters
@@ -322,7 +322,7 @@ class ThreeElementIrradiator(CoreElement):
                               self.outer_casing.solid_upper_end_thickness)
 
         pincell = self.pincell
-        return CylindricalStack(
+        return PinCellStack(
             segments=[
                 Stack.Segment(pincell["solid_end"],
                               self.outer_casing.solid_lower_end_thickness),

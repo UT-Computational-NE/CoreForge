@@ -1,12 +1,12 @@
 from .core_element import CoreElement
-from .cylindrical_stack import CylindricalStack
+from .pincell_stack import PinCellStack
 from .fuel_element import FuelElement
 from .graphite_element import GraphiteElement
 from . import netl
 
 __all__ = [
     "CoreElement",
-    "CylindricalStack",
+    "PinCellStack",
     "FuelElement",
     "GraphiteElement",
     "netl",
