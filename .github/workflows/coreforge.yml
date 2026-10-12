@@ -9,24 +9,28 @@ on:
 
 jobs:
   build-linux:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
 
+    # Use a pinned Miniforge instead of upgrading the runner's bundled
+    # Miniconda in place (auto-update-conda), which left its plugins
+    # incompatible with the new conda (CondaRequestHeader import errors).
     - name: Set Up Python and Conda
-      uses: conda-incubator/setup-miniconda@v2
+      uses: conda-incubator/setup-miniconda@fc2d68f6413eb2d87b895e92f8584b5b94a10167 # v3
       with:
-        auto-update-conda: true
-        python-version: 3.11
+        miniforge-version: "25.3.1-0"
+        auto-update-conda: false
+        python-version: "3.11"
         channels: conda-forge
+        conda-remove-defaults: "true"
 
     - name: Set Up and Configure Environment
       run: |
-        conda install -n base -y mamba -c conda-forge
         mamba create -n openmc-env -y python=3.11 openmc hdf5 mpi4py numpy scipy pandas -c conda-forge
         source $(conda info --base)/etc/profile.d/conda.sh && conda activate openmc-env
-        python -m pip install pylint pytest
+        python -m pip install "pylint==4.1.3" "pytest==9.1.1"
 
     - name: Install MPACTPy from Repo
       run: |
