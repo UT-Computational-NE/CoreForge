@@ -6,8 +6,9 @@ import openmc
 from numpy.testing import assert_allclose
 from mpactpy import RectangularPinMesh, GeneralCylindricalPinMesh, Pin
 
-from coreforge.geometry_elements import RectLattice, HexLattice, CylindricalPinCell
+from coreforge.geometry_elements import RectLattice, HexLattice, PinCellStack
 from coreforge.materials import unique_materials
+from coreforge.shapes import Circle, Rectangle, Hexagon
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
@@ -90,12 +91,29 @@ def test_rect_lattice_initialization(rect_lattice, stack, unequal_stack):
     assert geom_element.elements == [[None,  p1, None],
                                      [  p2,  p1,   p2],
                                      [None,  p1, None]]
+    assert_allclose(geom_element.cell_centers, [[(-8., 8.), (0., 8.), (8., 8.)],
+                                               [(-8., 0.), (0., 0.), (8., 0.)],
+                                               [(-8., -8.), (0., -8.), (8., -8.)]])
+    assert geom_element.cell_shapes == [[Rectangle(w=8., h=8.)] * 3 for _ in range(3)]
+    assert geom_element.cells_intersecting(Rectangle(w=2., h=2.)) == [(1, 1)]
+    assert geom_element.cells_intersecting(Rectangle(w=2., h=2.), center=(4., 0.)) == [(1, 1), (1, 2)]
+    assert geom_element.cells_intersecting(Rectangle(w=2., h=2.), center=(20., 0.)) == []
     expected = [geom_element.outer_material]
     for row in geom_element.elements:
         for element in row:
             if element is not None:
                 expected.extend(element.get_materials())
     assert geom_element.get_materials() == unique_materials(expected)
+
+    pin = stack.segments[0].element
+    lattice = RectLattice(pitch=8., outer_material=pin.outer_material, elements=[[pin, pin, None]])
+    upper = pin.translate(dx=2.)
+    overlaid = lattice.overlay(upper)
+    assert overlaid.elements[0][0] == pin
+    assert overlaid.elements[0][1].pincells[-1].x0 == 2.
+    assert overlaid.elements[0][2].x0 == -6.
+    assert lattice.elements[0][1] is pin
+    assert upper.x0 == 2.
 
 
 def test_rect_lattice_equality(rect_lattice, unequal_rect_lattice):
@@ -158,6 +176,13 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
     assert geom_element.num_rings == 2
     assert geom_element.orientation == "x"
     assert isclose(geom_element.pitch, 6.0)
+    r = 3. * sqrt(3.)
+    assert_allclose(geom_element.cell_centers[0], [(6., 0.), (3., -r), (-3., -r),
+                                                 (-6., 0.), (-3., r), (3., r)])
+    assert_allclose(geom_element.cell_centers[1], [(0., 0.)])
+    cell_shape = Hexagon(inner_radius=3., orientation='y')
+    assert geom_element.cell_shapes == [[cell_shape] * 6, [cell_shape]]
+    assert geom_element.cells_intersecting(Circle(0.1), center=(3., 0.)) == [(0, 0), (1, 0)]
     expected_elements = [[p1, p1, p1, p2, p1, p1], [p2]]
     for ring, expected_ring in zip(geom_element.elements, expected_elements):
         assert len(ring) == len(expected_ring)
@@ -175,6 +200,12 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
     assert geom_element.num_rings == 2
     assert geom_element.orientation == "y"
     assert isclose(geom_element.pitch, 6.0)
+    assert_allclose(geom_element.cell_centers[0], [(0., 6.), (r, 3.), (r, -3.),
+                                                 (0., -6.), (-r, -3.), (-r, 3.)])
+    assert_allclose(geom_element.cell_centers[1], [(0., 0.)])
+    cell_shape = Hexagon(inner_radius=3., orientation='x')
+    assert geom_element.cell_shapes == [[cell_shape] * 6, [cell_shape]]
+    assert geom_element.cells_intersecting(Circle(0.1), center=(0., 3.)) == [(0, 0), (1, 0)]
     expected_elements = [[p1, p1, p1, p1, p2, p1], [p2]]
     for ring, expected_ring in zip(geom_element.elements, expected_elements):
         assert len(ring) == len(expected_ring)
@@ -186,6 +217,11 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
             if element is not None:
                 expected.extend(element.get_materials())
     assert geom_element.get_materials() == unique_materials(expected)
+
+    overlaid = geom_element.overlay(PinCellStack(stack.segments).translate(dx=1., dy=1.))
+    assert overlaid.elements[-1][0].segments[0].element.pincells[-1].x0 == 1.
+    assert overlaid.elements[0][0].segments[0].element.pincells[-1].y0 == -5.
+    assert overlaid.elements[0][3] == geom_element.elements[0][3]
 
 def test_hex_lattice_equality(hex_x_lattice, hex_y_lattice):
     assert hex_x_lattice == deepcopy(hex_x_lattice)

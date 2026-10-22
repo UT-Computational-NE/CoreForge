@@ -31,7 +31,8 @@ class GraphiteElement(Builder[geometry_elements_triga.GraphiteElement]):
 
         lower_bound = openmc.ZPlane(height)
         upper_bound = openmc.ZPlane(height + element.graphite_meat.length)
-        cells.append(openmc.Cell(fill=build(element.graphite_pincell), region=+lower_bound & -upper_bound))
+        cells.append(openmc.Cell(fill=build(element.pincell["graphite"]),
+                                 region=+lower_bound & -upper_bound))
 
         height += element.graphite_meat.length
 

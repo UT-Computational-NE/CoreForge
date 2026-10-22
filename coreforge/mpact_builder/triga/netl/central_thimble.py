@@ -104,9 +104,9 @@ class CentralThimble(CoreElement[geometry_elements_triga_netl.CentralThimble]):
         return build(stack, stack_specs, bounds)
 
 
-    def build_stack_and_specs(self,
-                              element: geometry_elements_triga_netl.CentralThimble,
-    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+    def _build_stack_and_specs(self,
+                               element: geometry_elements_triga_netl.CentralThimble,
+    ) -> Tuple[geometry_elements.PinCellStack, Stack.Specs]:
 
         stack = element.as_stack()
         segment_specs = {stack.segments[0]: CoreElement.SegmentSpecs(

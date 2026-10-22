@@ -1,13 +1,17 @@
 from __future__ import annotations
 
-from typing import ClassVar, Dict, List, TypeAlias
+from typing import ClassVar, Dict, List, Tuple, TypeAlias
 
-from coreforge.geometry_elements import CylindricalStack, GeometryElement, HexLattice
+from coreforge.geometry_elements import PinCellStack, GeometryElement, HexLattice
 from coreforge.materials import Material, unique_materials
-from coreforge.geometry_elements.triga import FuelElement, GraphiteElement
+from coreforge.geometry_elements.triga import CoreElement, FuelElement, GraphiteElement
 from coreforge.geometry_elements.triga.netl.central_thimble import CentralThimble
 from coreforge.geometry_elements.triga.netl.fuel_follower_control_rod import FuelFollowerControlRod
+from coreforge.geometry_elements.triga.netl.modified_three_element_irradiator import \
+    ModifiedThreeElementIrradiator
+from coreforge.geometry_elements.triga.netl.pnt import PNT
 from coreforge.geometry_elements.triga.netl.source_holder import SourceHolder
+from coreforge.geometry_elements.triga.netl.three_element_irradiator import ThreeElementIrradiator
 from coreforge.geometry_elements.triga.netl.transient_rod import TransientRod
 
 
@@ -34,7 +38,13 @@ class Core(GeometryElement):
         Map of mutable locations to their contents; keys must be in ``RING_MAP``
         and not in the reserved locations (A-01, C-01, C-07, D-06, D-14,
         G-01, G-07, G-13, G-19, G-25, G-31). Any unspecified, non-reserved
-        locations are set to ``None``.
+        locations are set to ``None``. Supported contents are fuel elements,
+        graphite elements, source holders, PNTs, three-element irradiators,
+        and pin-cell stacks.
+    three_element_irradiator : Loadable, optional
+        Loadable spanning locations E-11, F-13, and F-14. When provided, those
+        locations are conditionally reserved and must not contain another
+        nonempty entry in ``loading``.
     name : str, optional
         Name for this core element.
 
@@ -56,6 +66,13 @@ class Core(GeometryElement):
         Material to fill unoccupied core locations.
     loading : Dict[str, Loadable | None]
         Map of mutable locations to their contents
+    three_element_irradiator : Loadable, optional
+        Loadable spanning the three conditionally reserved irradiation-facility
+        locations.
+    three_element_center : Tuple[float, float]
+        Radial centroid of the three irradiation-facility locations [cm],
+        relative to the core origin. Calculated whether or not the facility
+        is present.
     full_map : Dict[str, Element | None]
         Full map of core locations to their contents.
     lattice : HexLattice
@@ -99,12 +116,13 @@ class Core(GeometryElement):
         ["A-01"]
     ]
 
-    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | CylindricalStack
+    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | ThreeElementIrradiator | \
+                            ModifiedThreeElementIrradiator | PinCellStack
     ControlRod: TypeAlias = TransientRod | FuelFollowerControlRod
     Fixture:    TypeAlias = CentralThimble | TransientRod | FuelFollowerControlRod
-    Element:    TypeAlias = FuelElement | GraphiteElement | SourceHolder | CylindricalStack | \
-                            CentralThimble | TransientRod | FuelFollowerControlRod
+    Element:    TypeAlias = CoreElement | PinCellStack
 
+    THREE_ELEMENT_LOCATIONS: ClassVar[List[str]] = ["E-11", "F-13", "F-14"]
     RESERVED_LOCATIONS: ClassVar[List[str]] = ["A-01", "C-01", "C-07", "D-06", "D-14",
                                                "G-01", "G-07", "G-13", "G-19", "G-25", "G-31"]
 
@@ -141,6 +159,14 @@ class Core(GeometryElement):
         return self._loading
 
     @property
+    def three_element_irradiator(self) -> Loadable | None:
+        return self._three_element_irradiator
+
+    @property
+    def three_element_center(self) -> Tuple[float, float]:
+        return self._three_element_center
+
+    @property
     def full_map(self) -> Dict[str, Element | None]:
         return self._full_map
 
@@ -157,6 +183,7 @@ class Core(GeometryElement):
                  shim_2_rod:      FuelFollowerControlRod,
                  fill_material:   Material,
                  loading:         Dict[str, Loadable | None],
+                 three_element_irradiator: Loadable | None = None,
                  name:            str = "core") -> None:
         super().__init__(name)
         assert pitch > 0.0, "Core pitch must be positive."
@@ -167,13 +194,25 @@ class Core(GeometryElement):
         self._shim_1_rod      = shim_1_rod
         self._shim_2_rod      = shim_2_rod
         self._fill_material   = fill_material
-        self._loading    = dict(loading)
+        self._loading          = dict(loading)
+        self._three_element_irradiator = three_element_irradiator
 
         for location in self._loading:
             assert any(location in ring for ring in Core.RING_MAP), \
                 f"Invalid core location '{location}' in core loading."
             assert location not in Core.RESERVED_LOCATIONS, \
                 f"Core location '{location}' is reserved for control rods or central thimble."
+
+        if self.three_element_irradiator is not None:
+            conflicting_locations = [
+                location
+                for location in Core.THREE_ELEMENT_LOCATIONS
+                if self.loading.get(location) is not None
+            ]
+            assert not conflicting_locations, (
+                "Three-element irradiator locations must be empty in core loading: "
+                f"{conflicting_locations}."
+            )
 
         reserved = {
             "A-01": self.central_thimble,
@@ -192,7 +231,9 @@ class Core(GeometryElement):
         full_map: Dict[str, Core.Element | None] = {}
         for ring in Core.RING_MAP:
             for loc in ring:
-                if loc in reserved:
+                if self.three_element_irradiator is not None and loc in Core.THREE_ELEMENT_LOCATIONS:
+                    full_map[loc] = self.three_element_irradiator
+                elif loc in reserved:
                     full_map[loc] = reserved[loc]
                 else:
                     full_map[loc] = self._loading.get(loc, None)
@@ -204,6 +245,7 @@ class Core(GeometryElement):
                                    elements       = [[full_map[loc] for loc in ring]
                                                      for ring in Core.RING_MAP],
                                    map_type="ring")
+        self._three_element_center = self._calculate_three_element_center()
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -217,6 +259,7 @@ class Core(GeometryElement):
             and self.shim_1_rod == other.shim_1_rod
             and self.shim_2_rod == other.shim_2_rod
             and self.loading == other.loading
+            and self.three_element_irradiator == other.three_element_irradiator
             and self.fill_material == other.fill_material
         )
 
@@ -229,6 +272,7 @@ class Core(GeometryElement):
             self.shim_1_rod,
             self.shim_2_rod,
             tuple(sorted(self.loading.items())),
+            self.three_element_irradiator,
             self.fill_material,
         ))
 
@@ -238,3 +282,19 @@ class Core(GeometryElement):
             if element is not None:
                 materials.extend(element.get_materials())
         return unique_materials(materials)
+
+
+    def _calculate_three_element_center(self) -> Tuple[float, float]:
+        """Calculate the facility centroid from the lattice cell centers.
+
+        Returns
+        -------
+        Tuple[float, float]
+            Facility-center coordinates [cm] relative to the core origin.
+        """
+        centers = [center
+                   for locations, cell_centers in zip(Core.RING_MAP, self.lattice.cell_centers)
+                   for location, center in zip(locations, cell_centers)
+                   if location in Core.THREE_ELEMENT_LOCATIONS]
+        return (sum(x for x, _ in centers) / len(centers),
+                sum(y for _, y in centers) / len(centers))

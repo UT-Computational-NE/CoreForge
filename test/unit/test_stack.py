@@ -4,7 +4,7 @@ from math import isclose
 
 from numpy.testing import assert_allclose
 
-from coreforge.geometry_elements import Stack, CylindricalPinCell, CylindricalStack
+from coreforge.geometry_elements import Stack, CylindricalPinCell, PinCellStack
 from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
@@ -25,8 +25,8 @@ def unequal_stack(pincell):
                   Stack.Segment(element=pincell, length=4.0)])
 
 @pytest.fixture
-def cylindrical_stack(pincell):
-    return CylindricalStack([Stack.Segment(element=pincell, length=3.0),
+def pincell_stack(pincell):
+    return PinCellStack([Stack.Segment(element=pincell, length=3.0),
                              Stack.Segment(element=pincell, length=1.0),
                              Stack.Segment(element=pincell, length=4.0)])
 
@@ -55,26 +55,30 @@ def test_stack_initialization(stack, pincell):
     assert geom_element.segments[2].element == pincell
     assert geom_element.get_materials() == unique_materials(pincell.get_materials())
 
-def test_cylindrical_stack_initialization(cylindrical_stack, pincell, stack, salt, graphite):
-    geom_element = cylindrical_stack
+def test_pincell_stack_initialization(pincell_stack, pincell, stack, salt, graphite):
+    geom_element = pincell_stack
     assert geom_element.name == "stack"
     assert isclose(geom_element.bottom_pos, 0.0)
     assert isclose(geom_element.length, 8.0)
     assert len(geom_element.segments) == 3
     assert all(segment.element == pincell for segment in geom_element.segments)
     assert geom_element.outer_material == pincell.outer_material
+    assert geom_element.footprint is pincell.zones[-1].shape
 
-    with pytest.raises(AssertionError, match="must contain a CylindricalPinCell"):
-        CylindricalStack([Stack.Segment(element=stack, length=1.0)])
+    with pytest.raises(AssertionError, match="must contain a PinCell"):
+        PinCellStack([Stack.Segment(element=stack, length=1.0)])
 
     salt_outer = CylindricalPinCell(radii=[1.0], materials=[graphite, salt])
     also_salt_outer = CylindricalPinCell(radii=[2.0], materials=[salt, salt])
-    common_outer_stack = CylindricalStack([Stack.Segment(element=salt_outer, length=1.0),
+    common_outer_stack = PinCellStack([Stack.Segment(element=salt_outer, length=1.0),
                                            Stack.Segment(element=also_salt_outer, length=1.0)])
     assert common_outer_stack.outer_material == salt
+    assert common_outer_stack.footprint is also_salt_outer.zones[-1].shape
+    common_outer_stack.segments = common_outer_stack.segments[:1]
+    assert common_outer_stack.footprint is salt_outer.zones[-1].shape
 
     graphite_outer = CylindricalPinCell(radii=[1.0], materials=[salt, graphite])
-    mixed_outer_stack = CylindricalStack([Stack.Segment(element=salt_outer, length=1.0),
+    mixed_outer_stack = PinCellStack([Stack.Segment(element=salt_outer, length=1.0),
                                           Stack.Segment(element=graphite_outer, length=1.0)])
 
     with pytest.raises(AssertionError, match="must share a common outer material"):
@@ -131,22 +135,22 @@ def test_mpact_builder(stack, stack_mpact_specs, graphite):
         core = mpact_builder.build(geom_element)
 
 
-def test_cylindrical_stack_mpact_builder(cylindrical_stack, pincell_mpact_specs):
+def test_pincell_stack_mpact_builder(pincell_stack, pincell_mpact_specs):
     segment_specs = mpact_builder.Stack.Segment.Specs(builder_specs=pincell_mpact_specs)
-    specs = mpact_builder.triga.CylindricalStack.Specs(
-        {segment: segment_specs for segment in cylindrical_stack.segments}
+    specs = mpact_builder.triga.PinCellStack.Specs(
+        {segment: segment_specs for segment in pincell_stack.segments}
     )
 
-    builder_cls = mpact_builder.get_builder(cylindrical_stack)
-    assert builder_cls is mpact_builder.triga.CylindricalStack
+    builder_cls = mpact_builder.get_builder(pincell_stack)
+    assert builder_cls is mpact_builder.triga.PinCellStack
 
-    stack, stack_specs = builder_cls(specs).build_stack_and_specs(cylindrical_stack)
-    assert stack is cylindrical_stack
+    stack, stack_specs = builder_cls(specs).build_stack_and_specs(pincell_stack)
+    assert stack is pincell_stack
     assert stack_specs is specs
 
-    core = mpact_builder.build(cylindrical_stack, specs)
-    assert core.nz == len(cylindrical_stack.segments)
-    assert isclose(core.height, cylindrical_stack.length)
+    core = mpact_builder.build(pincell_stack, specs)
+    assert core.nz == len(pincell_stack.segments)
+    assert isclose(core.height, pincell_stack.length)
 
 
 def test_unionize_radial_mesh(salt, graphite):
@@ -160,11 +164,11 @@ def test_unionize_radial_mesh(salt, graphite):
         materials=[graphite, salt, graphite],
         name="pin_b",
     )
-    stack = CylindricalStack([Stack.Segment(element=pin_a, length=3.0),
+    stack = PinCellStack([Stack.Segment(element=pin_a, length=3.0),
                               Stack.Segment(element=pin_b, length=4.0)])
 
     unionized = stack.unionize_radial_mesh()
-    assert isinstance(unionized, CylindricalStack)
+    assert isinstance(unionized, PinCellStack)
     union_radii = [zone.shape.outer_radius for zone in unionized.segments[0].element.zones]
 
     assert union_radii == pytest.approx([1.0, 1.5, 2.0, 2.5])
@@ -197,15 +201,15 @@ def test_get_axial_slice(stack):
     assert stack.get_axial_slice(8.0, 9.0) is None
 
 
-def test_cylindrical_stack_operations_preserve_type(cylindrical_stack, stack):
-    combined = cylindrical_stack + deepcopy(cylindrical_stack)
-    assert isinstance(combined, CylindricalStack)
+def test_pincell_stack_operations_preserve_type(pincell_stack, stack):
+    combined = pincell_stack + deepcopy(pincell_stack)
+    assert isinstance(combined, PinCellStack)
 
-    sliced = cylindrical_stack.get_axial_slice(1.0, 6.0)
-    assert isinstance(sliced, CylindricalStack)
+    sliced = pincell_stack.get_axial_slice(1.0, 6.0)
+    assert isinstance(sliced, PinCellStack)
 
     with pytest.raises(TypeError):
-        _ = cylindrical_stack + stack
+        _ = pincell_stack + stack
 
 
 def test_mpact_builder_get_axial_slice(stack, stack_mpact_specs):

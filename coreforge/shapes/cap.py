@@ -1,5 +1,5 @@
-from math import pi, asin, sqrt, isclose
 from abc import ABC
+from math import pi, asin, sqrt, isclose
 from typing import Any
 
 import openmc

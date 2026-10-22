@@ -1,12 +1,13 @@
 from __future__ import annotations
 from typing import List, Any, Literal
-from math import isclose
+from math import isclose, sqrt
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.lattice import Lattice
 from coreforge.materials.material import Material
+from coreforge.shapes import Hexagon
 from coreforge.utils import offset_to_ring
 
 class HexLattice(Lattice):
@@ -89,6 +90,13 @@ class HexLattice(Lattice):
     elements : List[List[GeometryElement]]
         The internal ring-based representation of the hex lattice.
         Outer list corresponds to rings (outer-to-inner), and each ring is ordered clockwise.
+    cell_centers : List[List[Tuple[float, float]]]
+        Cell-center coordinates [cm] relative to the lattice origin, in the
+        same ring order as ``elements``.
+    cell_shapes : List[List[Shape_2D]]
+        Hexagonal cell footprints centered at their local origins, in the
+        same ring order as ``elements``. Cell shapes have the opposite
+        orientation to the lattice's center arrangement.
     """
 
     Orientation = Literal['x', 'y', 'X', 'Y']
@@ -102,6 +110,7 @@ class HexLattice(Lattice):
     def pitch(self, pitch: float) -> None:
         assert pitch > 0., f"pitch = {pitch}"
         self._pitch = pitch
+        self._update_cell_geometry()
 
     @property
     def num_rings(self) -> int:
@@ -117,6 +126,7 @@ class HexLattice(Lattice):
         orientation = 'x' if orientation == 'X' else orientation
         orientation = 'y' if orientation == 'Y' else orientation
         self._orientation = orientation.lower()
+        self._update_cell_geometry()
 
     @property
     def elements(self) -> List[List[GeometryElement]]:
@@ -135,7 +145,39 @@ class HexLattice(Lattice):
 
         self._elements  = elements
         self._num_rings = num_rings
+        self._update_cell_geometry()
 
+    def _update_cell_geometry(self) -> None:
+        if not hasattr(self, '_elements'):
+            return  # Pitch and orientation precede elements during initialization.
+
+        half_R = 0.5 * self.pitch
+        r = sqrt(3.0) * half_R
+        if self.orientation == 'y':
+            steps = [(r, -half_R), (0.0, -self.pitch),
+                     (-r, -half_R), (-r, half_R),
+                     (0.0, self.pitch), (r, half_R)]
+        else:
+            steps = [(-half_R, -r), (-self.pitch, 0.0),
+                     (-half_R, r), (half_R, r),
+                     (self.pitch, 0.0), (half_R, -r)]
+
+        self._cell_centers = []
+        for ring in range(self.num_rings - 1, 0, -1):
+            x, y = ((0.0, ring * self.pitch) if self.orientation == 'y' else
+                    (ring * self.pitch, 0.0))
+            ring_centers = []
+            for dx, dy in steps:
+                for _ in range(ring):
+                    ring_centers.append((x, y))
+                    x += dx
+                    y += dy
+            self._cell_centers.append(ring_centers)
+        self._cell_centers.append([(0.0, 0.0)])
+
+        cell_shape = Hexagon(inner_radius=half_R,
+                             orientation='x' if self.orientation == 'y' else 'y')
+        self._cell_shapes = [[cell_shape for _ in ring] for ring in self.elements]
 
     def __init__(self,
                  pitch:          float,

@@ -33,3 +33,39 @@ class PinCell(Builder[geometry_elements.PinCell]):
         universe = openmc.Universe(name=element.name, cells=cells)
 
         return universe
+
+
+@register_builder(geometry_elements.PinCells)
+class PinCells(Builder[geometry_elements.PinCells]):
+    """An OpenMC builder for ordered layers of pin cells.
+
+    Later pin cells cover earlier pin cells within their finite regions.
+    The common outer material fills the region outside all pin cells.
+    """
+
+    def build(self, element: geometry_elements.PinCells) -> openmc.Universe:
+        """Build pin-cell layers from latest to earliest.
+
+        Parameters
+        ----------
+        element : geometry_elements.PinCells
+            Ordered pin-cell layers to build.
+
+        Returns
+        -------
+        openmc.Universe
+            Non-overlapping layer cells and one common background cell.
+        """
+        cells = []
+        outer_regions = []
+        for pincell in reversed(element.pincells):
+            pin_cells = list(PinCell().build(pincell).cells.values())
+            outer_region = pin_cells.pop().region
+            for cell in pin_cells:
+                cell.region = openmc.Intersection([cell.region] + outer_regions)
+            cells.extend(pin_cells)
+            outer_regions.append(outer_region)
+
+        cells.append(openmc.Cell(fill=element.outer_material.openmc_material,
+                                 region=openmc.Intersection(outer_regions)))
+        return openmc.Universe(name=element.name, cells=cells)

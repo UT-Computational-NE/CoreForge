@@ -3,7 +3,7 @@ from .builder_specs import BuilderSpecs, MaterialSpecs, DEFAULT_MPACT_MATERIAL_S
 from .voxel_builder import VoxelBuilder
 from .mpact_builder import build, get_builder, register_builder
 from .infinite_medium import InfiniteMedium
-from .cylindrical_pincell import CylindricalPinCell
+from .cylindrical_pincell import CylindricalPinCell, CylindricalPinCells
 from .stack import Stack
 from .rect_lattice import RectLattice
 from .hex_lattice import HexLattice
@@ -15,6 +15,7 @@ __all__ = [
     "VoxelBuilder",
     "InfiniteMedium",
     "CylindricalPinCell",
+    "CylindricalPinCells",
     "Stack",
     "RectLattice",
     "HexLattice",
