@@ -7,9 +7,8 @@ from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.shapes import Shape_2D
 from coreforge.materials import Material, unique_materials
-from coreforge.geometry_elements.geometry_element import GeometryElement
+from coreforge.geometry_elements.geometry_element import GeometryElement, register_overlay
 from coreforge.geometry_elements.infinite_medium import InfiniteMedium
-from coreforge.geometry_elements.overlay import register_overlay
 
 TPinCell = TypeVar("TPinCell", bound="PinCell")
 
@@ -254,6 +253,7 @@ class PinCells(GeometryElement, Generic[TPinCell]):
 
     def __init__(self, pincells: List[TPinCell], name: str = 'pincells'):
         super().__init__(name)
+        self._pincells: List[TPinCell] = []
         self.pincells = pincells
 
     def __eq__(self, other: Any) -> bool:

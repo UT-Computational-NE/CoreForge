@@ -1,8 +1,7 @@
 from __future__ import annotations
 from typing import Any, List
 
-from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.geometry_elements.overlay import register_overlay
+from coreforge.geometry_elements.geometry_element import GeometryElement, register_overlay
 from coreforge.materials import Material, unique_materials
 
 class InfiniteMedium(GeometryElement):
@@ -45,13 +44,13 @@ class InfiniteMedium(GeometryElement):
 
 
 @register_overlay(GeometryElement, InfiniteMedium)
-def _overlay_infinite_medium(lower: GeometryElement,
+def _overlay_infinite_medium(_lower: GeometryElement,
                              upper: InfiniteMedium) -> InfiniteMedium:
     """Replace lower-priority geometry with an infinite medium.
 
     Parameters
     ----------
-    lower : GeometryElement
+    _lower : GeometryElement
         Lower-priority geometry, deep-copied by the overlay dispatcher.
     upper : InfiniteMedium
         Higher-priority medium, deep-copied by the overlay dispatcher.

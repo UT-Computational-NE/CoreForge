@@ -1,3 +1,4 @@
+from abc import ABC
 from math import pi, asin, sqrt, isclose
 from typing import Any
 
@@ -8,7 +9,7 @@ from coreforge.shapes.shape import Shape_3D
 
 
 
-class Cap(Shape_3D):
+class Cap(Shape_3D, ABC):
     """ An abstract shape class for caps
 
     Notes

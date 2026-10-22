@@ -1,8 +1,8 @@
 from __future__ import annotations
 from typing import List, Optional
 
+from coreforge.geometry_elements.geometry_element import register_overlay
 from coreforge.geometry_elements.pincell import PinCell, PinCells
-from coreforge.geometry_elements.overlay import register_overlay
 from coreforge.shapes import Circle
 from coreforge.materials import Material
 

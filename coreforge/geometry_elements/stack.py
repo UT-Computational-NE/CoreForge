@@ -4,8 +4,7 @@ from math import isclose
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
-from coreforge.geometry_elements.geometry_element import GeometryElement
-from coreforge.geometry_elements.overlay import register_overlay
+from coreforge.geometry_elements.geometry_element import GeometryElement, register_overlay
 from coreforge.materials import Material, unique_materials
 
 TStack = TypeVar("TStack", bound="Stack")
@@ -264,7 +263,8 @@ def _overlay_stacks(lower: Stack, upper: Stack) -> Stack:
     for position in positions:
         if not boundaries or not isclose(position, boundaries[-1], rel_tol=TOL, abs_tol=TOL):
             boundaries.append(position)
-    lower_regions, upper_regions = regions_by_stack
+    lower_regions = regions_by_stack[0]
+    upper_regions = regions_by_stack[1]
     segments = []
     for start, stop in zip(boundaries, boundaries[1:]):
         lower_element = next((element for bottom, top, element in lower_regions

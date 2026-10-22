@@ -1,9 +1,8 @@
 from abc import abstractmethod
 from typing import List, Tuple
 
-from coreforge.geometry_elements.geometry_element import GeometryElement
+from coreforge.geometry_elements.geometry_element import GeometryElement, register_overlay
 from coreforge.geometry_elements.infinite_medium import InfiniteMedium
-from coreforge.geometry_elements.overlay import register_overlay
 from coreforge.geometry_elements.pincell import PinCell
 from coreforge.geometry_elements.pincell_stack import PinCellStack
 from coreforge.materials import Material, unique_materials

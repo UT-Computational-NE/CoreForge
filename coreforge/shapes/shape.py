@@ -233,7 +233,7 @@ class Shape_2D(Shape):
         """
 
 
-class Shape_3D(Shape):
+class Shape_3D(Shape, ABC):
     """ An abstract class for Three-Dimensional Shapes
 
     Attributes
