@@ -226,6 +226,8 @@ class Stack(GeometryElement):
 def _overlay_stacks(lower: Stack, upper: Stack) -> Stack:
     """Overlay stacks on the union of their absolute axial boundaries.
 
+    Equivalent boundaries are merged using the existing geometry tolerance.
+
     Parameters
     ----------
     lower : Stack
@@ -256,15 +258,21 @@ def _overlay_stacks(lower: Stack, upper: Stack) -> Stack:
             start = stop
         regions_by_stack.append(regions)
 
-    boundaries = sorted({position for regions in regions_by_stack
-                         for start, stop, _ in regions for position in (start, stop)})
+    positions = sorted({position for regions in regions_by_stack
+                        for start, stop, _ in regions for position in (start, stop)})
+    boundaries = []
+    for position in positions:
+        if not boundaries or not isclose(position, boundaries[-1], rel_tol=TOL, abs_tol=TOL):
+            boundaries.append(position)
     lower_regions, upper_regions = regions_by_stack
     segments = []
     for start, stop in zip(boundaries, boundaries[1:]):
         lower_element = next((element for bottom, top, element in lower_regions
-                              if bottom <= start and stop <= top), None)
+                              if (bottom <= start or isclose(bottom, start, rel_tol=TOL, abs_tol=TOL)) and
+                                 (stop <= top or isclose(stop, top, rel_tol=TOL, abs_tol=TOL))), None)
         upper_element = next((element for bottom, top, element in upper_regions
-                              if bottom <= start and stop <= top), None)
+                              if (bottom <= start or isclose(bottom, start, rel_tol=TOL, abs_tol=TOL)) and
+                                 (stop <= top or isclose(stop, top, rel_tol=TOL, abs_tol=TOL))), None)
         if lower_element is None:
             element = upper_element
         elif upper_element is None:

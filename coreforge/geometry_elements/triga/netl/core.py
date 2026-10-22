@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from math import sqrt
 from typing import ClassVar, Dict, List, Tuple, TypeAlias
 
 from coreforge.geometry_elements import PinCellStack, GeometryElement, HexLattice
@@ -70,9 +69,10 @@ class Core(GeometryElement):
     three_element_irradiator : Loadable, optional
         Loadable spanning the three conditionally reserved irradiation-facility
         locations.
-    three_element_offsets : Dict[str, Tuple[float, float]]
-        Facility-center coordinates relative to the center of each three-element
-        lattice location [cm].
+    three_element_center : Tuple[float, float]
+        Radial centroid of the three irradiation-facility locations [cm],
+        relative to the core origin. Calculated whether or not the facility
+        is present.
     full_map : Dict[str, Element | None]
         Full map of core locations to their contents.
     lattice : HexLattice
@@ -163,8 +163,8 @@ class Core(GeometryElement):
         return self._three_element_irradiator
 
     @property
-    def three_element_offsets(self) -> Dict[str, Tuple[float, float]]:
-        return self._three_element_offsets
+    def three_element_center(self) -> Tuple[float, float]:
+        return self._three_element_center
 
     @property
     def full_map(self) -> Dict[str, Element | None]:
@@ -188,7 +188,6 @@ class Core(GeometryElement):
         super().__init__(name)
         assert pitch > 0.0, "Core pitch must be positive."
         self._pitch           = pitch
-        self._three_element_offsets = self._calculate_three_element_offsets()
         self._central_thimble = central_thimble
         self._transient_rod   = transient_rod
         self._regulating_rod  = regulating_rod
@@ -246,6 +245,7 @@ class Core(GeometryElement):
                                    elements       = [[full_map[loc] for loc in ring]
                                                      for ring in Core.RING_MAP],
                                    map_type="ring")
+        self._three_element_center = self._calculate_three_element_center()
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -284,29 +284,17 @@ class Core(GeometryElement):
         return unique_materials(materials)
 
 
-    def _calculate_three_element_offsets(self) -> Dict[str, Tuple[float, float]]:
-        """Calculate the three-element irradiator offsets from the lattice map.
+    def _calculate_three_element_center(self) -> Tuple[float, float]:
+        """Calculate the facility centroid from the lattice cell centers.
 
         Returns
         -------
-        Dict[str, Tuple[float, float]]
-            Mapping from each three-element lattice location to its local
-            facility-center offset [cm].
+        Tuple[float, float]
+            Facility-center coordinates [cm] relative to the core origin.
         """
-
-        R = self.pitch
-        r = 0.5 * sqrt(3.0) * R
-
-        # Centers are relative to the core center in Cartesian coordinates.
-        location_centers = {"E-11": (2.0 * r, -3.0 * R),
-                            "F-13": (3.0 * r, -3.5 * R),
-                            "F-14": (2.0 * r, -4.0 * R)}
-
-        # The 3-EL axis is located at the radial centroid of the three positions.
-        number_of_locations = len(location_centers)
-        centroid = (sum(center[0] for center in location_centers.values()) / number_of_locations,
-                    sum(center[1] for center in location_centers.values()) / number_of_locations)
-
-        # Express that common centroid in each lattice cell's local coordinates.
-        return {location: (centroid[0] - center[0], centroid[1] - center[1])
-                for location, center in location_centers.items()}
+        centers = [center
+                   for locations, cell_centers in zip(Core.RING_MAP, self.lattice.cell_centers)
+                   for location, center in zip(locations, cell_centers)
+                   if location in Core.THREE_ELEMENT_LOCATIONS]
+        return (sum(x for x, _ in centers) / len(centers),
+                sum(y for _, y in centers) / len(centers))

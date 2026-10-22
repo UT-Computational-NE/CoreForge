@@ -55,7 +55,7 @@ class Shape(ABC):
                    self_center: Tuple[float, float] = (0.0, 0.0),
                    other_center: Tuple[float, float] = (0.0, 0.0),
                    self_rotation: float = 0.0,
-                   other_rotation: float = 0.0):
+                   other_rotation: float = 0.0) -> bool:
         """Check whether two shapes intersect using double dispatch.
 
         Parameters
@@ -73,9 +73,13 @@ class Shape(ABC):
 
         Returns
         -------
-        bool or NotImplemented
+        bool
             True if an implemented routine reports an intersection.
-            NotImplemented when no routine exists for the pair.
+
+        Raises
+        ------
+        NotImplementedError
+            If no intersection routine exists for the shape pair.
         """
         for method_name in _intersection_method_names(other):
             method = getattr(self, method_name, None)
@@ -97,7 +101,9 @@ class Shape(ABC):
                                           other_rotation,
                                           self_rotation)
 
-        return NotImplemented
+        raise NotImplementedError(
+            f"No intersection rule for {type(self).__name__} and {type(other).__name__}."
+        )
 
     @abstractmethod
     def __eq__(self: T, other: Any) -> bool:

@@ -63,6 +63,37 @@ class Lattice(GeometryElement):
         self.outer_material = outer_material
         super().__init__(name)
 
+    def cells_intersecting(self,
+                           shape: Shape_2D,
+                           center: Tuple[float, float] = (0.0, 0.0)) -> List[Tuple[int, int]]:
+        """Find lattice cell indices whose footprints intersect a shape.
+
+        Parameters
+        ----------
+        shape : Shape_2D
+            Shape to intersect with the cell footprints.
+        center : Tuple[float, float], optional
+            Shape-center coordinates [cm] relative to the lattice origin.
+
+        Returns
+        -------
+        List[Tuple[int, int]]
+            ``(outer_index, inner_index)`` pairs indexing ``elements``, in
+            their stored order. Only indices are returned, not cell elements.
+            Portions of the shape outside the lattice are not represented.
+
+        Raises
+        ------
+        NotImplementedError
+            If a cell shape has no intersection rule for the supplied shape.
+        """
+        indices = []
+        for i, (centers, shapes) in enumerate(zip(self.cell_centers, self.cell_shapes)):
+            for j, (cell_center, cell_shape) in enumerate(zip(centers, shapes)):
+                if cell_shape.intersects(shape, self_center=cell_center, other_center=center):
+                    indices.append((i, j))
+        return indices
+
     def get_materials(self) -> List[Material]:
         materials = [self.outer_material]
         for row in self.elements:
@@ -94,15 +125,9 @@ def _overlay_pincell(lower: Lattice, upper: PinCell | PinCellStack) -> Lattice:
 
     footprint = upper.footprint if isinstance(upper, PinCellStack) else upper.zones[-1].shape
     outcircle = Circle(r=footprint.outer_radius)
-    for row, centers, shapes in zip(lower.elements, lower.cell_centers, lower.cell_shapes):
-        for i, (element, center, shape) in enumerate(zip(row, centers, shapes)):
-            intersects = shape.intersects(outcircle, self_center=center,
-                                          other_center=(upper.x0, upper.y0))
-            if intersects is NotImplemented:
-                raise NotImplementedError(
-                    f"No Circle intersection rule for {type(shape).__name__}."
-                )
-            if intersects:
-                background = element if element is not None else InfiniteMedium(lower.outer_material)
-                row[i] = background.overlay(upper.translate(dx=-center[0], dy=-center[1]))
+    for i, j in lower.cells_intersecting(outcircle, center=(upper.x0, upper.y0)):
+        element = lower.elements[i][j]
+        center = lower.cell_centers[i][j]
+        background = element if element is not None else InfiniteMedium(lower.outer_material)
+        lower.elements[i][j] = background.overlay(upper.translate(dx=-center[0], dy=-center[1]))
     return lower

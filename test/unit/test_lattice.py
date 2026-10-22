@@ -7,7 +7,7 @@ from mpactpy import RectangularPinMesh, Pin
 
 from coreforge.geometry_elements import RectLattice, HexLattice, PinCellStack
 from coreforge.materials import unique_materials
-from coreforge.shapes import Rectangle, Hexagon
+from coreforge.shapes import Circle, Rectangle, Hexagon
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
 from test.unit.test_materials import graphite
@@ -94,6 +94,9 @@ def test_rect_lattice_initialization(rect_lattice, stack, unequal_stack):
                                                [(-8., 0.), (0., 0.), (8., 0.)],
                                                [(-8., -8.), (0., -8.), (8., -8.)]])
     assert geom_element.cell_shapes == [[Rectangle(w=8., h=8.)] * 3 for _ in range(3)]
+    assert geom_element.cells_intersecting(Rectangle(w=2., h=2.)) == [(1, 1)]
+    assert geom_element.cells_intersecting(Rectangle(w=2., h=2.), center=(4., 0.)) == [(1, 1), (1, 2)]
+    assert geom_element.cells_intersecting(Rectangle(w=2., h=2.), center=(20., 0.)) == []
     expected = [geom_element.outer_material]
     for row in geom_element.elements:
         for element in row:
@@ -178,6 +181,7 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
     assert_allclose(geom_element.cell_centers[1], [(0., 0.)])
     cell_shape = Hexagon(inner_radius=3., orientation='y')
     assert geom_element.cell_shapes == [[cell_shape] * 6, [cell_shape]]
+    assert geom_element.cells_intersecting(Circle(0.1), center=(3., 0.)) == [(0, 0), (1, 0)]
     expected_elements = [[p1, p1, p1, p2, p1, p1], [p2]]
     for ring, expected_ring in zip(geom_element.elements, expected_elements):
         assert len(ring) == len(expected_ring)
@@ -200,6 +204,7 @@ def test_hex_lattice_initialization(hex_x_lattice, hex_y_lattice, stack, unequal
     assert_allclose(geom_element.cell_centers[1], [(0., 0.)])
     cell_shape = Hexagon(inner_radius=3., orientation='x')
     assert geom_element.cell_shapes == [[cell_shape] * 6, [cell_shape]]
+    assert geom_element.cells_intersecting(Circle(0.1), center=(0., 3.)) == [(0, 0), (1, 0)]
     expected_elements = [[p1, p1, p1, p1, p2, p1], [p2]]
     for ring, expected_ring in zip(geom_element.elements, expected_elements):
         assert len(ring) == len(expected_ring)

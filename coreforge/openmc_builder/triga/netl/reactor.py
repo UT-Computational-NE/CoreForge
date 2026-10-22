@@ -3,6 +3,7 @@ from typing import Tuple
 import openmc
 
 from coreforge.geometry_elements.pincell_stack import PinCellStack
+from coreforge.geometry_elements.triga import FuelElement, GraphiteElement
 from coreforge.openmc_builder.builder import Builder
 from coreforge.openmc_builder.openmc_builder import register_builder, build
 from coreforge.shapes import Hexagon
@@ -201,12 +202,10 @@ def build_core_lattice(reactor: geometry_elements_triga_netl.Reactor) -> openmc.
         upper_grid_plate=grid_plate_specs(
             axial_bounds=reactor.upper_grid_plate.axial_bounds,
             material=reactor.upper_grid_plate.geometry.material,
-            penetration_radius=None,
         ),
         lower_grid_plate=grid_plate_specs(
             axial_bounds=reactor.lower_grid_plate.axial_bounds,
             material=reactor.lower_grid_plate.geometry.material,
-            penetration_radius=None,
         ),
     )
     outer_universe = build_core_element(core_cell_specs=outer_core_cell_specs)
@@ -236,6 +235,9 @@ def build_core_element(
 ) -> openmc.Universe:
     """Build an OpenMC universe from resolved core-cell geometry specifications.
 
+    Later element placements cover earlier placements within their finite
+    regions. Native element builders retain their exact conical surfaces.
+
     Parameters
     ----------
     core_cell_specs : geometry_elements_triga_netl.Reactor.CoreCellSpecs
@@ -261,10 +263,10 @@ def build_core_element(
 
         region = +openmc.ZPlane(grid_plate.axial_bounds.lower)
         region &= -openmc.ZPlane(grid_plate.axial_bounds.upper)
-        if grid_plate.penetration_radius is not None:
-            region &= +openmc.ZCylinder(r=grid_plate.penetration_radius,
-                                        x0=grid_plate.x0,
-                                        y0=grid_plate.y0)
+        for penetration in grid_plate.penetrations:
+            region &= +openmc.ZCylinder(r=penetration.radius,
+                                        x0=penetration.x0,
+                                        y0=penetration.y0)
 
         grid_cell = openmc.Cell(fill   = grid_plate.material.openmc_material,
                                 region = region)
@@ -272,25 +274,79 @@ def build_core_element(
         grid_regions = grid_cell.region if grid_regions is None else grid_regions | grid_cell.region
         outer_region = ~grid_cell.region if outer_region is None else outer_region & ~grid_cell.region
 
-    element_specs = core_cell_specs.element
-    if element_specs is not None:
+    element_regions = []
+    for element_specs in reversed(core_cell_specs.elements):
         element       = element_specs.geometry
         bottom_z      = element_specs.bottom_axial_position
         top_z         = bottom_z + element.length
         bottom_plane   = openmc.ZPlane(bottom_z)
         top_plane      = openmc.ZPlane(top_z)
-        element_region = +bottom_plane & -top_plane
-        outer_region   = ~element_region if outer_region is None else outer_region & ~element_region
-        element_region = element_region & ~grid_regions if grid_regions else element_region
-        element_cell   = openmc.Cell(fill=build(element), region=element_region)
         z_translation  = bottom_z
         # PinCellStacks and PNTs already use element.bottom_pos, so remove it from the translation
         if isinstance(element, (PinCellStack, geometry_elements_triga_netl.PNT)):
             z_translation -= element.bottom_pos
-        element_cell.translation = (element_specs.x0, element_specs.y0, z_translation)
+        translation = (element_specs.x0, element_specs.y0, z_translation)
+        element_region = _build_element_region(element).translate(translation)
+        element_region &= +bottom_plane & -top_plane
+        outer_region = ~element_region if outer_region is None else outer_region & ~element_region
+        region = openmc.Intersection([element_region] + [~previous for previous in element_regions])
+        if grid_regions is not None:
+            region &= ~grid_regions
+        element_regions.append(element_region)
+        element_cell = openmc.Cell(fill=build(element), region=region)
+        element_cell.translation = translation
         cells.append(element_cell)
 
     cells.append(openmc.Cell(fill=core_cell_specs.outer_material.openmc_material,
                              region=outer_region))
 
     return openmc.Universe(cells=cells)
+
+
+def _build_element_region(element: geometry_elements_triga_netl.Core.Element) -> openmc.Region:
+    """Build an element's finite region in its native builder coordinates.
+
+    Parameters
+    ----------
+    element : geometry_elements_triga_netl.Core.Element
+        Native core element whose background must not cover other placements.
+
+    Returns
+    -------
+    openmc.Region
+        Finite pin-cell regions, or the exact body and end-fitting cones for
+        fuel and graphite elements. No material discretization is performed.
+    """
+    if isinstance(element, (FuelElement, GraphiteElement)):
+        lower_height = element.lower_end_fitting.length
+        upper_bottom = element.length - element.upper_end_fitting.length
+        cylinder = openmc.ZCylinder(r=element.cladding.outer_radius)
+        lower_plane = openmc.ZPlane(lower_height)
+        upper_plane = openmc.ZPlane(upper_bottom)
+
+        lower_cone = element.lower_end_fitting.cone(outer_material=element.outer_material).shape.make_region()
+        lower_cone = lower_cone.rotate((180.0, 0.0, 0.0)).translate((0.0, 0.0, lower_height))
+        upper_cone = element.upper_end_fitting.cone(outer_material=element.outer_material).shape.make_region()
+        upper_cone = upper_cone.translate((0.0, 0.0, upper_bottom))
+        return -cylinder & ((-lower_plane & -lower_cone) |
+                            (+lower_plane & -upper_plane) |
+                            (+upper_plane & -upper_cone))
+
+    if isinstance(element, PinCellStack):
+        stack = element
+    elif isinstance(element, geometry_elements_triga_netl.PNT):
+        stack = element.as_stack()
+    else:
+        stack = element.as_stack(bottom_pos=0.0)
+
+    regions = []
+    height = stack.bottom_pos
+    for segment in stack.segments:
+        pin = segment.element
+        zone = pin.zones[-1]
+        region = zone.shape.make_region().rotate((0.0, 0.0, zone.rotation))
+        region = region.translate((pin.x0, pin.y0, 0.0))
+        region &= +openmc.ZPlane(height) & -openmc.ZPlane(height + segment.length)
+        regions.append(region)
+        height += segment.length
+    return openmc.Union(regions)

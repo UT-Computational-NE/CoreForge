@@ -10,7 +10,7 @@ from coreforge.mpact_builder.builder import AxisBounds, Bounds, Builder
 from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.utils import build_elements
-from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
+from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell, CylindricalPinCells
 from coreforge.mpact_builder.infinite_medium import InfiniteMedium
 from coreforge import geometry_elements
 
@@ -160,13 +160,23 @@ class Stack(Builder[geometry_elements.Stack]):
                 element = segment.element
                 assert isinstance(
                     element,
-                    (geometry_elements.CylindricalPinCell, geometry_elements.InfiniteMedium),
-                ), "Stack segment elements must be CylindricalPinCell or InfiniteMedium."
+                    (geometry_elements.CylindricalPinCell, geometry_elements.CylindricalPinCells,
+                     geometry_elements.InfiniteMedium),
+                ), "Stack segment elements must be CylindricalPinCell, CylindricalPinCells, or InfiniteMedium."
 
                 segment_specs = self.segment_specs.get(segment)
                 if segment_specs is None:
                     segment_specs = Stack.Segment.Specs()
                     self.segment_specs[segment] = segment_specs
+
+                if isinstance(element, geometry_elements.CylindricalPinCells):
+                    builder_specs = segment_specs.builder_specs or CylindricalPinCells.Specs()
+                    for pincell in element.pincells:
+                        pincell_specs = builder_specs.pincell_specs.get(pincell) or CylindricalPinCell.Specs()
+                        pincell_specs.material_specs = material_specs | pincell_specs.material_specs
+                        builder_specs.pincell_specs[pincell] = pincell_specs
+                    segment_specs.builder_specs = builder_specs
+                    continue
 
                 if isinstance(element, geometry_elements.CylindricalPinCell):
                     builder_specs = segment_specs.builder_specs

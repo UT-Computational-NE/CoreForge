@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from math import cos, isclose, radians, sin, sqrt
 
@@ -60,7 +60,8 @@ class Reactor(GeometryElement):
     core : CoreGeometry
         Core geometry and loading definition.
     upper_grid_plate : Reactor.GridPlate
-        Upper grid plate geometry and its axial offset.
+        Upper grid plate geometry and its axial offset. A three-element
+        penetration radius is required when the core has an irradiator.
     lower_grid_plate : Reactor.GridPlate
         Lower grid plate geometry and its axial offset.
     transient_rod_position : float
@@ -92,6 +93,12 @@ class Reactor(GeometryElement):
         boundary.
     core : CoreGeometry
         Core geometry and loading definition.
+    three_element_locations : List[str]
+        Core locations intersected by the upper three-element penetration,
+        calculated at initialization. Empty when no irradiator is present.
+    three_element_offsets : Dict[str, Tuple[float, float]]
+        Facility-center offsets [cm] relative to each affected cell center,
+        calculated at initialization.
     upper_grid_plate : Reactor.GridPlate
         Upper grid plate geometry, axial offset, and axial bounds.
     lower_grid_plate : Reactor.GridPlate
@@ -622,9 +629,9 @@ class Reactor(GeometryElement):
             Core location identifier associated with these specifications.
         outer_material : Material
             Material outside the element and within grid-plate penetrations.
-        element : Optional[Reactor.CoreCellSpecs.ElementSpecs]
-            Element geometry and placement. ``None`` represents an empty core
-            location.
+        elements : List[Reactor.CoreCellSpecs.ElementSpecs]
+            Ordered element geometries and placements. An empty list represents
+            an empty core location.
         upper_grid_plate : Optional[Reactor.CoreCellSpecs.GridPlateSpecs]
             Resolved upper-grid-plate geometry. ``None`` omits the plate.
         lower_grid_plate : Optional[Reactor.CoreCellSpecs.GridPlateSpecs]
@@ -641,23 +648,48 @@ class Reactor(GeometryElement):
             y0: float = 0.0
 
         @dataclass(frozen=True)
-        class GridPlateSpecs:
-            """Grid-plate geometry resolved for one lattice cell."""
+        class PenetrationSpecs:
+            """Circular grid-plate penetration geometry.
 
-            axial_bounds: Interval
-            material: Material
-            penetration_radius: Optional[float]
+            Attributes
+            ----------
+            radius : float
+                Penetration radius [cm].
+            x0 : float
+                Penetration center's x-coordinate in the lattice cell [cm].
+            y0 : float
+                Penetration center's y-coordinate in the lattice cell [cm].
+            """
+
+            radius: float
             x0: float = 0.0
             y0: float = 0.0
 
             def __post_init__(self) -> None:
-                if self.penetration_radius is not None:
-                    assert self.penetration_radius > 0.0, \
-                        "Grid-plate penetration radius must be positive."
+                assert self.radius > 0.0, "Grid-plate penetration radius must be positive."
+
+        @dataclass(frozen=True)
+        class GridPlateSpecs:
+            """Grid-plate geometry resolved for one lattice cell.
+
+            Attributes
+            ----------
+            axial_bounds : Interval
+                Grid-plate axial extent relative to the core centerline [cm].
+            material : Material
+                Grid-plate material outside the union of its penetrations.
+            penetrations : List[Reactor.CoreCellSpecs.PenetrationSpecs]
+                Circular openings in the plate. An empty list represents a
+                solid plate.
+            """
+
+            axial_bounds: Interval
+            material: Material
+            penetrations: List["Reactor.CoreCellSpecs.PenetrationSpecs"] = field(default_factory=list)
 
         location: str
         outer_material: Material
-        element: Optional["Reactor.CoreCellSpecs.ElementSpecs"] = None
+        elements: List["Reactor.CoreCellSpecs.ElementSpecs"] = field(default_factory=list)
         upper_grid_plate: Optional["Reactor.CoreCellSpecs.GridPlateSpecs"] = None
         lower_grid_plate: Optional["Reactor.CoreCellSpecs.GridPlateSpecs"] = None
 
@@ -746,6 +778,14 @@ class Reactor(GeometryElement):
     @property
     def core(self) -> CoreGeometry:
         return self._core
+
+    @property
+    def three_element_locations(self) -> List[str]:
+        return self._three_element_locations
+
+    @property
+    def three_element_offsets(self) -> Dict[str, Tuple[float, float]]:
+        return self._three_element_offsets
 
     @property
     def upper_grid_plate(self) -> GridPlate:
@@ -838,6 +878,20 @@ class Reactor(GeometryElement):
         self.upper_grid_plate._axial_bounds            = Interval(upper_grid_plate_bottom, upper_grid_plate_top)
         self.lower_grid_plate._axial_bounds            = Interval(lower_grid_plate_bottom, lower_grid_plate_top)
         # pylint: enable=protected-access
+
+        self._three_element_locations: List[str] = []
+        self._three_element_offsets: Dict[str, Tuple[float, float]] = {}
+        if core.three_element_irradiator is not None:
+            center = core.three_element_center
+            radius = upper_grid_plate.geometry.three_element_penetration_radius
+            assert radius is not None, \
+                "An upper-grid-plate three-element penetration radius is required when an irradiator is present."
+            for i, j in core.lattice.cells_intersecting(Circle(radius), center):
+                location = CoreGeometry.RING_MAP[i][j]
+                cell_center = core.lattice.cell_centers[i][j]
+                self._three_element_locations.append(location)
+                self._three_element_offsets[location] = (center[0] - cell_center[0],
+                                                         center[1] - cell_center[1])
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -962,49 +1016,62 @@ class Reactor(GeometryElement):
         Returns
         -------
         Reactor.CoreCellSpecs
-            Current element, grid-plate, fill-material, and placement data for
-            the requested location.
+            Current elements, grid plates, fill material, and placements for
+            the requested location. Ordinary elements are listed before the
+            irradiator. The upper three-element
+            penetration bounds which cells receive the irradiator.
         """
         assert location in self.core.full_map, f"Invalid core location '{location}'."
 
-        is_three_element_location = (self.core.three_element_irradiator is not None and
-                                     location in self.core.THREE_ELEMENT_LOCATIONS)
-        element_offset = (self.core.three_element_offsets[location]
-                          if is_three_element_location else (0.0, 0.0))
+        irradiator = self.core.three_element_irradiator
+        reserved_location = irradiator is not None and location in self.core.THREE_ELEMENT_LOCATIONS
+        is_three_element_location = location in self.three_element_locations
+        irradiator_offset = self.three_element_offsets.get(location, (0.0, 0.0))
 
+        placements = []
         element = self.core.full_map[location]
-        element_specs = None
-        if element is not None:
+        if element is not None and not reserved_location:
+            placements.append((element, (0.0, 0.0)))
+        if is_three_element_location:
+            placements.append((irradiator, irradiator_offset))
+
+        elements = []
+        for element, offset in placements:
             bottom_axial_position = self.get_element_bottom_axial_position(element)
             assert bottom_axial_position is not None, \
                 f"Unable to determine the bottom axial position of '{element.name}'."
-            element_specs = Reactor.CoreCellSpecs.ElementSpecs(
+            elements.append(Reactor.CoreCellSpecs.ElementSpecs(
                 geometry=element,
                 bottom_axial_position=bottom_axial_position,
-                x0=element_offset[0],
-                y0=element_offset[1],
-            )
+                x0=offset[0],
+                y0=offset[1],
+            ))
 
         def grid_plate_specs(grid_plate: Reactor.GridPlate) -> Reactor.CoreCellSpecs.GridPlateSpecs:
             radius = grid_plate.geometry.penetration_map[location]
-            penetration_offset = (0.0, 0.0)
             three_element_radius = grid_plate.geometry.three_element_penetration_radius
+            penetrations = []
+            # The special opening replaces ordinary holes only at the reserved
+            # positions; intersected neighboring cells retain their own holes.
+            if radius is not None and not (reserved_location and three_element_radius is not None):
+                penetrations.append(Reactor.CoreCellSpecs.PenetrationSpecs(radius=radius))
             if is_three_element_location and three_element_radius is not None:
-                radius = three_element_radius
-                penetration_offset = element_offset
+                penetrations.append(Reactor.CoreCellSpecs.PenetrationSpecs(
+                    radius=three_element_radius,
+                    x0=irradiator_offset[0],
+                    y0=irradiator_offset[1],
+                ))
 
             return Reactor.CoreCellSpecs.GridPlateSpecs(
                 axial_bounds=grid_plate.axial_bounds,
                 material=grid_plate.geometry.material,
-                penetration_radius=radius,
-                x0=penetration_offset[0],
-                y0=penetration_offset[1],
+                penetrations=penetrations,
             )
 
         return Reactor.CoreCellSpecs(
             location=location,
             outer_material=self.core.fill_material,
-            element=element_specs,
+            elements=elements,
             upper_grid_plate=grid_plate_specs(self.upper_grid_plate),
             lower_grid_plate=grid_plate_specs(self.lower_grid_plate),
         )

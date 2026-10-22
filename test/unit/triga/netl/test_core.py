@@ -1,5 +1,6 @@
 import pytest
 from copy import deepcopy
+from math import sqrt
 
 from coreforge.geometry_elements.triga.netl import Core
 from coreforge.materials import unique_materials
@@ -107,6 +108,8 @@ def test_initialization(core, fuel_element, graphite_element, source_holder, pnt
     assert core.full_map["G-32"] == source_holder
     assert core.full_map["G-34"] == pnt
     assert core.three_element_irradiator is three_element_irradiator
+    assert core.three_element_center == pytest.approx(
+        (7. * sqrt(3.) * core.pitch / 6., -3.5 * core.pitch))
     assert core.full_map["E-11"] is three_element_irradiator
     assert core.full_map["F-13"] is three_element_irradiator
     assert core.full_map["F-14"] is three_element_irradiator
