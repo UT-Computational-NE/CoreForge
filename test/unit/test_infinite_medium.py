@@ -6,7 +6,7 @@ from numpy.testing import assert_allclose
 from mpactpy import RectangularPinMesh, Pin
 import mpactpy
 
-from coreforge.geometry_elements import InfiniteMedium
+from coreforge.geometry_elements import InfiniteMedium, CylindricalPinCell
 from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
@@ -52,11 +52,25 @@ def mpact_voxel_thickness_specs():
         num_div = {"X": 2, "Y": 2, "Z": 1}
     )
 
-def test_initialization(infinite_medium):
+def test_initialization(infinite_medium, unequal_infinite_medium, graphite):
     geom_element = infinite_medium
     assert geom_element.name == "infinite_medium"
     assert geom_element.material.name == "Air"
     assert geom_element.get_materials() == unique_materials([geom_element.material])
+
+    pin = CylindricalPinCell(radii=[1.], materials=[graphite, infinite_medium.material])
+    overlaid = pin.overlay(infinite_medium)
+    assert type(overlaid) is InfiniteMedium
+    assert overlaid == infinite_medium
+    assert overlaid is not infinite_medium
+    assert overlaid.material is not infinite_medium.material
+    overlaid.material.openmc_material.name = "Overlaid Air"
+    assert infinite_medium.material.name == "Air"
+
+    replacement = infinite_medium.overlay(unequal_infinite_medium)
+    assert replacement == unequal_infinite_medium
+    assert replacement.material is not unequal_infinite_medium.material
+    assert infinite_medium.material.name == "Air"
 
 def test_equality_and_hash(infinite_medium, unequal_infinite_medium):
     assert infinite_medium == deepcopy(infinite_medium)

@@ -3,7 +3,10 @@ from math import isclose
 
 import mpactpy
 
-from coreforge.materials import Material, Graphite, Inconel, Air, SS304, SS316H, Water, Helium, INOR8, B4C, Mo, Zr, UZrH, Al6061T6, unique_materials
+from coreforge.materials import (
+    Material, Graphite, Inconel, Air, SS304, SS316H, Water, Helium, INOR8,
+    B4C, Mo, Cd, Pb, Zr, UZrH, Al6061T6, unique_materials,
+)
 import coreforge.mpact_builder as mpact_builder
 
 @pytest.fixture
@@ -45,6 +48,14 @@ def b4c():
 @pytest.fixture
 def mo():
     return Mo()
+
+@pytest.fixture
+def cd():
+    return Cd()
+
+@pytest.fixture
+def pb():
+    return Pb()
 
 @pytest.fixture
 def zr():
@@ -259,6 +270,29 @@ def test_mo(mo):
     expected_material = mpactpy.material.Material(temperature                 = 293.6,
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Mo])
+
+    assert materials_are_close(material, expected_material)
+
+def test_cd(cd):
+    material = mpact_builder.build_material(cd)
+
+    num_dens = {'Cd106': 0.0005792500163852935, 'Cd108': 0.000412426011666329, 'Cd110': 0.005787866163721853,
+                'Cd111': 0.005931520167785406, 'Cd112': 0.011181842316301706, 'Cd113': 0.00566274816018263,
+                'Cd114': 0.013313482376599586, 'Cd116': 0.003470866098180679}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
+                                                  number_densities            = num_dens,
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Cd])
+
+    assert materials_are_close(material, expected_material)
+
+def test_pb(pb):
+    material = mpact_builder.build_material(pb)
+
+    num_dens = {'Pb204': 0.0004617954094445796, 'Pb206': 0.007949478119724549,
+                'Pb207': 0.007289770391946579, 'Pb208': 0.017284342467782838}
+    expected_material = mpactpy.material.Material(temperature                 = 293.6,
+                                                  number_densities            = num_dens,
+                                                  mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Pb])
 
     assert materials_are_close(material, expected_material)
 

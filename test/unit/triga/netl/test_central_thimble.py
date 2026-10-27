@@ -38,7 +38,7 @@ def unequal_thimble():
 
 
 def test_initialization(central_thimble):
-    pin = central_thimble.thimble_pincell
+    pin = central_thimble.pincell["thimble"]
 
     radii = [zone.shape.outer_radius for zone in pin.zones]
     materials = [zone.material for zone in pin.zones]

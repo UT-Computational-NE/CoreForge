@@ -57,7 +57,8 @@ def unequal_transient_rod():
 
 
 def test_initialization(transient_rod):
-    absorber_pin = transient_rod.absorber_pincell
+    pincell = transient_rod.pincell
+    absorber_pin = pincell["absorber"]
     radii = [zone.shape.outer_radius for zone in absorber_pin.zones]
     materials = [zone.material for zone in absorber_pin.zones]
 
@@ -69,7 +70,7 @@ def test_initialization(transient_rod):
     assert isinstance(materials[2], Al6061T6)
     assert isinstance(absorber_pin.outer_material, Water)
 
-    air_pin = transient_rod.air_follower_pincell
+    air_pin = pincell["air_follower"]
     air_radii = [zone.shape.outer_radius for zone in air_pin.zones]
     air_materials = [zone.material for zone in air_pin.zones]
 
@@ -79,8 +80,8 @@ def test_initialization(transient_rod):
     assert isinstance(air_materials[1], Al6061T6)
     assert isinstance(air_pin.outer_material, Water)
 
-    for plug_pin in (transient_rod.upper_element_plug_pincell,
-                     transient_rod.lower_element_plug_pincell):
+    for plug_pin in (pincell["upper_element_plug"],
+                     pincell["lower_element_plug"]):
         plug_radii = [zone.shape.outer_radius for zone in plug_pin.zones]
         plug_materials = [zone.material for zone in plug_pin.zones]
         assert plug_radii == pytest.approx([transient_rod.cladding.inner_radius,
@@ -89,8 +90,8 @@ def test_initialization(transient_rod):
         assert isinstance(plug_materials[1], Al6061T6)
         assert isinstance(plug_pin.outer_material, Water)
 
-    for mag_pin in (transient_rod.upper_magneform_fitting_pincell,
-                    transient_rod.lower_magneform_fitting_pincell):
+    for mag_pin in (pincell["upper_magneform_fitting"],
+                    pincell["lower_magneform_fitting"]):
         mag_radii = [zone.shape.outer_radius for zone in mag_pin.zones]
         mag_materials = [zone.material for zone in mag_pin.zones]
         assert mag_radii == pytest.approx([transient_rod.cladding.inner_radius,

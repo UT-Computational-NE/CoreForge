@@ -4,7 +4,7 @@ from math import cos, radians, sin, sqrt
 import openmc
 import pytest
 
-from coreforge.geometry_elements.triga.netl import Reactor
+from coreforge.geometry_elements.triga.netl import GridPlate, Reactor
 from coreforge.materials import unique_materials
 from coreforge.shapes import Interval, Rectangle
 import coreforge.openmc_builder as openmc_builder
@@ -22,6 +22,8 @@ from .test_central_thimble import central_thimble
 from .test_transient_rod import transient_rod
 from .test_fuel_follower_control_rod import control_rod
 from .test_source_holder import source_holder
+from .test_pnt import pnt
+from .test_three_element_irradiator import three_element_irradiator
 from ..test_fuel_element import fuel_element
 from ..test_graphite_element import graphite_element
 
@@ -42,11 +44,41 @@ def sind(deg: float) -> float:
     return sin(radians(deg))
 
 
+def _three_element_irradiator_specs(reactor: Reactor):
+    reactor_builder = mpact_builder.triga.netl.Reactor
+    irradiator_builder = mpact_builder.triga.netl.ThreeElementIrradiator
+    core_element_builder = mpact_builder.triga.CoreElement
+    pincell_builder = mpact_builder.CylindricalPinCell
+
+    assert reactor.core.three_element_irradiator is not None
+
+    def segment_specs():
+        return core_element_builder.SegmentSpecs(
+            builder_specs=pincell_builder.Specs(
+                zone_specs=pincell_builder.ZoneSpecs(ndivr_mat=2),
+            ),
+        )
+
+    element_specs = irradiator_builder.Specs(
+        solid_end=segment_specs(),
+        liner_bottom=segment_specs(),
+        inner_sleeve_bottom=segment_specs(),
+        lined=segment_specs(),
+        inner_sleeve=segment_specs(),
+        outer_casing=segment_specs(),
+    )
+    return reactor_builder.CoreCellSpecs(element_specs=element_specs)
+
+
 @pytest.fixture
 def reactor(pool, reflector, shroud, rsr_cavity, beam_port, grid_plate, core):
     reflector_wrap = Reactor.Reflector(geometry=reflector,
                                        core_centerline_offset=REFLECTOR_CORE_CENTERLINE_OFFSET)
-    upper_grid = Reactor.GridPlate(geometry=grid_plate,
+    upper_grid_geometry = GridPlate(thickness=grid_plate.thickness,
+                                    penetration_map=grid_plate.penetration_map,
+                                    material=grid_plate.material,
+                                    three_element_penetration_radius=2.4)
+    upper_grid = Reactor.GridPlate(geometry=upper_grid_geometry,
                                    top_to_core_centerline_distance=UPPER_GRID_PLATE_TOP_TO_CORE_CENTERLINE_DISTANCE)
     lower_grid = Reactor.GridPlate(geometry=grid_plate,
                                    top_to_core_centerline_distance=LOWER_GRID_PLATE_TOP_TO_CORE_CENTERLINE_DISTANCE)
@@ -161,10 +193,19 @@ def test_initialization(reactor, pool, reflector, shroud, rsr_cavity):
         expected.extend(beam_port.geometry.get_materials())
     assert reactor.get_materials() == unique_materials(expected)
 
+    cell_specs = reactor.get_core_cell_specs("B-01")
+    assert len(cell_specs.elements) == 1
+    assert cell_specs.elements[0].geometry is reactor.core.full_map["B-01"]
+    assert reactor.get_core_cell_specs("G-01").elements == []
+    assert len(cell_specs.upper_grid_plate.penetrations) == 1
+    assert cell_specs.upper_grid_plate.penetrations[0].radius == pytest.approx(
+        reactor.upper_grid_plate.geometry.penetration_map["B-01"]
+    )
 
-def test_cylindrical_stack_bottom_axial_position(reactor, fuel_element):
-    cylindrical_stack = fuel_element.as_stack(bottom_pos=-10.0)
-    assert reactor.get_element_bottom_axial_position(cylindrical_stack) == pytest.approx(-10.0)
+
+def test_pincell_stack_bottom_axial_position(reactor, fuel_element):
+    pincell_stack = fuel_element.as_stack(bottom_pos=-10.0)
+    assert reactor.get_element_bottom_axial_position(pincell_stack) == pytest.approx(-10.0)
 
 
 def test_equality_and_hash(reactor, unequal_reactor):
@@ -300,7 +341,11 @@ def test_openmc_builder(reactor):
 
 
 def test_mpact_builder_without_excore(reactor, num_procs):
-    specs = mpact_builder.triga.netl.Reactor.Specs(exclude_excore=True, num_procs=num_procs)
+    specs = mpact_builder.triga.netl.Reactor.Specs(
+        three_element_irradiator_specs=_three_element_irradiator_specs(reactor),
+        exclude_excore=True,
+        num_procs=num_procs,
+    )
     core = mpact_builder.build(reactor, specs)
     assert core.nx > 0
     assert core.ny > 0
@@ -315,12 +360,16 @@ def test_mpact_builder_with_excore(reactor, num_procs):
     voxelization_specs = reactor_builder.VoxelationSpecs(
         target_thicknesses={"radial": reactor.core.pitch},
     )
-    empty_core_specs = {
+    core_specs = {
         location: reactor_builder.CoreCellSpecs(voxelization_specs=voxelization_specs)
         for location, element in reactor.core.full_map.items()
         if element is None
     }
-    specs = reactor_builder.Specs(core_specs=empty_core_specs, num_procs=num_procs)
+    specs = reactor_builder.Specs(
+        core_specs=core_specs,
+        three_element_irradiator_specs=_three_element_irradiator_specs(reactor),
+        num_procs=num_procs,
+    )
     core = mpact_builder.build(reactor, specs)
     assert core.nx > 0
     assert core.ny > 0

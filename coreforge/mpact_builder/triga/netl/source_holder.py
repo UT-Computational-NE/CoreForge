@@ -100,15 +100,14 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
         return build(stack, stack_specs, bounds)
 
 
-    def build_stack_and_specs(self,
-                              element: geometry_elements_triga_netl.SourceHolder,
-    ) -> Tuple[geometry_elements.CylindricalStack, Stack.Specs]:
+    def _build_stack_and_specs(self,
+                               element: geometry_elements_triga_netl.SourceHolder,
+    ) -> Tuple[geometry_elements.PinCellStack, Stack.Specs]:
 
         stack = element.as_stack()
 
-        segment_specs = {stack.segments[0]: self.specs.solid,
-                         stack.segments[1]: self.specs.cavity,
-                         stack.segments[2]: self.specs.solid}
+        specs_by_pincell = {id(p): getattr(self.specs, name) for name, p in element.pincell.items()}
+        segment_specs = {segment: specs_by_pincell[id(segment.element)] for segment in stack.segments}
 
         self._apply_material_specs(segment_specs, self.specs.material_specs)
 

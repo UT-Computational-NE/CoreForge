@@ -1,7 +1,8 @@
 from __future__ import annotations
 from typing import List, Optional
 
-from coreforge.geometry_elements.pincell import PinCell
+from coreforge.geometry_elements.geometry_element import register_overlay
+from coreforge.geometry_elements.pincell import PinCell, PinCells
 from coreforge.shapes import Circle
 from coreforge.materials import Material
 
@@ -27,6 +28,10 @@ class CylindricalPinCell(PinCell):
         outer most material.  The last material represents the outer material of pincell that surrounds
         the cylindrical regions.  Ergo, len(materials) == len(radii)+1
         (should be specified with radii)
+    x0 : float
+        The x-coordinate of the cylindrical-zone center [cm].
+    y0 : float
+        The y-coordinate of the cylindrical-zone center [cm].
     min_zone_thickness : Optional[float]
         If provided, any zone whose thickness is <= this threshold is removed
         after the zones list is constructed. Thickness is computed as the
@@ -50,6 +55,8 @@ class CylindricalPinCell(PinCell):
                  radii:             Optional[List[float]] = None,
                  materials:         Optional[List[Material]] = None,
                  name:              str = 'pincell',
+                 x0:                float = 0.0,
+                 y0:                float = 0.0,
                  min_zone_thickness: Optional[float] = None):
 
         assert (zones and outer_material) or (radii and materials)
@@ -74,4 +81,64 @@ class CylindricalPinCell(PinCell):
                     prev_outer = zone.shape.outer_radius
             zones = filtered_zones
 
-        super().__init__(zones = zones, outer_material = outer_material, name = name)
+        super().__init__(zones          = zones,
+                         outer_material = outer_material,
+                         name           = name,
+                         x0             = x0,
+                         y0             = y0)
+
+
+class CylindricalPinCells(PinCells[CylindricalPinCell]):
+    """An ordered collection of layered cylindrical pin cells.
+
+    Parameters
+    ----------
+    pincells : List[CylindricalPinCell]
+        Nonempty list of pin cells in layer order. All pin cells must share
+        the same outer material.
+    name : str
+        A name for the geometry element.
+
+    Attributes
+    ----------
+    pincells : List[CylindricalPinCell]
+        The pin cells, ordered from earliest to latest layer.
+    outer_material : Material
+        The common background material of the pin cells.
+    """
+
+    @PinCells.pincells.setter
+    def pincells(self, pincells: List[CylindricalPinCell]) -> None:
+        assert all(isinstance(pincell, CylindricalPinCell) for pincell in pincells), \
+            "All layers must be CylindricalPinCell objects."
+        self._set_pincells(pincells)
+
+
+@register_overlay(CylindricalPinCell, CylindricalPinCell)
+@register_overlay(CylindricalPinCell, CylindricalPinCells)
+@register_overlay(CylindricalPinCells, CylindricalPinCell)
+@register_overlay(CylindricalPinCells, CylindricalPinCells)
+def _overlay_pincells(lower: CylindricalPinCell | CylindricalPinCells,
+                      upper: CylindricalPinCell | CylindricalPinCells) -> CylindricalPinCells:
+    """Combine cylindrical pin-cell layers in overlay order.
+
+    Parameters
+    ----------
+    lower : CylindricalPinCell | CylindricalPinCells
+        Lower-priority layers, deep-copied by the overlay dispatcher.
+    upper : CylindricalPinCell | CylindricalPinCells
+        Higher-priority layers, deep-copied by the overlay dispatcher.
+
+    Returns
+    -------
+    CylindricalPinCells
+        Flattened collection with upper layers following lower layers.
+
+    Raises
+    ------
+    AssertionError
+        If the pin cells do not share a common outer material.
+    """
+    lower_pins = lower.pincells if isinstance(lower, CylindricalPinCells) else [lower]
+    upper_pins = upper.pincells if isinstance(upper, CylindricalPinCells) else [upper]
+    return CylindricalPinCells(pincells=lower_pins + upper_pins, name=lower.name)
