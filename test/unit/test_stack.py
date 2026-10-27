@@ -4,7 +4,7 @@ from math import isclose
 
 from numpy.testing import assert_allclose
 
-from coreforge.geometry_elements import Stack, CylindricalPinCell, PinCellStack
+from coreforge.geometry_elements import Stack, CylindricalPinCell, CylindricalPinCells, PinCellStack
 from coreforge.materials import unique_materials
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
@@ -54,6 +54,35 @@ def test_stack_initialization(stack, pincell):
     assert geom_element.segments[1].element == pincell
     assert geom_element.segments[2].element == pincell
     assert geom_element.get_materials() == unique_materials(pincell.get_materials())
+
+    lower = PinCellStack([Stack.Segment(element=pincell, length=4.)], bottom_pos=-1.)
+    upper_pin = pincell.translate(dx=1.)
+    upper = Stack([Stack.Segment(element=upper_pin, length=4.)], bottom_pos=1.)
+    original_lower = deepcopy(lower)
+    original_upper = deepcopy(upper)
+    overlaid = lower.overlay(upper)
+    assert type(overlaid) is Stack
+    assert overlaid.name == lower.name
+    assert isclose(overlaid.bottom_pos, -1.)
+    assert isclose(overlaid.length, 6.)
+    assert [segment.length for segment in overlaid.segments] == pytest.approx([2., 2., 2.])
+    assert overlaid.segments[0].element == pincell
+    assert overlaid.segments[1].element == CylindricalPinCells(pincells=[pincell, upper_pin])
+    assert overlaid.segments[2].element == upper_pin
+    overlaid.segments[0].element.x0 += 2.
+    overlaid.segments[2].element.zones[0].rotation += 15.
+    assert lower == original_lower
+    assert upper == original_upper
+
+    # Resolve the Stack rule through the upper operand's base class as well.
+    reversed_overlay = upper.overlay(lower)
+    assert reversed_overlay.segments[1].element == CylindricalPinCells(pincells=[upper_pin, pincell])
+
+    disjoint = Stack([Stack.Segment(element=upper_pin, length=1.)], bottom_pos=4.)
+    with pytest.raises(AssertionError, match="non-overlapping.*interval"):
+        lower.overlay(disjoint)
+    with pytest.raises(NotImplementedError, match="No overlay rule registered"):
+        stack.overlay(pincell)
 
 def test_pincell_stack_initialization(pincell_stack, pincell, stack, salt, graphite):
     geom_element = pincell_stack

@@ -114,19 +114,15 @@ class PNT(CoreElement[geometry_elements_triga_netl.PNT]):
         """Return the PNT stack and its corresponding segment specifications."""
 
         stack = element.as_stack()
-        terminus_count = len(element.terminus.segments)
-        segment_specs = {
-            segment: self.specs.terminus
-            for segment in stack.segments[:terminus_count]
+        specs_by_pincell = {
+            id(segment.element): self.specs.terminus
+            for segment in element.terminus.segments
         }
-
-        tube_index = terminus_count
-        if element.wrapper is not None:
-            segment_specs[stack.segments[tube_index]] = self.specs.wrapped_tube
-            tube_index += 1
-
-        if tube_index < len(stack.segments):
-            segment_specs[stack.segments[tube_index]] = self.specs.tube
+        specs_by_pincell.update({
+            id(p): getattr(self.specs, name)
+            for name, p in element.pincell.items() if p is not None
+        })
+        segment_specs = {segment: specs_by_pincell[id(segment.element)] for segment in stack.segments}
 
         self._apply_material_specs(segment_specs, self.specs.material_specs)
 

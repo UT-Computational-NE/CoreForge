@@ -401,6 +401,16 @@ def test_mpact_builder(modified_three_element_irradiator):
 
     assert builder_cls is mpact_builder.triga.netl.ModifiedThreeElementIrradiator
 
+    for element in (irradiator, make_simplified(irradiator)):
+        specs = builder_cls.Specs()
+        region_stack, region_stack_specs = builder_cls(specs).build_stack_and_specs(element)
+        for name, pincells in element.pincell.items():
+            expected = getattr(specs, name)
+            for pincell in pincells:
+                segments = [segment for segment in region_stack.segments if segment.element is pincell]
+                assert segments
+                assert all(region_stack_specs.segment_specs[segment] is expected for segment in segments)
+
     built_stack, stack_specs = builder_cls().build_stack_and_specs(irradiator)
     assert built_stack == stack
     assert set(stack_specs.segment_specs) == set(stack.segments)

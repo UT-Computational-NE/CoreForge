@@ -886,6 +886,8 @@ class Reactor(GeometryElement):
             radius = upper_grid_plate.geometry.three_element_penetration_radius
             assert radius is not None, \
                 "An upper-grid-plate three-element penetration radius is required when an irradiator is present."
+            assert core.three_element_irradiator.as_stack().footprint.outer_radius < radius, \
+                "The three-element irradiator must fit within the upper-grid-plate penetration."
             for i, j in core.lattice.cells_intersecting(Circle(radius), center):
                 location = CoreGeometry.RING_MAP[i][j]
                 cell_center = core.lattice.cell_centers[i][j]

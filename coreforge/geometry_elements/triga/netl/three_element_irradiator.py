@@ -219,47 +219,47 @@ class ThreeElementIrradiator(CoreElement):
         self._outer_material = outer_material or Water()
         self._gap_tolerance = gap_tolerance
 
-        def pincell(radii: List[float], materials: List[Material], suffix: str) -> CylindricalPinCell:
-            return CylindricalPinCell(radii=radii,
-                                      materials=materials,
-                                      name=f"{self.name}_{suffix}_pincell",
-                                      min_zone_thickness=self.gap_tolerance)
-
-        solid_end_pincell = pincell(
-            [outer_casing.outer_radius],
-            [outer_casing.material, self.outer_material],
-            "solid_end",
+        solid_end_pincell = CylindricalPinCell(
+            radii=[outer_casing.outer_radius],
+            materials=[outer_casing.material, self.outer_material],
+            name=f"{self.name}_solid_end_pincell",
+            min_zone_thickness=self.gap_tolerance,
         )
-        liner_bottom_pincell = pincell(
-            [liner_outer_radius, outer_casing.inner_radius, outer_casing.outer_radius],
-            [liner.material, self.fill_material, outer_casing.material, self.outer_material],
-            "liner_bottom",
+        liner_bottom_pincell = CylindricalPinCell(
+            radii=[liner_outer_radius, outer_casing.inner_radius, outer_casing.outer_radius],
+            materials=[liner.material, self.fill_material, outer_casing.material, self.outer_material],
+            name=f"{self.name}_liner_bottom_pincell",
+            min_zone_thickness=self.gap_tolerance,
         )
-        inner_sleeve_bottom_pincell = pincell(
-            [inner_sleeve.outer_radius, liner_outer_radius,
+        inner_sleeve_bottom_pincell = CylindricalPinCell(
+            radii=[inner_sleeve.outer_radius, liner_outer_radius,
              outer_casing.inner_radius, outer_casing.outer_radius],
-            [inner_sleeve.material, liner.material, self.fill_material,
+            materials=[inner_sleeve.material, liner.material, self.fill_material,
              outer_casing.material, self.outer_material],
-            "inner_sleeve_bottom",
+            name=f"{self.name}_inner_sleeve_bottom_pincell",
+            min_zone_thickness=self.gap_tolerance,
         )
-        lined_pincell = pincell(
-            [inner_sleeve.inner_radius, inner_sleeve.outer_radius, liner_outer_radius,
+        lined_pincell = CylindricalPinCell(
+            radii=[inner_sleeve.inner_radius, inner_sleeve.outer_radius, liner_outer_radius,
              outer_casing.inner_radius, outer_casing.outer_radius],
-            [self.fill_material, inner_sleeve.material, liner.material,
+            materials=[self.fill_material, inner_sleeve.material, liner.material,
              self.fill_material, outer_casing.material, self.outer_material],
-            "lined",
+            name=f"{self.name}_lined_pincell",
+            min_zone_thickness=self.gap_tolerance,
         )
-        inner_sleeve_pincell = pincell(
-            [inner_sleeve.inner_radius, inner_sleeve.outer_radius,
+        inner_sleeve_pincell = CylindricalPinCell(
+            radii=[inner_sleeve.inner_radius, inner_sleeve.outer_radius,
              outer_casing.inner_radius, outer_casing.outer_radius],
-            [self.fill_material, inner_sleeve.material, self.fill_material,
+            materials=[self.fill_material, inner_sleeve.material, self.fill_material,
              outer_casing.material, self.outer_material],
-            "inner_sleeve",
+            name=f"{self.name}_inner_sleeve_pincell",
+            min_zone_thickness=self.gap_tolerance,
         )
-        outer_casing_pincell = pincell(
-            [outer_casing.inner_radius, outer_casing.outer_radius],
-            [self.fill_material, outer_casing.material, self.outer_material],
-            "outer_casing",
+        outer_casing_pincell = CylindricalPinCell(
+            radii=[outer_casing.inner_radius, outer_casing.outer_radius],
+            materials=[self.fill_material, outer_casing.material, self.outer_material],
+            name=f"{self.name}_outer_casing_pincell",
+            min_zone_thickness=self.gap_tolerance,
         )
         self._pincell: ThreeElementIrradiator.Pincell = {
             "solid_end": solid_end_pincell,
@@ -308,6 +308,11 @@ class ThreeElementIrradiator(CoreElement):
         ----------
         bottom_pos : float, optional
             Axial position of the stack bottom [cm]. Defaults to 0.0.
+
+        Returns
+        -------
+        PinCellStack
+            The Three Element Irradiator as a Stack
         """
 
         lined_length = self.liner.sidewall_length - self.inner_sleeve.bottom_thickness

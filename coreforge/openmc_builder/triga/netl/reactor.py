@@ -282,8 +282,8 @@ def build_core_element(
         bottom_plane   = openmc.ZPlane(bottom_z)
         top_plane      = openmc.ZPlane(top_z)
         z_translation  = bottom_z
-        # PinCellStacks and PNTs already use element.bottom_pos, so remove it from the translation
-        if isinstance(element, (PinCellStack, geometry_elements_triga_netl.PNT)):
+        # PinCellStacks already use element.bottom_pos, so remove it from the translation
+        if isinstance(element, PinCellStack):
             z_translation -= element.bottom_pos
         translation = (element_specs.x0, element_specs.y0, z_translation)
         element_region = _build_element_region(element).translate(translation)
@@ -334,8 +334,6 @@ def _build_element_region(element: geometry_elements_triga_netl.Core.Element) ->
 
     if isinstance(element, PinCellStack):
         stack = element
-    elif isinstance(element, geometry_elements_triga_netl.PNT):
-        stack = element.as_stack()
     else:
         stack = element.as_stack(bottom_pos=0.0)
 

@@ -39,10 +39,9 @@ class Core(GeometryElement):
         and not in the reserved locations (A-01, C-01, C-07, D-06, D-14,
         G-01, G-07, G-13, G-19, G-25, G-31). Any unspecified, non-reserved
         locations are set to ``None``. Supported contents are fuel elements,
-        graphite elements, source holders, PNTs, three-element irradiators,
-        and pin-cell stacks.
-    three_element_irradiator : Loadable, optional
-        Loadable spanning locations E-11, F-13, and F-14. When provided, those
+        graphite elements, source holders, PNTs, and pin-cell stacks.
+    three_element_irradiator : ThreeElementIrradiator | ModifiedThreeElementIrradiator, optional
+        Irradiator spanning locations E-11, F-13, and F-14. When provided, those
         locations are conditionally reserved and must not contain another
         nonempty entry in ``loading``.
     name : str, optional
@@ -66,8 +65,8 @@ class Core(GeometryElement):
         Material to fill unoccupied core locations.
     loading : Dict[str, Loadable | None]
         Map of mutable locations to their contents
-    three_element_irradiator : Loadable, optional
-        Loadable spanning the three conditionally reserved irradiation-facility
+    three_element_irradiator : ThreeElementIrradiator | ModifiedThreeElementIrradiator, optional
+        Irradiator spanning the three conditionally reserved irradiation-facility
         locations.
     three_element_center : Tuple[float, float]
         Radial centroid of the three irradiation-facility locations [cm],
@@ -116,8 +115,7 @@ class Core(GeometryElement):
         ["A-01"]
     ]
 
-    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | ThreeElementIrradiator | \
-                            ModifiedThreeElementIrradiator | PinCellStack
+    Loadable:   TypeAlias = FuelElement | GraphiteElement | SourceHolder | PNT | PinCellStack
     ControlRod: TypeAlias = TransientRod | FuelFollowerControlRod
     Fixture:    TypeAlias = CentralThimble | TransientRod | FuelFollowerControlRod
     Element:    TypeAlias = CoreElement | PinCellStack
@@ -159,7 +157,7 @@ class Core(GeometryElement):
         return self._loading
 
     @property
-    def three_element_irradiator(self) -> Loadable | None:
+    def three_element_irradiator(self) -> ThreeElementIrradiator | ModifiedThreeElementIrradiator | None:
         return self._three_element_irradiator
 
     @property
@@ -183,7 +181,7 @@ class Core(GeometryElement):
                  shim_2_rod:      FuelFollowerControlRod,
                  fill_material:   Material,
                  loading:         Dict[str, Loadable | None],
-                 three_element_irradiator: Loadable | None = None,
+                 three_element_irradiator: ThreeElementIrradiator | ModifiedThreeElementIrradiator | None = None,
                  name:            str = "core") -> None:
         super().__init__(name)
         assert pitch > 0.0, "Core pitch must be positive."

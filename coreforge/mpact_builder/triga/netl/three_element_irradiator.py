@@ -127,15 +127,8 @@ class ThreeElementIrradiator(CoreElement[geometry_elements_triga_netl.ThreeEleme
         """Return the irradiator stack and its segment specifications."""
 
         stack = element.as_stack(bottom_pos=0.0)
-        segment_specs = {
-            stack.segments[0]: self.specs.solid_end,
-            stack.segments[1]: self.specs.liner_bottom,
-            stack.segments[2]: self.specs.inner_sleeve_bottom,
-            stack.segments[3]: self.specs.lined,
-            stack.segments[4]: self.specs.inner_sleeve,
-            stack.segments[5]: self.specs.outer_casing,
-            stack.segments[6]: self.specs.solid_end,
-        }
+        specs_by_pincell = {id(p): getattr(self.specs, name) for name, p in element.pincell.items()}
+        segment_specs = {segment: specs_by_pincell[id(segment.element)] for segment in stack.segments}
 
         self._apply_material_specs(segment_specs, self.specs.material_specs)
         return stack, Stack.Specs(segment_specs)

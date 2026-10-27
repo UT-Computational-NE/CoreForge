@@ -136,8 +136,8 @@ class GridPlate(GeometryElement):
 
 def grid_plate_penetration_map(fuel_location_radius:        float,
                                control_rod_location_radius: float,
-                               pnt_location_radius:         float,
-                               central_thimble_radius:      float
+                               central_thimble_radius:      float,
+                               pnt_location_radius:         float
 ) -> Dict[str, Optional[float]]:
     """ Create a standard penetration map for a TRIGA grid plate.
 
@@ -147,10 +147,10 @@ def grid_plate_penetration_map(fuel_location_radius:        float,
         Penetration radius for fuel element locations [cm].
     control_rod_location_radius : float
         Penetration radius for control rod locations [cm].
-    pnt_location_radius : float
-        Penetration radius for the PNT location (G-34) [cm].
     central_thimble_radius : float
         Penetration radius for the central thimble location [cm].
+    pnt_location_radius : float
+        Penetration radius for the PNT location (G-34) [cm].
 
     Returns
     -------
@@ -160,8 +160,8 @@ def grid_plate_penetration_map(fuel_location_radius:        float,
     """
     assert fuel_location_radius > 0.0, "Fuel penetration radius must be positive."
     assert control_rod_location_radius > 0.0, "Control rod penetration radius must be positive."
-    assert pnt_location_radius > 0.0, "PNT penetration radius must be positive."
     assert central_thimble_radius > 0.0, "Central thimble radius must be positive."
+    assert pnt_location_radius > 0.0, "PNT penetration radius must be positive."
 
     penetration_map = {loc: fuel_location_radius for ring in Core.RING_MAP for loc in ring}
 

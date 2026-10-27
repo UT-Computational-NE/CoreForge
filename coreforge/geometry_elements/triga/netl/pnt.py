@@ -248,13 +248,19 @@ class PNT(CoreElement):
         materials.append(self.outer_material)
         return unique_materials(materials)
 
-    def as_stack(self) -> PinCellStack:
+    def as_stack(self, bottom_pos: Optional[float] = None) -> PinCellStack:
         """Return the PNT as a cylindrical stack.
+
+        Parameters
+        ----------
+        bottom_pos : float, optional
+            Axial position of the stack bottom [cm]. Defaults to the PNT's
+            stored ``bottom_pos`` when omitted or ``None``.
 
         Returns
         -------
         PinCellStack
-            PNT segments ordered from bottom to top.
+            The PNT as a Stack
         """
 
         segments = [Stack.Segment(segment.element, segment.length)
@@ -273,7 +279,8 @@ class PNT(CoreElement):
                     self.tube.length - self.wrapper.length,
                 ))
 
-        return PinCellStack(segments=segments, name=self.name, bottom_pos=self.bottom_pos)
+        return PinCellStack(segments=segments, name=self.name,
+                            bottom_pos=self.bottom_pos if bottom_pos is None else bottom_pos)
 
     @staticmethod
     def build_tube_pincell(tube:           Tube,

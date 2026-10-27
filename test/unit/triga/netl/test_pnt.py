@@ -139,10 +139,13 @@ def test_equality_and_hash(pnt):
     assert hash(pnt) != hash(relocated_pnt)
 
 
-def test_as_stack(pnt):
-    stack = pnt.as_stack()
+@pytest.mark.parametrize("bottom_pos", [None, 0.0, 12.5])
+def test_as_stack(pnt, bottom_pos):
+    stack = pnt.as_stack(bottom_pos=bottom_pos)
 
-    assert stack.bottom_pos == pytest.approx(PNT_BOTTOM_POS)
+    assert stack.bottom_pos == pytest.approx(PNT_BOTTOM_POS if bottom_pos is None else bottom_pos)
+    assert pnt.bottom_pos == pytest.approx(PNT_BOTTOM_POS)
+    assert pnt.as_stack().bottom_pos == pytest.approx(PNT_BOTTOM_POS)
     assert stack.length == pytest.approx(pnt.length)
     assert len(stack.segments) == len(pnt.terminus.segments) + 2
     assert [segment.length for segment in stack.segments] == pytest.approx([

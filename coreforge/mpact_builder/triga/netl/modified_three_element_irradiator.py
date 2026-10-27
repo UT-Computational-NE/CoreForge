@@ -178,14 +178,11 @@ class ModifiedThreeElementIrradiator(
         """Return the irradiator stack and its segment specifications."""
 
         stack = element.as_stack(bottom_pos=0.0)
-        segment_specs = {}
-        segment_index = 0
-        for region_name, region_pincells in element.pincell.items():
-            region_specs = getattr(self.specs, region_name)
-            for _ in region_pincells:
-                segment_specs[stack.segments[segment_index]] = region_specs
-                segment_index += 1
-
-        assert segment_index == len(stack.segments)
+        specs_by_pincell = {
+            id(p): getattr(self.specs, name)
+            for name, region_pincells in element.pincell.items()
+            for p in region_pincells
+        }
+        segment_specs = {segment: specs_by_pincell[id(segment.element)] for segment in stack.segments}
         self._apply_material_specs(segment_specs, self.specs.material_specs)
         return stack, Stack.Specs(segment_specs)

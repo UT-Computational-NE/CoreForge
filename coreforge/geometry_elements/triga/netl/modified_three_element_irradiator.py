@@ -652,18 +652,6 @@ class ModifiedThreeElementIrradiator(CoreElement):
         b4c = self.b4c_canister
         b10 = self.b10_canister
 
-        def pincell(
-            radii: List[float],
-            materials: List[Material],
-            suffix: str,
-        ) -> CylindricalPinCell:
-            return CylindricalPinCell(
-                radii=radii,
-                materials=materials,
-                name=f"{self.name}_{suffix}_pincell",
-                min_zone_thickness=self.gap_tolerance,
-            )
-
         def with_casing(
             interior_radii: List[float],
             interior_materials: List[Material],
@@ -682,7 +670,12 @@ class ModifiedThreeElementIrradiator(CoreElement):
             radii.append(casing.tube_1_outer_radius)
             materials.append(casing.material)
             materials.append(self.outer_material)
-            return pincell(radii, materials, suffix)
+            return CylindricalPinCell(
+                radii=radii,
+                materials=materials,
+                name=f"{self.name}_{suffix}_pincell",
+                min_zone_thickness=self.gap_tolerance,
+            )
 
         def open_pneumatic() -> tuple[List[float], List[Material]]:
             return (
@@ -831,10 +824,11 @@ class ModifiedThreeElementIrradiator(CoreElement):
             pneumatic_materials + [b4c.canister_material],
             "b4c_canister_top_cap",
         )
-        regions["outer_casing_solid_upper_end"] = pincell(
-            [casing.tube_2_outer_radius],
-            [casing.material, self.outer_material],
-            "outer_casing_solid_upper_end",
+        regions["outer_casing_solid_upper_end"] = CylindricalPinCell(
+            radii=[casing.tube_2_outer_radius],
+            materials=[casing.material, self.outer_material],
+            name=f"{self.name}_outer_casing_solid_upper_end_pincell",
+            min_zone_thickness=self.gap_tolerance,
         )
         return {
             "bottom_air": regions["bottom_air"],
@@ -1065,18 +1059,6 @@ class ModifiedThreeElementIrradiator(CoreElement):
             - spacer_aluminum_area_length / hollow_spacer_thickness
         )
 
-        def pincell(
-            radii: List[float],
-            materials: List[Material],
-            suffix: str,
-        ) -> CylindricalPinCell:
-            return CylindricalPinCell(
-                radii=radii,
-                materials=materials,
-                name=f"{self.name}_simplified_{suffix}_pincell",
-                min_zone_thickness=self.gap_tolerance,
-            )
-
         pneumatic_radii = [
             tube_inner_radius,
             pneumatic.tube_outer_radius,
@@ -1091,49 +1073,54 @@ class ModifiedThreeElementIrradiator(CoreElement):
         ]
 
         simplified_pincell: ModifiedThreeElementIrradiator.SimplifiedPincell = {
-            "bottom_air": [pincell(
-                [casing.tube_1_inner_radius, casing_outer_radius],
-                [self.fill_material, casing.material, self.outer_material],
-                "bottom_air",
+            "bottom_air": [CylindricalPinCell(
+                radii=[casing.tube_1_inner_radius, casing_outer_radius],
+                materials=[self.fill_material, casing.material, self.outer_material],
+                name=f"{self.name}_simplified_bottom_air_pincell",
+                min_zone_thickness=self.gap_tolerance,
             )],
-            "solid_spacer": [pincell(
-                [casing.tube_1_inner_radius, casing_outer_radius],
-                [self.solid_spacer.material, casing.material, self.outer_material],
-                "solid_spacer",
+            "solid_spacer": [CylindricalPinCell(
+                radii=[casing.tube_1_inner_radius, casing_outer_radius],
+                materials=[self.solid_spacer.material, casing.material, self.outer_material],
+                name=f"{self.name}_simplified_solid_spacer_pincell",
+                min_zone_thickness=self.gap_tolerance,
             )],
-            "hollow_spacer": [pincell(
-                [
+            "hollow_spacer": [CylindricalPinCell(
+                radii=[
                     hollow_spacer_radius,
                     casing.tube_1_inner_radius,
                     casing_outer_radius,
                 ],
-                [
+                materials=[
                     self.hollow_spacer.fill_material,
                     self.hollow_spacer.material,
                     casing.material,
                     self.outer_material,
                 ],
-                "hollow_spacer",
+                name=f"{self.name}_simplified_hollow_spacer_pincell",
+                min_zone_thickness=self.gap_tolerance,
             )],
-            "cadmium_disk": [pincell(
-                [casing.tube_1_inner_radius, casing_outer_radius],
-                [self.cadmium_disk.material, casing.material, self.outer_material],
-                "cadmium_disk",
+            "cadmium_disk": [CylindricalPinCell(
+                radii=[casing.tube_1_inner_radius, casing_outer_radius],
+                materials=[self.cadmium_disk.material, casing.material, self.outer_material],
+                name=f"{self.name}_simplified_cadmium_disk_pincell",
+                min_zone_thickness=self.gap_tolerance,
             )],
-            "silver_disk": [pincell(
-                [casing.tube_1_inner_radius, casing_outer_radius],
-                [self.silver_disk.material, casing.material, self.outer_material],
-                "silver_disk",
+            "silver_disk": [CylindricalPinCell(
+                radii=[casing.tube_1_inner_radius, casing_outer_radius],
+                materials=[self.silver_disk.material, casing.material, self.outer_material],
+                name=f"{self.name}_simplified_silver_disk_pincell",
+                min_zone_thickness=self.gap_tolerance,
             )],
-            "lower_b10_solid_section": [pincell(
-                [
+            "lower_b10_solid_section": [CylindricalPinCell(
+                radii=[
                     b10_outer_radius,
                     canister_exterior_wall_radius,
                     cadmium_sleeve_outer_radius,
                     casing.tube_1_inner_radius,
                     casing_outer_radius,
                 ],
-                [
+                materials=[
                     b10.b10_material,
                     b10.canister_material,
                     b10.cadmium_sleeve_material,
@@ -1141,10 +1128,11 @@ class ModifiedThreeElementIrradiator(CoreElement):
                     casing.material,
                     self.outer_material,
                 ],
-                "lower_b10_solid_section",
+                name=f"{self.name}_simplified_lower_b10_solid_section_pincell",
+                min_zone_thickness=self.gap_tolerance,
             )],
-            "lower_b10_region": [pincell(
-                pneumatic_radii + [
+            "lower_b10_region": [CylindricalPinCell(
+                radii=pneumatic_radii + [
                     b10.b10_annulus_inner_radius,
                     b10_outer_radius,
                     canister_exterior_wall_radius,
@@ -1152,7 +1140,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
                     casing.tube_1_inner_radius,
                     casing_outer_radius,
                 ],
-                pneumatic_materials + [
+                materials=pneumatic_materials + [
                     b10.canister_material,
                     b10.b10_material,
                     b10.canister_material,
@@ -1161,33 +1149,35 @@ class ModifiedThreeElementIrradiator(CoreElement):
                     casing.material,
                     self.outer_material,
                 ],
-                "b10_region",
+                name=f"{self.name}_simplified_b10_region_pincell",
+                min_zone_thickness=self.gap_tolerance,
             )],
-            "b10_canister_top_cap": [pincell(
-                pneumatic_radii + [
+            "b10_canister_top_cap": [CylindricalPinCell(
+                radii=pneumatic_radii + [
                     canister_exterior_wall_radius,
                     cadmium_sleeve_outer_radius,
                     casing.tube_1_inner_radius,
                     casing_outer_radius,
                 ],
-                pneumatic_materials + [
+                materials=pneumatic_materials + [
                     b10.canister_material,
                     b10.cadmium_sleeve_material,
                     self.fill_material,
                     casing.material,
                     self.outer_material,
                 ],
-                "b10_canister_top_cap",
+                name=f"{self.name}_simplified_b10_canister_top_cap_pincell",
+                min_zone_thickness=self.gap_tolerance,
             )],
-            "b4c_region": [pincell(
-                pneumatic_radii + [
+            "b4c_region": [CylindricalPinCell(
+                radii=pneumatic_radii + [
                     b4c.b4c_region_inner_radius,
                     b4c_outer_radius,
                     b4c.canister_outer_radius,
                     casing.tube_1_inner_radius,
                     casing_outer_radius,
                 ],
-                pneumatic_materials + [
+                materials=pneumatic_materials + [
                     b4c.canister_material,
                     b4c.b4c_material,
                     b4c.canister_material,
@@ -1195,12 +1185,14 @@ class ModifiedThreeElementIrradiator(CoreElement):
                     casing.material,
                     self.outer_material,
                 ],
-                "b4c_region",
+                name=f"{self.name}_simplified_b4c_region_pincell",
+                min_zone_thickness=self.gap_tolerance,
             )],
-            "outer_casing_solid_upper_end": [pincell(
-                [casing_outer_radius],
-                [casing.material, self.outer_material],
-                "outer_casing_solid_upper_end",
+            "outer_casing_solid_upper_end": [CylindricalPinCell(
+                radii=[casing_outer_radius],
+                materials=[casing.material, self.outer_material],
+                name=f"{self.name}_simplified_outer_casing_solid_upper_end_pincell",
+                min_zone_thickness=self.gap_tolerance,
             )],
         }
         simplified_lengths = {

@@ -13,5 +13,5 @@ class PNT(Builder[geometry_elements_triga_netl.PNT]):
         pass
 
     def build(self, element: geometry_elements_triga_netl.PNT) -> openmc.Universe:
-        """Build the PNT with its stored axial position."""
-        return build(element.as_stack())
+        """Build the PNT with its bottom at zero."""
+        return build(element.as_stack(bottom_pos=0.0))

@@ -22,8 +22,14 @@ class CoreElement(GeometryElement):
         """Return the element's named axial pin-cell cross sections."""
 
     @abstractmethod
-    def as_stack(self) -> PinCellStack:
-        """Return the element as a pin-cell stack at its default position.
+    def as_stack(self, bottom_pos: float = 0.0) -> PinCellStack:
+        """Return the element as a pin-cell stack.
+
+        Parameters
+        ----------
+        bottom_pos : float, optional
+            Axial position of the stack bottom [cm]. The default position
+            depends on the concrete element.
 
         Returns
         -------
