@@ -70,8 +70,8 @@ class ModifiedThreeElementIrradiator(
             Specifications for the B4C region.
         b4c_canister_top_cap : CoreElement.SegmentSpecs
             Specifications for the B4C canister top cap.
-        outer_casing_solid_upper_end : CoreElement.SegmentSpecs
-            Specifications for the solid upper end of the outer casing.
+        outer_casing_solid_upper_region : CoreElement.SegmentSpecs
+            Specifications for the modeled solid upper region of the outer casing.
         """
 
         material_specs: Optional[MaterialSpecs] = None
@@ -113,7 +113,7 @@ class ModifiedThreeElementIrradiator(
         b4c_canister_top_cap: Optional[CoreElement.SegmentSpecs] = field(
             default_factory=CoreElement.SegmentSpecs
         )
-        outer_casing_solid_upper_end: Optional[CoreElement.SegmentSpecs] = field(
+        outer_casing_solid_upper_region: Optional[CoreElement.SegmentSpecs] = field(
             default_factory=CoreElement.SegmentSpecs
         )
 
@@ -136,8 +136,8 @@ class ModifiedThreeElementIrradiator(
             self.b4c_canister_bottom_cap = self.b4c_canister_bottom_cap or CoreElement.SegmentSpecs()
             self.b4c_region = self.b4c_region or CoreElement.SegmentSpecs()
             self.b4c_canister_top_cap = self.b4c_canister_top_cap or CoreElement.SegmentSpecs()
-            self.outer_casing_solid_upper_end = (
-                self.outer_casing_solid_upper_end or CoreElement.SegmentSpecs()
+            self.outer_casing_solid_upper_region = (
+                self.outer_casing_solid_upper_region or CoreElement.SegmentSpecs()
             )
 
     def __init__(self, specs: Optional[Specs] = None):
