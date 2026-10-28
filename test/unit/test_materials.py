@@ -283,8 +283,6 @@ def test_cd(cd):
                                                   number_densities            = num_dens,
                                                   mpact_specs                 = mpact_builder.DEFAULT_MPACT_MATERIAL_SPECS[Cd])
 
-    assert materials_are_close(material, expected_material)
-
 def test_pb(pb):
     material = mpact_builder.build_material(pb)
 

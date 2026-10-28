@@ -72,8 +72,8 @@ class ModifiedThreeElementIrradiator(CoreElement):
         tube_2_annulus_length : float
             Length over which Tube #2 surrounds the upper portion of Tube #1
             [cm].
-        tube_2_end_cap_thickness : float
-            Thickness of the solid Tube #2 region above Tube #1 [cm].
+        tube_2_solid_upper_region_length : float
+            Axial length of the modeled solid Tube #2 region above Tube #1 [cm].
         material : Material, optional
             Material assigned to both tubes (defaults to ``Al6061T6``).
         """
@@ -83,7 +83,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
         tube_1_length: float
         tube_2_outer_radius: float
         tube_2_annulus_length: float
-        tube_2_end_cap_thickness: float
+        tube_2_solid_upper_region_length: float
         material: Material = field(default_factory=Al6061T6)
 
         def __post_init__(self) -> None:
@@ -97,8 +97,8 @@ class ModifiedThreeElementIrradiator(CoreElement):
             assert 0.0 < self.tube_2_annulus_length < self.tube_1_length, (
                 "Tube #2 annulus length must be positive and shorter than Tube #1."
             )
-            assert self.tube_2_end_cap_thickness > 0.0, (
-                "Tube #2 end-cap thickness must be positive."
+            assert self.tube_2_solid_upper_region_length > 0.0, (
+                "Tube #2 modeled solid upper-region length must be positive."
             )
 
     @dataclass(frozen=True, eq=False)
@@ -398,7 +398,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
         b4c_canister_bottom_cap: List[CylindricalPinCell]
         b4c_region: List[CylindricalPinCell]
         b4c_canister_top_cap: List[CylindricalPinCell]
-        outer_casing_solid_upper_end: List[CylindricalPinCell]
+        outer_casing_solid_upper_region: List[CylindricalPinCell]
 
     class SimplifiedPincell(TypedDict):
         """Pincells for the ten simplified axial features, bottom to top."""
@@ -412,7 +412,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
         lower_b10_region: List[CylindricalPinCell]
         b10_canister_top_cap: List[CylindricalPinCell]
         b4c_region: List[CylindricalPinCell]
-        outer_casing_solid_upper_end: List[CylindricalPinCell]
+        outer_casing_solid_upper_region: List[CylindricalPinCell]
 
     @property
     def outer_casing(self) -> OuterCasing:
@@ -465,7 +465,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
     @property
     def length(self) -> float:
         """Return the complete outer-casing length [cm]."""
-        return self.outer_casing.tube_1_length + self.outer_casing.tube_2_end_cap_thickness
+        return self.outer_casing.tube_1_length + self.outer_casing.tube_2_solid_upper_region_length
 
     @property
     def pincell(self) -> Union[Pincell, SimplifiedPincell]:
@@ -493,8 +493,8 @@ class ModifiedThreeElementIrradiator(CoreElement):
             "b4c_canister_bottom_cap": list(self._pincell["b4c_canister_bottom_cap"]),
             "b4c_region": list(self._pincell["b4c_region"]),
             "b4c_canister_top_cap": list(self._pincell["b4c_canister_top_cap"]),
-            "outer_casing_solid_upper_end": list(
-                self._pincell["outer_casing_solid_upper_end"]
+            "outer_casing_solid_upper_region": list(
+                self._pincell["outer_casing_solid_upper_region"]
             ),
         }
 
@@ -643,7 +643,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
             "b4c_canister_bottom_cap": b4c.bottom_cap_thickness,
             "b4c_region": b4c.b4c_region_thickness,
             "b4c_canister_top_cap": b4c.top_cap_thickness,
-            "outer_casing_solid_upper_end": casing.tube_2_end_cap_thickness,
+            "outer_casing_solid_upper_region": casing.tube_2_solid_upper_region_length,
         }
 
     def _build_base_pincell(self) -> Dict[str, CylindricalPinCell]:
@@ -824,10 +824,10 @@ class ModifiedThreeElementIrradiator(CoreElement):
             pneumatic_materials + [b4c.canister_material],
             "b4c_canister_top_cap",
         )
-        regions["outer_casing_solid_upper_end"] = CylindricalPinCell(
+        regions["outer_casing_solid_upper_region"] = CylindricalPinCell(
             radii=[casing.tube_2_outer_radius],
             materials=[casing.material, self.outer_material],
-            name=f"{self.name}_outer_casing_solid_upper_end_pincell",
+            name=f"{self.name}_outer_casing_solid_upper_region_pincell",
             min_zone_thickness=self.gap_tolerance,
         )
         return {
@@ -849,7 +849,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
             "b4c_canister_bottom_cap": regions["b4c_canister_bottom_cap"],
             "b4c_region": regions["b4c_region"],
             "b4c_canister_top_cap": regions["b4c_canister_top_cap"],
-            "outer_casing_solid_upper_end": regions["outer_casing_solid_upper_end"],
+            "outer_casing_solid_upper_region": regions["outer_casing_solid_upper_region"],
         }
 
     def _build_simplified_geometry(
@@ -870,14 +870,14 @@ class ModifiedThreeElementIrradiator(CoreElement):
             * casing.tube_1_length
             + (casing.tube_2_outer_radius**2 - casing.tube_1_outer_radius**2)
             * casing.tube_2_annulus_length
-            + casing.tube_2_outer_radius**2 * casing.tube_2_end_cap_thickness
+            + casing.tube_2_outer_radius**2 * casing.tube_2_solid_upper_region_length
         )
         casing_outer_radius = sqrt(
             (
                 casing_aluminum_area_length
                 + casing.tube_1_inner_radius**2 * casing.tube_1_length
             )
-            / (casing.tube_1_length + casing.tube_2_end_cap_thickness)
+            / (casing.tube_1_length + casing.tube_2_solid_upper_region_length)
         )
 
         # Extend the open pneumatic tube and sleeve through their lower caps
@@ -1188,10 +1188,10 @@ class ModifiedThreeElementIrradiator(CoreElement):
                 name=f"{self.name}_simplified_b4c_region_pincell",
                 min_zone_thickness=self.gap_tolerance,
             )],
-            "outer_casing_solid_upper_end": [CylindricalPinCell(
+            "outer_casing_solid_upper_region": [CylindricalPinCell(
                 radii=[casing_outer_radius],
                 materials=[casing.material, self.outer_material],
-                name=f"{self.name}_simplified_outer_casing_solid_upper_end_pincell",
+                name=f"{self.name}_simplified_outer_casing_solid_upper_region_pincell",
                 min_zone_thickness=self.gap_tolerance,
             )],
         }
@@ -1205,7 +1205,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
             "lower_b10_region": [b10_annulus_thickness],
             "b10_canister_top_cap": [b10_top_cap_thickness],
             "b4c_region": [b4c_length],
-            "outer_casing_solid_upper_end": [casing.tube_2_end_cap_thickness],
+            "outer_casing_solid_upper_region": [casing.tube_2_solid_upper_region_length],
         }
         return simplified_pincell, simplified_lengths
 
@@ -1250,7 +1250,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
         lengths: Dict[str, List[float]] = {}
         feature_bottom = 0.0
         for name, base_feature_pincell in base_pincell.items():
-            if name == "outer_casing_solid_upper_end":
+            if name == "outer_casing_solid_upper_region":
                 continue
             base_feature_length = base_lengths[name]
             feature_top = feature_bottom + base_feature_length
@@ -1273,11 +1273,11 @@ class ModifiedThreeElementIrradiator(CoreElement):
                 ]
             feature_bottom = feature_top
 
-        pincells["outer_casing_solid_upper_end"] = [
-            base_pincell["outer_casing_solid_upper_end"]
+        pincells["outer_casing_solid_upper_region"] = [
+            base_pincell["outer_casing_solid_upper_region"]
         ]
-        lengths["outer_casing_solid_upper_end"] = [
-            base_lengths["outer_casing_solid_upper_end"]
+        lengths["outer_casing_solid_upper_region"] = [
+            base_lengths["outer_casing_solid_upper_region"]
         ]
 
         return {
@@ -1299,7 +1299,7 @@ class ModifiedThreeElementIrradiator(CoreElement):
             "b4c_canister_bottom_cap": pincells["b4c_canister_bottom_cap"],
             "b4c_region": pincells["b4c_region"],
             "b4c_canister_top_cap": pincells["b4c_canister_top_cap"],
-            "outer_casing_solid_upper_end": pincells["outer_casing_solid_upper_end"],
+            "outer_casing_solid_upper_region": pincells["outer_casing_solid_upper_region"],
         }, lengths
 
     def __eq__(self, other: object) -> bool:

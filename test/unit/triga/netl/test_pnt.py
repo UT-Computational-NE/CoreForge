@@ -36,7 +36,11 @@ def pnt():
             Stack.Segment(solid_section(wide_radius, aluminum, "lower_section"), 8.3259),
             Stack.Segment(solid_section(narrow_radius, aluminum, "terminus_connecting_tube"), 4.1725),
             Stack.Segment(solid_section(wide_radius, aluminum, "shock_absorber_lower"), 2.5400),
-            Stack.Segment(solid_section(wide_radius, cadmium, "cadmium_disk"), 0.0508),
+            Stack.Segment(CylindricalPinCell(
+                radii=[0.5 * 0.685 * CM_PER_INCH, 0.5 * 0.875 * CM_PER_INCH],
+                materials=[cadmium, aluminum, ignored_outer_material],
+                name="cadmium_disk",
+            ), 0.0508),
             Stack.Segment(solid_section(narrow_radius, aluminum, "shock_absorber_upper"), 2.5400),
         ],
         name="terminus",
@@ -75,6 +79,12 @@ def test_initialization(pnt):
     assert isinstance(pnt.outer_material, Water)
     assert all(isinstance(segment.element.outer_material, Water)
                for segment in pnt.terminus.segments)
+
+    disk = pnt.terminus.segments[3].element
+    assert [zone.shape.outer_radius for zone in disk.zones] == pytest.approx([0.86995, 1.11125])
+    assert isinstance(disk.zones[0].material, Cd)
+    assert isinstance(disk.zones[1].material, Al6061T6)
+    assert disk.outer_material == pnt.outer_material
 
     tube_radii = [zone.shape.outer_radius for zone in pincell["tube"].zones]
     tube_materials = [zone.material for zone in pincell["tube"].zones]

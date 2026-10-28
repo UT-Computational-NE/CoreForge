@@ -25,7 +25,7 @@ def modified_three_element_irradiator():
         tube_1_length=124.77400,
         tube_2_outer_radius=2.38125,
         tube_2_annulus_length=81.27660,
-        tube_2_end_cap_thickness=3.39830,
+        tube_2_solid_upper_region_length=3.39830,
     )
     pneumatic_system = ModifiedThreeElementIrradiator.PneumaticSystem(
         tube_inner_radius=0.67000,
@@ -147,7 +147,7 @@ def test_initialization(modified_three_element_irradiator):
         "b4c_canister_bottom_cap": [0.20000],
         "b4c_region": [52.00278],
         "b4c_canister_top_cap": [0.19660],
-        "outer_casing_solid_upper_end": [3.39830],
+        "outer_casing_solid_upper_region": [3.39830],
     }
 
     assert irradiator.length == pytest.approx(128.17230)
@@ -250,7 +250,7 @@ def test_initialization(modified_three_element_irradiator):
             b4c.canister_outer_radius,
             *tube_2,
         ]],
-        "outer_casing_solid_upper_end": [[casing.tube_2_outer_radius]],
+        "outer_casing_solid_upper_region": [[casing.tube_2_outer_radius]],
     }
     for name, region_expected_radii in expected_radii.items():
         assert len(pincell[name]) == len(region_expected_radii)
@@ -336,7 +336,7 @@ def test_simplified_geometry(modified_three_element_irradiator):
         "lower_b10_region": [55.24500],
         "b10_canister_top_cap": [2.64000],
         "b4c_region": [52.39938],
-        "outer_casing_solid_upper_end": [3.39830],
+        "outer_casing_solid_upper_region": [3.39830],
     }
     assert irradiator.simplified
     assert irradiator != detailed
@@ -372,7 +372,7 @@ def test_simplified_geometry(modified_three_element_irradiator):
             0.67015, 0.79400, 0.86182, 0.95250,
             1.11125, 1.88760, 2.19009, 2.23393, 2.35651,
         ],
-        "outer_casing_solid_upper_end": [2.35651],
+        "outer_casing_solid_upper_region": [2.35651],
     }
     for name, expected_region_radii in expected_radii.items():
         pincell = irradiator.pincell[name][0]
