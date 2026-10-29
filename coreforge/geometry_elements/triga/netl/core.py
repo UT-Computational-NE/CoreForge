@@ -72,6 +72,9 @@ class Core(GeometryElement):
         Radial centroid of the three irradiation-facility locations [cm],
         relative to the core origin. Calculated whether or not the facility
         is present.
+    three_element_offsets : Dict[str, Tuple[float, float]]
+        Irradiator-center offsets [cm] relative to each intersected cell center.
+        Empty when no irradiator is present.
     full_map : Dict[str, Element | None]
         Full map of core locations to their contents.
     lattice : HexLattice
@@ -122,8 +125,13 @@ class Core(GeometryElement):
     Element:    TypeAlias = CoreElement | PinCellStack
 
     THREE_ELEMENT_LOCATIONS: ClassVar[List[str]] = ["E-11", "F-13", "F-14"]
-    RESERVED_LOCATIONS: ClassVar[List[str]] = ["A-01", "C-01", "C-07", "D-06", "D-14",
-                                               "G-01", "G-07", "G-13", "G-19", "G-25", "G-31"]
+    CENTRAL_THIMBLE_LOCATION: ClassVar[str] = "A-01"
+    PNT_LOCATION: ClassVar[str] = "G-34"
+    CONTROL_ROD_LOCATIONS: ClassVar[List[str]] = ["C-01", "C-07", "D-06", "D-14"]
+    NON_ELEMENT_LOCATIONS: ClassVar[List[str]] = ["G-01", "G-07", "G-13", "G-19", "G-25", "G-31"]
+    RESERVED_LOCATIONS: ClassVar[List[str]] = (
+        [CENTRAL_THIMBLE_LOCATION] + CONTROL_ROD_LOCATIONS + NON_ELEMENT_LOCATIONS
+    )
 
     @property
     def pitch(self) -> float:
@@ -166,6 +174,10 @@ class Core(GeometryElement):
         return self._three_element_center
 
     @property
+    def three_element_offsets(self) -> Dict[str, Tuple[float, float]]:
+        return self._three_element_offsets
+
+    @property
     def full_map(self) -> Dict[str, Element | None]:
         return self._full_map
 
@@ -200,7 +212,7 @@ class Core(GeometryElement):
             assert any(location in ring for ring in Core.RING_MAP), \
                 f"Invalid core location '{location}' in core loading."
             assert location not in Core.RESERVED_LOCATIONS, \
-                f"Core location '{location}' is reserved for control rods or central thimble."
+                f"Core location '{location}' is reserved for a core fixture or water hole."
 
         if self.three_element_irradiator is not None:
             conflicting_locations = [
@@ -214,17 +226,10 @@ class Core(GeometryElement):
             )
 
         reserved = {
-            "A-01": self.central_thimble,
-            "C-01": self.transient_rod,
-            "C-07": self.regulating_rod,
-            "D-06": self.shim_1_rod,
-            "D-14": self.shim_2_rod,
-            "G-01": None,
-            "G-07": None,
-            "G-13": None,
-            "G-19": None,
-            "G-25": None,
-            "G-31": None,
+            Core.CENTRAL_THIMBLE_LOCATION: self.central_thimble,
+            **dict(zip(Core.CONTROL_ROD_LOCATIONS,
+                       (self.transient_rod, self.regulating_rod, self.shim_1_rod, self.shim_2_rod))),
+            **dict.fromkeys(Core.NON_ELEMENT_LOCATIONS),
         }
 
         full_map: Dict[str, Core.Element | None] = {}
@@ -245,6 +250,16 @@ class Core(GeometryElement):
                                                      for ring in Core.RING_MAP],
                                    map_type="ring")
         self._three_element_center = self._calculate_three_element_center()
+        self._three_element_offsets: Dict[str, Tuple[float, float]] = {}
+        if self.three_element_irradiator is not None:
+            irradiator = self.three_element_irradiator
+            stack = irradiator if isinstance(irradiator, PinCellStack) else irradiator.as_stack()
+            self._three_element_offsets = {
+                Core.RING_MAP[i][j]: offset
+                for (i, j), offset in self.lattice.cells_intersecting(
+                    stack.footprint, self.three_element_center,
+                ).items()
+            }
 
     def __eq__(self, other: object) -> bool:
         if self is other:

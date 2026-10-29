@@ -6,6 +6,7 @@ import pytest
 
 from coreforge.geometry_elements.triga.netl import GridPlate, Reactor
 from coreforge.materials import unique_materials
+from coreforge.geometry_elements.triga.netl.grid_plate import grid_plate_penetration_map
 from coreforge.shapes import Interval, Rectangle
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
@@ -74,10 +75,17 @@ def _three_element_irradiator_specs(reactor: Reactor):
 def reactor(pool, reflector, shroud, rsr_cavity, beam_port, grid_plate, core):
     reflector_wrap = Reactor.Reflector(geometry=reflector,
                                        core_centerline_offset=REFLECTOR_CORE_CENTERLINE_OFFSET)
+    upper_penetrations = grid_plate_penetration_map(
+        fuel_location_radius=grid_plate.penetration_map["B-01"][0][0],
+        control_rod_location_radius=grid_plate.penetration_map["C-01"][0][0],
+        central_thimble_radius=grid_plate.penetration_map["A-01"][0][0],
+        pnt_location_radius=grid_plate.penetration_map["G-34"][0][0],
+        three_element_location_radius=2.4,
+        core=core,
+    )
     upper_grid_geometry = GridPlate(thickness=grid_plate.thickness,
-                                    penetration_map=grid_plate.penetration_map,
-                                    material=grid_plate.material,
-                                    three_element_penetration_radius=2.4)
+                                    penetration_map=upper_penetrations,
+                                    material=grid_plate.material)
     upper_grid = Reactor.GridPlate(geometry=upper_grid_geometry,
                                    top_to_core_centerline_distance=UPPER_GRID_PLATE_TOP_TO_CORE_CENTERLINE_DISTANCE)
     lower_grid = Reactor.GridPlate(geometry=grid_plate,
@@ -199,7 +207,7 @@ def test_initialization(reactor, pool, reflector, shroud, rsr_cavity):
     assert reactor.get_core_cell_specs("G-01").elements == []
     assert len(cell_specs.upper_grid_plate.penetrations) == 1
     assert cell_specs.upper_grid_plate.penetrations[0].radius == pytest.approx(
-        reactor.upper_grid_plate.geometry.penetration_map["B-01"]
+        reactor.upper_grid_plate.geometry.penetration_map["B-01"][0][0]
     )
 
 

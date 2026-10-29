@@ -110,6 +110,12 @@ def test_initialization(core, fuel_element, graphite_element, source_holder, pnt
     assert core.three_element_irradiator is three_element_irradiator
     assert core.three_element_center == pytest.approx(
         (7. * sqrt(3.) * core.pitch / 6., -3.5 * core.pitch))
+    assert set(core.THREE_ELEMENT_LOCATIONS) <= set(core.three_element_offsets)
+    for locations, centers in zip(core.RING_MAP, core.lattice.cell_centers):
+        for location, center in zip(locations, centers):
+            if location in core.three_element_offsets:
+                assert core.three_element_offsets[location] == pytest.approx(
+                    (core.three_element_center[0] - center[0], core.three_element_center[1] - center[1]))
     assert core.full_map["E-11"] is three_element_irradiator
     assert core.full_map["F-13"] is three_element_irradiator
     assert core.full_map["F-14"] is three_element_irradiator
