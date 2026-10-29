@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 from coreforge.geometry_elements.geometry_element import GeometryElement, register_overlay
 from coreforge.geometry_elements.infinite_medium import InfiniteMedium
@@ -64,8 +64,8 @@ class Lattice(GeometryElement):
 
     def cells_intersecting(self,
                            shape: Shape_2D,
-                           center: Tuple[float, float] = (0.0, 0.0)) -> List[Tuple[int, int]]:
-        """Find lattice cell indices whose footprints intersect a shape.
+                           center: Tuple[float, float] = (0.0, 0.0)) -> Dict[Tuple[int, int], Tuple[float, float]]:
+        """Find intersected lattice cells and the shape's offset within each cell.
 
         Parameters
         ----------
@@ -76,22 +76,26 @@ class Lattice(GeometryElement):
 
         Returns
         -------
-        List[Tuple[int, int]]
-            ``(outer_index, inner_index)`` pairs indexing ``elements``, in
-            their stored order. Only indices are returned, not cell elements.
-            Portions of the shape outside the lattice are not represented.
+        Dict[Tuple[int, int], Tuple[float, float]]
+            Map of ``(outer_index, inner_index)`` pairs indexing ``elements``
+            to ``(x_offset, y_offset)`` coordinates [cm] of the supplied shape's
+            center relative to each cell center: ``center - cell_center``.
+            Entries follow the stored cell order. Iterating over the mapping
+            yields cell indices; use ``items()`` to also obtain the offsets.
+            The mapping is empty if no cells intersect. Portions of the shape
+            outside the lattice are not represented.
 
         Raises
         ------
         NotImplementedError
             If a cell shape has no intersection rule for the supplied shape.
         """
-        indices = []
+        offsets = {}
         for i, (centers, shapes) in enumerate(zip(self.cell_centers, self.cell_shapes)):
             for j, (cell_center, cell_shape) in enumerate(zip(centers, shapes)):
                 if cell_shape.intersects(shape, self_center=cell_center, other_center=center):
-                    indices.append((i, j))
-        return indices
+                    offsets[i, j] = (center[0] - cell_center[0], center[1] - cell_center[1])
+        return offsets
 
     def get_materials(self) -> List[Material]:
         materials = [self.outer_material]

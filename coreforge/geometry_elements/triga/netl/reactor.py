@@ -25,6 +25,58 @@ from .three_element_irradiator import ThreeElementIrradiator as ThreeElementIrra
 from .modified_three_element_irradiator import ModifiedThreeElementIrradiator as ModifiedThreeElementIrradiatorGeometry
 
 
+def element_bottom_axial_position(
+    element: Optional[CoreGeometry.Element],
+    upper_grid_plate: Reactor.GridPlate,
+    lower_grid_plate: Reactor.GridPlate,
+) -> Optional[float]:
+    """Resolve an element's axial placement using its geometry and the plate positions."""
+    if element is None:
+        return None
+    if isinstance(element, (PinCellStack, PNTGeometry)):
+        return element.bottom_pos
+    if isinstance(element, (ThreeElementIrradiatorGeometry, ModifiedThreeElementIrradiatorGeometry)):
+        return lower_grid_plate.axial_bounds.upper
+    if isinstance(element, CentralThimbleGeometry):
+        return -0.5 * element.length
+    if isinstance(element, FuelElementGeometry):
+        return (-0.5 * element.fuel_meat.length - element.moly_disc.thickness -
+                element.lower_end_fitting.length - element.lower_graphite_reflector.thickness)
+    if isinstance(element, GraphiteElementGeometry):
+        return (-0.5 * element.graphite_meat.length - element.lower_end_fitting.length)
+    if isinstance(element, SourceHolderGeometry):
+        return upper_grid_plate.top_to_core_centerline_distance - element.length
+    return None
+
+
+def grid_plate_specs(
+    grid_plate: Reactor.GridPlate,
+    location: str,
+    *,
+    irradiator_offset: Optional[Tuple[float, float]] = None,
+    replace_ordinary_penetration: bool = False,
+) -> Reactor.CoreCellSpecs.GridPlateSpecs:
+    """Resolve a plate's ordinary and optional three-element penetrations.
+
+    An irradiator offset selects the special opening. Replace the ordinary
+    opening only at reserved irradiator positions; neighboring cells retain it.
+    """
+    radius = grid_plate.geometry.penetration_map[location]
+    three_element_radius = grid_plate.geometry.three_element_penetration_radius
+    penetrations = []
+    if radius is not None and not (replace_ordinary_penetration and three_element_radius is not None):
+        penetrations.append(Reactor.CoreCellSpecs.PenetrationSpecs(radius=radius))
+    if irradiator_offset is not None and three_element_radius is not None:
+        penetrations.append(Reactor.CoreCellSpecs.PenetrationSpecs(
+            radius=three_element_radius, x0=irradiator_offset[0], y0=irradiator_offset[1],
+        ))
+    return Reactor.CoreCellSpecs.GridPlateSpecs(
+        axial_bounds=grid_plate.axial_bounds,
+        material=grid_plate.geometry.material,
+        penetrations=penetrations,
+    )
+
+
 # pylint: disable=too-many-public-methods
 class Reactor(GeometryElement):
     """Top-level TRIGA NETL reactor geometry container with placement metadata.
@@ -890,12 +942,10 @@ class Reactor(GeometryElement):
             stack = irradiator if isinstance(irradiator, PinCellStack) else irradiator.as_stack()
             assert stack.footprint.outer_radius < radius, \
                 "The three-element irradiator must fit within the upper-grid-plate penetration."
-            for i, j in core.lattice.cells_intersecting(Circle(radius), center):
+            for (i, j), offset in core.lattice.cells_intersecting(Circle(radius), center).items():
                 location = CoreGeometry.RING_MAP[i][j]
-                cell_center = core.lattice.cell_centers[i][j]
                 self._three_element_locations.append(location)
-                self._three_element_offsets[location] = (center[0] - cell_center[0],
-                                                         center[1] - cell_center[1])
+                self._three_element_offsets[location] = offset
 
     def __eq__(self, other: object) -> bool:
         if self is other:
@@ -978,36 +1028,17 @@ class Reactor(GeometryElement):
             if no element is provided or no special placement is required.
         """
 
-        axial_position: float | None = None
-
-        if isinstance(element, (PinCellStack, PNTGeometry)):
-            axial_position = element.bottom_pos
-        if isinstance(element, CentralThimbleGeometry):
-            axial_position = -0.5 * element.length
-        if isinstance(element, FuelElementGeometry):
-            axial_position = (-0.5 * element.fuel_meat.length -
-                              element.moly_disc.thickness -
-                              element.lower_end_fitting.length -
-                              element.lower_graphite_reflector.thickness)
-        if isinstance(element, GraphiteElementGeometry):
-            axial_position = (-0.5 * element.graphite_meat.length -
-                              element.lower_end_fitting.length)
         if element is self.core.transient_rod:
-            axial_position = self.transient_rod_position
+            return self.transient_rod_position
         if element is self.core.regulating_rod:
-            axial_position = self.regulating_rod_position
+            return self.regulating_rod_position
         if element is self.core.shim_1_rod:
-            axial_position = self.shim_1_rod_position
+            return self.shim_1_rod_position
         if element is self.core.shim_2_rod:
-            axial_position = self.shim_2_rod_position
-        if isinstance(element, SourceHolderGeometry):
-            axial_position = self.upper_grid_plate.top_to_core_centerline_distance - \
-                             element.length
-        if isinstance(element, (ThreeElementIrradiatorGeometry,
-                      ModifiedThreeElementIrradiatorGeometry)):
-            axial_position = self.lower_grid_plate.axial_bounds.upper
-
-        return axial_position
+            return self.shim_2_rod_position
+        return element_bottom_axial_position(
+            element, self.upper_grid_plate, self.lower_grid_plate,
+        )
 
     def get_core_cell_specs(self, location: str) -> CoreCellSpecs:
         """Resolve the geometry specifications for one core lattice location.
@@ -1051,33 +1082,19 @@ class Reactor(GeometryElement):
                 y0=offset[1],
             ))
 
-        def grid_plate_specs(grid_plate: Reactor.GridPlate) -> Reactor.CoreCellSpecs.GridPlateSpecs:
-            radius = grid_plate.geometry.penetration_map[location]
-            three_element_radius = grid_plate.geometry.three_element_penetration_radius
-            penetrations = []
-            # The special opening replaces ordinary holes only at the reserved
-            # positions; intersected neighboring cells retain their own holes.
-            if radius is not None and not (reserved_location and three_element_radius is not None):
-                penetrations.append(Reactor.CoreCellSpecs.PenetrationSpecs(radius=radius))
-            if is_three_element_location and three_element_radius is not None:
-                penetrations.append(Reactor.CoreCellSpecs.PenetrationSpecs(
-                    radius=three_element_radius,
-                    x0=irradiator_offset[0],
-                    y0=irradiator_offset[1],
-                ))
-
-            return Reactor.CoreCellSpecs.GridPlateSpecs(
-                axial_bounds=grid_plate.axial_bounds,
-                material=grid_plate.geometry.material,
-                penetrations=penetrations,
+        def plate_specs(grid_plate: Reactor.GridPlate) -> Reactor.CoreCellSpecs.GridPlateSpecs:
+            return grid_plate_specs(
+                grid_plate, location,
+                irradiator_offset=irradiator_offset if is_three_element_location else None,
+                replace_ordinary_penetration=reserved_location,
             )
 
         return Reactor.CoreCellSpecs(
             location=location,
             outer_material=self.core.fill_material,
             elements=elements,
-            upper_grid_plate=grid_plate_specs(self.upper_grid_plate),
-            lower_grid_plate=grid_plate_specs(self.lower_grid_plate),
+            upper_grid_plate=plate_specs(self.upper_grid_plate),
+            lower_grid_plate=plate_specs(self.lower_grid_plate),
         )
 
     def rsr_cavity_intersects(self,
