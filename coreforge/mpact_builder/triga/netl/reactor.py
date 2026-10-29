@@ -344,13 +344,13 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             for loc in ring:
                 geometry_specs = reactor.get_core_cell_specs(loc)
                 cell_specs = replace(self.specs.core_specs.get(loc) or Reactor.CoreCellSpecs())
-                if loc in reactor.three_element_locations:
+                if loc in reactor.core.three_element_offsets:
                     if len(geometry_specs.elements) > 1:
                         cell_specs.element_specs.extend(irradiator_specs.element_specs)
                     else:
                         cell_specs = replace(irradiator_specs)
                         cell_specs.outer_bounding_radius = (
-                            core_cell_corner_radius + hypot(*reactor.three_element_offsets[loc]))
+                            core_cell_corner_radius + hypot(*reactor.core.three_element_offsets[loc]))
                 core_cell_specs = replace(cell_specs, axial_bounds=reactor.pool.axial_bounds)
                 has_incore_overlay |= core_cell_specs.voxelization_specs is not None
                 stack, stack_specs = build_core_element(geometry_specs=geometry_specs,

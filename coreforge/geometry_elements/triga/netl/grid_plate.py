@@ -1,44 +1,46 @@
 from __future__ import annotations
 
 from math import isclose
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Tuple, TypeAlias
 
 from mpactpy.utils import relative_round, ROUNDING_RELATIVE_TOLERANCE as TOL
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.geometry_elements.triga.netl.core import Core
 from coreforge.materials import Material, Al6061T6, unique_materials
+from coreforge.shapes import Circle
+
+
+Penetration: TypeAlias = Tuple[float, float, float]
+PenetrationMap: TypeAlias = Dict[str, List[Penetration]]
 
 
 class GridPlate(GeometryElement):
-    """TRIGA grid plate.
+    """TRIGA grid plate with openings expressed in each lattice cell's coordinates.
 
     Parameters
     ----------
     thickness : float
         Thickness of the grid plate [cm].
-    penetration_map : Dict[str, Optional[float]]
-        Map of core locations to penetration radii [cm]. Use ``None`` when no
-        penetration is present.
+    penetration_map : PenetrationMap
+        Map of core locations to lists of ``(radius, x_offset, y_offset)``
+        openings [cm]. Offsets locate each opening's center relative to the
+        cell center. An empty list describes solid plate; omitted locations
+        also default to solid plate.
     material : Material, optional
         Plate material (defaults to ``Al6061T6``).
     name : str, optional
         Name for this grid plate.
-    three_element_penetration_radius : float, optional
-        Radius of the single penetration used when a three-element irradiator
-        is present [cm].
 
     Attributes
     ----------
     thickness : float
         Thickness of the grid plate [cm].
-    penetration_map : Dict[str, Optional[float]]
-        Map of core locations to penetration radii [cm]. Use ``None`` when no
-        penetration is present.
+    penetration_map : PenetrationMap
+        Per-location lists of ``(radius, x_offset, y_offset)`` openings [cm].
+        Multiple entries describe the union of openings within a cell.
     material : Material
         Plate material.
-    three_element_penetration_radius : float, optional
-        Radius of the three-element penetration [cm].
     """
 
     @property
@@ -46,47 +48,34 @@ class GridPlate(GeometryElement):
         return self._thickness
 
     @property
-    def penetration_map(self) -> Dict[str, Optional[float]]:
+    def penetration_map(self) -> PenetrationMap:
         return self._penetration_map
 
     @property
     def material(self) -> Material:
         return self._material
 
-    @property
-    def three_element_penetration_radius(self) -> Optional[float]:
-        return self._three_element_penetration_radius
-
     def __init__(self,
                  thickness: float,
-                 penetration_map: Dict[str, Optional[float]],
+                 penetration_map: PenetrationMap,
                  material: Optional[Material] = None,
-                 name: str = "grid_plate",
-                 three_element_penetration_radius: Optional[float] = None) -> None:
+                 name: str = "grid_plate") -> None:
         super().__init__(name)
         assert thickness > 0.0, "Grid plate thickness must be positive."
         assert penetration_map, "penetration_map must not be empty."
-        if three_element_penetration_radius is not None:
-            assert three_element_penetration_radius > 0.0, \
-                "Three-element penetration radius must be positive."
 
         self._thickness = thickness
         self._penetration_map = self._validate_penetration_map(penetration_map)
         self._material = material or Al6061T6()
-        self._three_element_penetration_radius = three_element_penetration_radius
 
-    def _validate_penetration_map(self,
-                                  penetration_map: Dict[str, Optional[float]],
-    ) -> Dict[str, Optional[float]]:
+    def _validate_penetration_map(self, penetration_map: PenetrationMap) -> PenetrationMap:
         ordered_locations = [loc for ring in Core.RING_MAP for loc in ring]
-        valid_locations = set(ordered_locations)
-        full_map = {loc: None for loc in ordered_locations}
-        for location, radius in penetration_map.items():
-            assert location in valid_locations, \
-                f"Invalid core location '{location}' in penetration_map."
-            if radius is not None:
+        full_map: PenetrationMap = {loc: [] for loc in ordered_locations}
+        for location, penetrations in penetration_map.items():
+            assert location in full_map, f"Invalid core location '{location}' in penetration_map."
+            for radius, _, _ in penetrations:
                 assert radius > 0.0, "Penetration radius must be positive."
-            full_map[location] = radius
+            full_map[location] = list(penetrations)
         return full_map
 
     def __eq__(self, other: object) -> bool:
@@ -96,25 +85,17 @@ class GridPlate(GeometryElement):
             isinstance(other, GridPlate) and
             isclose(self.thickness, other.thickness, rel_tol=TOL) and
             self._penetration_maps_equal(other.penetration_map) and
-            self.material == other.material and
-            (
-                self.three_element_penetration_radius is None and
-                other.three_element_penetration_radius is None or
-                self.three_element_penetration_radius is not None and
-                other.three_element_penetration_radius is not None and
-                isclose(self.three_element_penetration_radius,
-                        other.three_element_penetration_radius,
-                        rel_tol=TOL)
-            )
+            self.material == other.material
         )
 
-    def _penetration_maps_equal(self, other_map: Dict[str, Optional[float]]) -> bool:
-        for location, radius in self.penetration_map.items():
-            other_radius = other_map.get(location)
-            if radius is None or other_radius is None:
-                if radius is not other_radius:
-                    return False
-            elif not isclose(radius, other_radius, rel_tol=TOL):
+    def _penetration_maps_equal(self, other_map: PenetrationMap) -> bool:
+        for location, penetrations in self.penetration_map.items():
+            other_penetrations = other_map.get(location, [])
+            if len(penetrations) != len(other_penetrations):
+                return False
+            if any(not isclose(value, other_value, rel_tol=TOL)
+                   for penetration, other in zip(penetrations, other_penetrations)
+                   for value, other_value in zip(penetration, other)):
                 return False
         return True
 
@@ -122,24 +103,26 @@ class GridPlate(GeometryElement):
         return hash((
             relative_round(self.thickness, TOL),
             tuple(
-                (location, None if radius is None else relative_round(radius, TOL))
-                for location, radius in sorted(self.penetration_map.items())
+                (location, tuple(tuple(relative_round(value, TOL) for value in penetration)
+                                 for penetration in penetrations))
+                for location, penetrations in sorted(self.penetration_map.items())
             ),
             self.material,
-            None if self.three_element_penetration_radius is None else
-            relative_round(self.three_element_penetration_radius, TOL),
         ))
 
     def get_materials(self) -> List[Material]:
         return unique_materials([self.material])
 
 
-def grid_plate_penetration_map(fuel_location_radius:        float,
-                               control_rod_location_radius: float,
-                               central_thimble_radius:      float,
-                               pnt_location_radius:         float
-) -> Dict[str, Optional[float]]:
-    """ Create a standard penetration map for a TRIGA grid plate.
+def grid_plate_penetration_map(
+    fuel_location_radius: float,
+    control_rod_location_radius: float,
+    central_thimble_radius: float,
+    pnt_location_radius: float,
+    three_element_location_radius: Optional[float] = None,
+    core: Optional[Core] = None,
+) -> PenetrationMap:
+    """Create the ordinary and optional three-element openings for a TRIGA plate.
 
     Parameters
     ----------
@@ -151,24 +134,52 @@ def grid_plate_penetration_map(fuel_location_radius:        float,
         Penetration radius for the central thimble location [cm].
     pnt_location_radius : float
         Penetration radius for the PNT location (G-34) [cm].
+    three_element_location_radius : Optional[float]
+        Radius of the shared three-element opening [cm]. Requires ``core``.
+        If omitted, or the supplied core has no irradiator, only ordinary
+        openings are generated.
+    core : Optional[Core]
+        Core whose attributes determine the penetration(s). At the three reserved
+        irradiator locations the irradiator penetration replaces the element penetration.
+        Neighboring element locations which the irradiator penetration footprint
+        intersects will have both the element penetration and irradiator penetration.
+        May be omitted when no three-element radius is supplied.
 
     Returns
     -------
-    Dict[str, Optional[float]]
-        Map of core locations to penetration radii [cm]. Use ``None`` when no
-        penetration is present.
+    PenetrationMap
+        Core locations mapped to lists of ``(radius, x_offset, y_offset)``
+        openings [cm]. An empty list describes solid plate.
+
+    Raises
+    ------
+    AssertionError
+        If a radius is nonpositive, or a three-element radius is supplied
+        without a core.
     """
     assert fuel_location_radius > 0.0, "Fuel penetration radius must be positive."
     assert control_rod_location_radius > 0.0, "Control rod penetration radius must be positive."
     assert central_thimble_radius > 0.0, "Central thimble radius must be positive."
     assert pnt_location_radius > 0.0, "PNT penetration radius must be positive."
+    if three_element_location_radius is not None:
+        assert three_element_location_radius > 0.0, "Three-element penetration radius must be positive."
+        assert core is not None, "A core is required for the three-element penetration."
 
-    penetration_map = {loc: fuel_location_radius for ring in Core.RING_MAP for loc in ring}
+    penetration_map = {loc: [(fuel_location_radius, 0.0, 0.0)]
+                       for ring in Core.RING_MAP for loc in ring}
+    penetration_map[Core.CENTRAL_THIMBLE_LOCATION] = [(central_thimble_radius, 0.0, 0.0)]
+    penetration_map[Core.PNT_LOCATION] = [(pnt_location_radius, 0.0, 0.0)]
+    for location in Core.CONTROL_ROD_LOCATIONS:
+        penetration_map[location] = [(control_rod_location_radius, 0.0, 0.0)]
+    for location in Core.NON_ELEMENT_LOCATIONS:
+        penetration_map[location] = []
 
-    penetration_map["A-01"] = central_thimble_radius
-    penetration_map["G-34"] = pnt_location_radius
-    for location in ["C-01", "C-07", "D-06", "D-14"]:
-        penetration_map[location] = control_rod_location_radius
-    for location in ["G-01", "G-07", "G-13", "G-19", "G-25", "G-31"]:
-        penetration_map[location] = None
+    if core is not None and three_element_location_radius is not None and core.three_element_irradiator is not None:
+        for (i, j), (x0, y0) in core.lattice.cells_intersecting(
+            Circle(three_element_location_radius), core.three_element_center,
+        ).items():
+            location = Core.RING_MAP[i][j]
+            if location in Core.THREE_ELEMENT_LOCATIONS:
+                penetration_map[location] = []
+            penetration_map[location].append((three_element_location_radius, x0, y0))
     return penetration_map
