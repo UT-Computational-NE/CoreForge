@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Optional, Tuple
+from dataclasses import dataclass
+from typing import List, Optional, Tuple
 
 import mpactpy
 
@@ -24,121 +24,78 @@ class ModifiedThreeElementIrradiator(
     class Specs(BuilderSpecs):
         """Building specifications for the modified three-element irradiator.
 
-        Each axial-feature field supplies the segment specifications shared by
-        every segment belonging to that feature. A feature may contain two
-        segments when the lower end of Tube #2 splits it. When the geometry
-        element selects the simplified model, fields for eliminated detailed
-        features are ignored.
+        Each axial-feature field supplies a list of segment specifications in
+        the same bottom-to-top order as ``element.pincell[name]``. A split
+        feature requires two entries, one for each pin cell. Each pin cell's
+        zone specifications are supplied independently using the existing
+        ``CylindricalPinCell.Specs`` API. Omitted feature lists receive one
+        default ``SegmentSpecs`` per pin cell at build time. When the geometry
+        selects the simplified model, eliminated detailed features are ignored.
 
         Attributes
         ----------
         material_specs : Optional[MaterialSpecs]
             Default material specifications for all irradiator segments.
-        bottom_air : CoreElement.SegmentSpecs
+        bottom_air : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the bottom air region.
-        solid_spacer : CoreElement.SegmentSpecs
+        solid_spacer : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the solid lower spacer.
-        hollow_spacer : CoreElement.SegmentSpecs
+        hollow_spacer : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the hollow spacer section.
-        hollow_spacer_upper_cap : CoreElement.SegmentSpecs
+        hollow_spacer_upper_cap : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the hollow spacer upper cap.
-        cadmium_disk : CoreElement.SegmentSpecs
+        cadmium_disk : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the cadmium disk.
-        silver_disk : CoreElement.SegmentSpecs
+        silver_disk : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the silver disk.
-        b10_canister_lower_end_cap : CoreElement.SegmentSpecs
+        b10_canister_lower_end_cap : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the B-10 canister exterior-wall lower end cap.
-        lower_b10_solid_section : CoreElement.SegmentSpecs
+        lower_b10_solid_section : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the solid lower B-10 section.
-        b10_interior_wall_lower_cap : CoreElement.SegmentSpecs
+        b10_interior_wall_lower_cap : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the B-10 canister interior-wall lower cap.
-        pneumatic_sleeve_lower_cap : CoreElement.SegmentSpecs
+        pneumatic_sleeve_lower_cap : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the pneumatic-sleeve lower cap.
-        pneumatic_tube_lower_cap : CoreElement.SegmentSpecs
+        pneumatic_tube_lower_cap : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the pneumatic-tube lower cap.
-        lower_b10_region : CoreElement.SegmentSpecs
+        lower_b10_region : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the lower annular B-10 region.
-        upper_b10_region : CoreElement.SegmentSpecs
+        upper_b10_region : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the upper annular B-10 region.
-        b10_canister_top_cap : CoreElement.SegmentSpecs
+        b10_canister_top_cap : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the B-10 canister top cap.
-        inter_canister_gap : CoreElement.SegmentSpecs
+        inter_canister_gap : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the gap between canisters.
-        b4c_canister_bottom_cap : CoreElement.SegmentSpecs
+        b4c_canister_bottom_cap : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the B4C canister bottom cap.
-        b4c_region : CoreElement.SegmentSpecs
+        b4c_region : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the B4C region.
-        b4c_canister_top_cap : CoreElement.SegmentSpecs
+        b4c_canister_top_cap : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the B4C canister top cap.
-        outer_casing_solid_upper_region : CoreElement.SegmentSpecs
+        outer_casing_solid_upper_region : Optional[List[CoreElement.SegmentSpecs]]
             Specifications for the modeled solid upper region of the outer casing.
         """
 
         material_specs: Optional[MaterialSpecs] = None
-        bottom_air: Optional[CoreElement.SegmentSpecs] = field(default_factory=CoreElement.SegmentSpecs)
-        solid_spacer: Optional[CoreElement.SegmentSpecs] = field(default_factory=CoreElement.SegmentSpecs)
-        hollow_spacer: Optional[CoreElement.SegmentSpecs] = field(default_factory=CoreElement.SegmentSpecs)
-        hollow_spacer_upper_cap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        cadmium_disk: Optional[CoreElement.SegmentSpecs] = field(default_factory=CoreElement.SegmentSpecs)
-        silver_disk: Optional[CoreElement.SegmentSpecs] = field(default_factory=CoreElement.SegmentSpecs)
-        b10_canister_lower_end_cap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        lower_b10_solid_section: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        b10_interior_wall_lower_cap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        pneumatic_sleeve_lower_cap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        pneumatic_tube_lower_cap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        lower_b10_region: Optional[CoreElement.SegmentSpecs] = field(default_factory=CoreElement.SegmentSpecs)
-        upper_b10_region: Optional[CoreElement.SegmentSpecs] = field(default_factory=CoreElement.SegmentSpecs)
-        b10_canister_top_cap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        inter_canister_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        b4c_canister_bottom_cap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        b4c_region: Optional[CoreElement.SegmentSpecs] = field(default_factory=CoreElement.SegmentSpecs)
-        b4c_canister_top_cap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        outer_casing_solid_upper_region: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-
-        def __post_init__(self) -> None:
-            self.bottom_air = self.bottom_air or CoreElement.SegmentSpecs()
-            self.solid_spacer = self.solid_spacer or CoreElement.SegmentSpecs()
-            self.hollow_spacer = self.hollow_spacer or CoreElement.SegmentSpecs()
-            self.hollow_spacer_upper_cap = self.hollow_spacer_upper_cap or CoreElement.SegmentSpecs()
-            self.cadmium_disk = self.cadmium_disk or CoreElement.SegmentSpecs()
-            self.silver_disk = self.silver_disk or CoreElement.SegmentSpecs()
-            self.b10_canister_lower_end_cap = self.b10_canister_lower_end_cap or CoreElement.SegmentSpecs()
-            self.lower_b10_solid_section = self.lower_b10_solid_section or CoreElement.SegmentSpecs()
-            self.b10_interior_wall_lower_cap = self.b10_interior_wall_lower_cap or CoreElement.SegmentSpecs()
-            self.pneumatic_sleeve_lower_cap = self.pneumatic_sleeve_lower_cap or CoreElement.SegmentSpecs()
-            self.pneumatic_tube_lower_cap = self.pneumatic_tube_lower_cap or CoreElement.SegmentSpecs()
-            self.lower_b10_region = self.lower_b10_region or CoreElement.SegmentSpecs()
-            self.upper_b10_region = self.upper_b10_region or CoreElement.SegmentSpecs()
-            self.b10_canister_top_cap = self.b10_canister_top_cap or CoreElement.SegmentSpecs()
-            self.inter_canister_gap = self.inter_canister_gap or CoreElement.SegmentSpecs()
-            self.b4c_canister_bottom_cap = self.b4c_canister_bottom_cap or CoreElement.SegmentSpecs()
-            self.b4c_region = self.b4c_region or CoreElement.SegmentSpecs()
-            self.b4c_canister_top_cap = self.b4c_canister_top_cap or CoreElement.SegmentSpecs()
-            self.outer_casing_solid_upper_region = (
-                self.outer_casing_solid_upper_region or CoreElement.SegmentSpecs()
-            )
+        bottom_air: Optional[List[CoreElement.SegmentSpecs]] = None
+        solid_spacer: Optional[List[CoreElement.SegmentSpecs]] = None
+        hollow_spacer: Optional[List[CoreElement.SegmentSpecs]] = None
+        hollow_spacer_upper_cap: Optional[List[CoreElement.SegmentSpecs]] = None
+        cadmium_disk: Optional[List[CoreElement.SegmentSpecs]] = None
+        silver_disk: Optional[List[CoreElement.SegmentSpecs]] = None
+        b10_canister_lower_end_cap: Optional[List[CoreElement.SegmentSpecs]] = None
+        lower_b10_solid_section: Optional[List[CoreElement.SegmentSpecs]] = None
+        b10_interior_wall_lower_cap: Optional[List[CoreElement.SegmentSpecs]] = None
+        pneumatic_sleeve_lower_cap: Optional[List[CoreElement.SegmentSpecs]] = None
+        pneumatic_tube_lower_cap: Optional[List[CoreElement.SegmentSpecs]] = None
+        lower_b10_region: Optional[List[CoreElement.SegmentSpecs]] = None
+        upper_b10_region: Optional[List[CoreElement.SegmentSpecs]] = None
+        b10_canister_top_cap: Optional[List[CoreElement.SegmentSpecs]] = None
+        inter_canister_gap: Optional[List[CoreElement.SegmentSpecs]] = None
+        b4c_canister_bottom_cap: Optional[List[CoreElement.SegmentSpecs]] = None
+        b4c_region: Optional[List[CoreElement.SegmentSpecs]] = None
+        b4c_canister_top_cap: Optional[List[CoreElement.SegmentSpecs]] = None
+        outer_casing_solid_upper_region: Optional[List[CoreElement.SegmentSpecs]] = None
 
     def __init__(self, specs: Optional[Specs] = None):
         super().__init__(specs)
@@ -178,11 +135,14 @@ class ModifiedThreeElementIrradiator(
         """Return the irradiator stack and its segment specifications."""
 
         stack = element.as_stack(bottom_pos=0.0)
-        specs_by_pincell = {
-            id(p): getattr(self.specs, name)
-            for name, region_pincells in element.pincell.items()
-            for p in region_pincells
-        }
+        specs_by_pincell = {}
+        for name, region_pincells in element.pincell.items():
+            region_specs = getattr(self.specs, name)
+            if region_specs is None:
+                region_specs = [CoreElement.SegmentSpecs() for _ in region_pincells]
+            assert len(region_specs) == len(region_pincells), \
+                f"'{name}' requires {len(region_pincells)} segment specifications; got {len(region_specs)}."
+            specs_by_pincell.update({id(p): specs for p, specs in zip(region_pincells, region_specs)})
         segment_specs = {segment: specs_by_pincell[id(segment.element)] for segment in stack.segments}
         self._apply_material_specs(segment_specs, self.specs.material_specs)
         return stack, Stack.Specs(segment_specs)

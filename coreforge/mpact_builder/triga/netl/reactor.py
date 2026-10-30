@@ -1,5 +1,6 @@
 from __future__ import annotations
-from copy import deepcopy
+from bisect import bisect_left
+from copy import copy, deepcopy
 from typing import Dict, List, Optional, Tuple, TypeAlias, TypedDict, cast
 from dataclasses import dataclass, field, replace
 from math import ceil, hypot, inf, isclose, isfinite, isinf, sqrt
@@ -86,7 +87,8 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
             Specifications for axial regions outside the core element. Use
             VoxelationSpecs when there are no grid plate penetrations, and
             CoreElement.SegmentSpecs (CylindricalPinCell.Specs) when
-            penetrations are present.
+            penetrations are present. The outermost ZoneSpecs also controls
+            grid-plate material outside each penetration.
         voxelization_specs : Optional[Reactor.VoxelationSpecs]
             Specifications for representing the complete core location as a
             rectangular voxel mesh. When omitted, populated core locations use
@@ -1042,7 +1044,7 @@ def _build_core_location_with_water_hole(
 
     stack, specs = stack_builder.get_axial_slice(stack, stack_specs, axial_bounds.lower, axial_bounds.upper)
     stack, specs = _add_grid_plates_to_stack(
-        stack, specs, geometry_specs, upper_penetration, lower_penetration,
+        stack, specs, geometry_specs, upper_penetration, lower_penetration, outer_region_specs,
     )
     return stack, specs
 
@@ -1109,7 +1111,7 @@ def _build_element_stack_and_specs(
 
     stack, specs = stack_builder.get_axial_slice(stack, stack_specs, axial_bounds.lower, axial_bounds.upper)
     stack, specs = _add_grid_plates_to_stack(
-        stack, specs, geometry_specs, upper_penetration, lower_penetration,
+        stack, specs, geometry_specs, upper_penetration, lower_penetration, outer_region_specs,
     )
     if builder_specs.unionize_radial_mesh:
         old_segments = stack.segments
@@ -1155,12 +1157,37 @@ def _add_grid_plates_to_stack(
     geometry_specs:    GeometryElementCoreCellSpecs,
     upper_penetration: GeometryElementPenetrationSpecs,
     lower_penetration: GeometryElementPenetrationSpecs,
+    outer_region_specs: CoreElement.SegmentSpecs,
 ) -> Tuple[geometry_elements.Stack, Stack.Specs]:
+    """Overlay grid plates while retaining the element and plate mesh settings.
+
+    Parameters
+    ----------
+    stack : geometry_elements.Stack
+        Element or coolant stack to overlay.
+    stack_specs : Stack.Specs
+        Specifications for the stack's existing segments.
+    geometry_specs : GeometryElementCoreCellSpecs
+        Core-cell geometry supplying the grid plates.
+    upper_penetration : GeometryElementPenetrationSpecs
+        Upper-grid opening assigned to this stack.
+    lower_penetration : GeometryElementPenetrationSpecs
+        Lower-grid opening assigned to this stack.
+    outer_region_specs : CoreElement.SegmentSpecs
+        Supplies the outermost ZoneSpecs for material outside the openings.
+
+    Returns
+    -------
+    Tuple[geometry_elements.Stack, Stack.Specs]
+        Overlaid stack and mesh specifications for its resulting segments.
+    """
     upper_grid_plate, lower_grid_plate = _get_grid_plate_specs(geometry_specs)
 
     for grid_plate, penetration in ((lower_grid_plate, lower_penetration),
                                     (upper_grid_plate, upper_penetration)):
-        grid_part = _build_grid_stack_and_specs(stack, stack_specs, grid_plate, penetration)
+        grid_part = _build_grid_stack_and_specs(
+            stack, stack_specs, grid_plate, penetration, outer_region_specs,
+        )
         if grid_part is None:
             continue
 
@@ -1198,22 +1225,47 @@ def _build_grid_stack_and_specs(
     stack_specs:      Stack.Specs,
     grid_plate_specs: GeometryElementGridPlateSpecs,
     penetration:      GeometryElementPenetrationSpecs,
+    outer_region_specs: CoreElement.SegmentSpecs,
 ) -> Optional[Tuple[geometry_elements.Stack, Stack.Specs]]:
+    """Combine element and plate geometry and meshing within a grid elevation.
+
+    Parameters
+    ----------
+    stack : geometry_elements.Stack
+        Element or coolant stack intersecting the grid plate.
+    stack_specs : Stack.Specs
+        Specifications for the original stack segments.
+    grid_plate_specs : GeometryElementGridPlateSpecs
+        Plate material and axial bounds.
+    penetration : GeometryElementPenetrationSpecs
+        Opening whose interior retains the element's materials and ZoneSpecs.
+    outer_region_specs : CoreElement.SegmentSpecs
+        Supplies the outermost ZoneSpecs for plate material outside the opening.
+
+    Returns
+    -------
+    Optional[Tuple[geometry_elements.Stack, Stack.Specs]]
+        Grid-height stack and combined specifications, or ``None`` when the
+        plate does not intersect the stack. The element's former outer-region
+        spec becomes a finite-zone spec when the opening adds an outer radius;
+        the plate's spec becomes the final outer-region entry.
+    """
 
     plate_top = grid_plate_specs.axial_bounds.upper
     plate_bottom = grid_plate_specs.axial_bounds.lower
     plate_material = grid_plate_specs.material
     penetration_radius = penetration.radius
 
-    def material_for_radius(pincell: geometry_elements.CylindricalPinCell, radius: float):
-        for zone in pincell.zones:
-            if radius <= zone.shape.outer_radius:
-                return zone.material
-        return pincell.outer_material
-
     grid_slice = stack.get_axial_slice_with_origins(plate_bottom, plate_top)
     if grid_slice is None:
         return None
+
+    # Use the outermost coolant-region mesh settings for plate material outside the opening.
+    plate_pincell_specs = outer_region_specs.builder_specs or CylindricalPinCell.Specs()
+    plate_zone_specs = plate_pincell_specs.zone_specs
+    if plate_zone_specs is None:
+        plate_zone_specs = CylindricalPinCell.ZoneSpecs()
+    plate_zone = plate_zone_specs[-1] if isinstance(plate_zone_specs, list) else plate_zone_specs
 
     sliced_stack, origins = grid_slice
     grid_segments = []
@@ -1222,18 +1274,43 @@ def _build_grid_stack_and_specs(
         assert isinstance(sliced_segment.element, geometry_elements.CylindricalPinCell), \
             "Grid plate stacking expects CylindricalPinCell segments."
         pincell = sliced_segment.element
-        radii = [zone.shape.outer_radius for zone in pincell.zones]
+        original_radii = [zone.shape.outer_radius for zone in pincell.zones]
+        original_materials = [zone.material for zone in pincell.zones] + [pincell.outer_material]
+        segment_specs = stack_specs.segment_specs.get(origin_segment) or CoreElement.SegmentSpecs()
+        pincell_specs = copy(segment_specs.builder_specs or CylindricalPinCell.Specs())
+
+        # Expand broadcast settings to one spec per original radial region, including the exterior.
+        element_zones = pincell_specs.zone_specs
+        if element_zones is None:
+            element_zones = CylindricalPinCell.ZoneSpecs()
+        if isinstance(element_zones, CylindricalPinCell.ZoneSpecs):
+            element_zones = [element_zones]
+        if len(element_zones) == 1:
+            element_zones = element_zones * (len(original_radii) + 1)
+        assert len(element_zones) == len(original_radii) + 1, \
+            "Element ZoneSpecs must match its radial regions before adding the grid plate."
+
+        radii = list(original_radii)
         if not any(radius == penetration_radius for radius in radii):
             radii.append(penetration_radius)
         radii = sorted(radii)
 
+        # Split at the opening: retain element materials and specs inside, and use plate settings outside.
+        # If the opening extends beyond the element, its former exterior becomes a finite coolant annulus.
         materials = []
+        zone_specs = []
         for radius in radii:
             if radius <= penetration_radius:
-                materials.append(material_for_radius(pincell, radius))
+                index = bisect_left(original_radii, radius)
+                materials.append(original_materials[index])
+                zone_specs.append(element_zones[index])
             else:
                 materials.append(plate_material)
+                zone_specs.append(plate_zone)
         materials.append(plate_material)
+        zone_specs.append(plate_zone)
+        pincell_specs.zone_specs = (zone_specs[0] if all(zone == zone_specs[0] for zone in zone_specs)
+                                   else zone_specs)
 
         grid_pincell = geometry_elements.CylindricalPinCell(
             radii     = radii,
@@ -1245,7 +1322,7 @@ def _build_grid_stack_and_specs(
         new_segment = geometry_elements.Stack.Segment(element = grid_pincell,
                                                       length  = sliced_segment.length)
         grid_segments.append(new_segment)
-        grid_segment_specs[new_segment] = stack_specs.segment_specs.get(origin_segment, None)
+        grid_segment_specs[new_segment] = replace(segment_specs, builder_specs=pincell_specs)
 
     grid_stack = type(stack)(segments   = grid_segments,
                              name       = stack.name,
