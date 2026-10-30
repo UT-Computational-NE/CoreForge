@@ -159,6 +159,7 @@ class Reactor(Builder[geometry_elements_triga_netl.Reactor]):
                 pincell_specs = segment_specs.builder_specs or CylindricalPinCell.Specs()
                 pincell_specs = CylindricalPinCell.Specs(
                     zone_specs=pincell_specs.zone_specs,
+                    outer_zone_specs=pincell_specs.outer_zone_specs,
                     divide_into_quadrants=pincell_specs.divide_into_quadrants,
                     material_specs=pincell_specs.material_specs,
                     outer_bounding_radius=self.outer_bounding_radius,
@@ -1262,10 +1263,7 @@ def _build_grid_stack_and_specs(
 
     # Use the outermost coolant-region mesh settings for plate material outside the opening.
     plate_pincell_specs = outer_region_specs.builder_specs or CylindricalPinCell.Specs()
-    plate_zone_specs = plate_pincell_specs.zone_specs
-    if plate_zone_specs is None:
-        plate_zone_specs = CylindricalPinCell.ZoneSpecs()
-    plate_zone = plate_zone_specs[-1] if isinstance(plate_zone_specs, list) else plate_zone_specs
+    plate_zone = plate_pincell_specs.get_outer_zone_specs()
 
     sliced_stack, origins = grid_slice
     grid_segments = []
@@ -1280,15 +1278,7 @@ def _build_grid_stack_and_specs(
         pincell_specs = copy(segment_specs.builder_specs or CylindricalPinCell.Specs())
 
         # Expand broadcast settings to one spec per original radial region, including the exterior.
-        element_zones = pincell_specs.zone_specs
-        if element_zones is None:
-            element_zones = CylindricalPinCell.ZoneSpecs()
-        if isinstance(element_zones, CylindricalPinCell.ZoneSpecs):
-            element_zones = [element_zones]
-        if len(element_zones) == 1:
-            element_zones = element_zones * (len(original_radii) + 1)
-        assert len(element_zones) == len(original_radii) + 1, \
-            "Element ZoneSpecs must match its radial regions before adding the grid plate."
+        element_zones = pincell_specs.get_zone_specs(len(original_radii))
 
         radii = list(original_radii)
         if not any(radius == penetration_radius for radius in radii):
@@ -1308,9 +1298,9 @@ def _build_grid_stack_and_specs(
                 materials.append(plate_material)
                 zone_specs.append(plate_zone)
         materials.append(plate_material)
-        zone_specs.append(plate_zone)
         pincell_specs.zone_specs = (zone_specs[0] if all(zone == zone_specs[0] for zone in zone_specs)
                                    else zone_specs)
+        pincell_specs.outer_zone_specs = plate_zone
 
         grid_pincell = geometry_elements.CylindricalPinCell(
             radii     = radii,

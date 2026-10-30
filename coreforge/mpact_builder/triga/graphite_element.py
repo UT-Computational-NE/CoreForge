@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.builder_specs import MaterialSpecs
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -29,11 +29,14 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
     """
 
     @dataclass
-    class Specs(BuilderSpecs):
+    class Specs(CoreElement.Specs):
         """ Building specifications for GraphiteElement
 
         Attributes
         ----------
+        default_segment_specs : Optional[CoreElement.SegmentSpecs]
+            Default settings for omitted features; explicit feature settings
+            replace the entire default. Each default is copied independently.
         material_specs : Optional[MaterialSpecs]
             Default material specifications for all pincell segments.
         lower_end_fitting : CoreElement.SegmentSpecs
@@ -45,20 +48,14 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
         """
 
         material_specs: Optional[MaterialSpecs] = None
-        lower_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        graphite: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        upper_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
+        lower_end_fitting: Optional[CoreElement.SegmentSpecs] = None
+        graphite: Optional[CoreElement.SegmentSpecs] = None
+        upper_end_fitting: Optional[CoreElement.SegmentSpecs] = None
 
         def __post_init__(self):
-            self.lower_end_fitting = self.lower_end_fitting or CoreElement.SegmentSpecs()
-            self.graphite = self.graphite or CoreElement.SegmentSpecs()
-            self.upper_end_fitting = self.upper_end_fitting or CoreElement.SegmentSpecs()
+            self.lower_end_fitting = self.resolve_segment_specs(self.lower_end_fitting)
+            self.graphite = self.resolve_segment_specs(self.graphite)
+            self.upper_end_fitting = self.resolve_segment_specs(self.upper_end_fitting)
 
 
     def __init__(self, specs: Optional[Specs] = None):

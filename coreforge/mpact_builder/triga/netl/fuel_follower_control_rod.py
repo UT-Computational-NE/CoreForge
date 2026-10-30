@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.builder_specs import MaterialSpecs
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -29,11 +29,14 @@ class FuelFollowerControlRod(CoreElement[geometry_elements_triga_netl.FuelFollow
     """
 
     @dataclass
-    class Specs(BuilderSpecs):
+    class Specs(CoreElement.Specs):
         """ Building specifications for FuelFollowerControlRod
 
         Attributes
         ----------
+        default_segment_specs : Optional[CoreElement.SegmentSpecs]
+            Default settings for omitted features; explicit feature settings
+            replace the entire default. Each default is copied independently.
         material_specs : Optional[MaterialSpecs]
             Default material specifications for all pincell segments.
         lower_element_plug : CoreElement.SegmentSpecs
@@ -61,54 +64,32 @@ class FuelFollowerControlRod(CoreElement[geometry_elements_triga_netl.FuelFollow
         """
 
         material_specs: Optional[MaterialSpecs] = None
-        lower_element_plug: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        lower_air_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        lower_magneform_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        fuel_follower: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        above_fuel_follower_air_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        middle_magneform_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        absorber: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        above_absorber_air_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        upper_magneform_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        upper_air_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        upper_element_plug: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
+        lower_element_plug: Optional[CoreElement.SegmentSpecs] = None
+        lower_air_gap: Optional[CoreElement.SegmentSpecs] = None
+        lower_magneform_fitting: Optional[CoreElement.SegmentSpecs] = None
+        fuel_follower: Optional[CoreElement.SegmentSpecs] = None
+        above_fuel_follower_air_gap: Optional[CoreElement.SegmentSpecs] = None
+        middle_magneform_fitting: Optional[CoreElement.SegmentSpecs] = None
+        absorber: Optional[CoreElement.SegmentSpecs] = None
+        above_absorber_air_gap: Optional[CoreElement.SegmentSpecs] = None
+        upper_magneform_fitting: Optional[CoreElement.SegmentSpecs] = None
+        upper_air_gap: Optional[CoreElement.SegmentSpecs] = None
+        upper_element_plug: Optional[CoreElement.SegmentSpecs] = None
 
         def __post_init__(self):
-            self.lower_element_plug = self.lower_element_plug or CoreElement.SegmentSpecs()
-            self.lower_air_gap = self.lower_air_gap or CoreElement.SegmentSpecs()
-            self.lower_magneform_fitting = self.lower_magneform_fitting or CoreElement.SegmentSpecs()
-            self.fuel_follower = self.fuel_follower or CoreElement.SegmentSpecs()
+            self.lower_element_plug = self.resolve_segment_specs(self.lower_element_plug)
+            self.lower_air_gap = self.resolve_segment_specs(self.lower_air_gap)
+            self.lower_magneform_fitting = self.resolve_segment_specs(self.lower_magneform_fitting)
+            self.fuel_follower = self.resolve_segment_specs(self.fuel_follower)
             self.above_fuel_follower_air_gap = (
-                self.above_fuel_follower_air_gap or CoreElement.SegmentSpecs()
+                self.resolve_segment_specs(self.above_fuel_follower_air_gap)
             )
-            self.middle_magneform_fitting = self.middle_magneform_fitting or CoreElement.SegmentSpecs()
-            self.absorber = self.absorber or CoreElement.SegmentSpecs()
-            self.above_absorber_air_gap = self.above_absorber_air_gap or CoreElement.SegmentSpecs()
-            self.upper_magneform_fitting = self.upper_magneform_fitting or CoreElement.SegmentSpecs()
-            self.upper_air_gap = self.upper_air_gap or CoreElement.SegmentSpecs()
-            self.upper_element_plug = self.upper_element_plug or CoreElement.SegmentSpecs()
+            self.middle_magneform_fitting = self.resolve_segment_specs(self.middle_magneform_fitting)
+            self.absorber = self.resolve_segment_specs(self.absorber)
+            self.above_absorber_air_gap = self.resolve_segment_specs(self.above_absorber_air_gap)
+            self.upper_magneform_fitting = self.resolve_segment_specs(self.upper_magneform_fitting)
+            self.upper_air_gap = self.resolve_segment_specs(self.upper_air_gap)
+            self.upper_element_plug = self.resolve_segment_specs(self.upper_element_plug)
 
 
     def __init__(self, specs: Optional[Specs] = None):

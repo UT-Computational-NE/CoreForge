@@ -1,12 +1,13 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Optional, Tuple, TypeVar
 
 from coreforge.geometry_elements.geometry_element import GeometryElement
 from coreforge.mpact_builder.builder import Builder
-from coreforge.mpact_builder.builder_specs import MaterialSpecs
+from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
 from coreforge import geometry_elements
@@ -35,6 +36,45 @@ class CoreElement(Builder[TCoreElement], ABC):
                 return
             assert isinstance(self.builder_specs, CylindricalPinCell.Specs), \
                 "CoreElement.SegmentSpecs.builder_specs must be CylindricalPinCell.Specs."
+
+    @dataclass(kw_only=True)
+    class Specs(BuilderSpecs):
+        """Shared building specifications for TRIGA core elements.
+
+        Attributes
+        ----------
+        default_segment_specs : Optional[CoreElement.SegmentSpecs]
+            Fallback for omitted feature specifications. Each omitted feature
+            receives an independent copy. Explicit feature specifications
+            replace the entire fallback. If omitted, built-in defaults apply.
+            This parameter is keyword-only to preserve positional arguments
+            in concrete element specifications.
+        """
+
+        default_segment_specs: Optional[CoreElement.SegmentSpecs] = None
+
+        def resolve_segment_specs(
+            self,
+            segment_specs: Optional[CoreElement.SegmentSpecs] = None,
+        ) -> CoreElement.SegmentSpecs:
+            """Use explicit feature settings or an independent fallback copy.
+
+            Parameters
+            ----------
+            segment_specs : Optional[CoreElement.SegmentSpecs]
+                Explicit feature settings, or ``None`` to use the fallback.
+
+            Returns
+            -------
+            CoreElement.SegmentSpecs
+                Explicit settings unchanged, a copy of the configured
+                fallback, or fresh built-in defaults.
+            """
+            if segment_specs is not None:
+                return segment_specs
+            if self.default_segment_specs is not None:
+                return deepcopy(self.default_segment_specs)
+            return CoreElement.SegmentSpecs()
 
     @staticmethod
     def _apply_material_specs(

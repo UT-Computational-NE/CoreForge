@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import mpactpy
@@ -8,7 +8,7 @@ import mpactpy
 from coreforge import geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.builder_specs import MaterialSpecs
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -25,11 +25,14 @@ class ThreeElementIrradiator(CoreElement[geometry_elements_triga_netl.ThreeEleme
     """
 
     @dataclass
-    class Specs(BuilderSpecs):
+    class Specs(CoreElement.Specs):
         """Building specifications for a three-element irradiator.
 
         Attributes
         ----------
+        default_segment_specs : Optional[CoreElement.SegmentSpecs]
+            Default settings for omitted features; explicit feature settings
+            replace the entire default. Each default is copied independently.
         material_specs : Optional[MaterialSpecs]
             Default material specifications for all irradiator segments.
         solid_end : CoreElement.SegmentSpecs
@@ -48,32 +51,20 @@ class ThreeElementIrradiator(CoreElement[geometry_elements_triga_netl.ThreeEleme
         """
 
         material_specs: Optional[MaterialSpecs] = None
-        solid_end: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        liner_bottom: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        inner_sleeve_bottom: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        lined: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        inner_sleeve: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        outer_casing: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
+        solid_end: Optional[CoreElement.SegmentSpecs] = None
+        liner_bottom: Optional[CoreElement.SegmentSpecs] = None
+        inner_sleeve_bottom: Optional[CoreElement.SegmentSpecs] = None
+        lined: Optional[CoreElement.SegmentSpecs] = None
+        inner_sleeve: Optional[CoreElement.SegmentSpecs] = None
+        outer_casing: Optional[CoreElement.SegmentSpecs] = None
 
         def __post_init__(self) -> None:
-            self.solid_end = self.solid_end or CoreElement.SegmentSpecs()
-            self.liner_bottom = self.liner_bottom or CoreElement.SegmentSpecs()
-            self.inner_sleeve_bottom = self.inner_sleeve_bottom or CoreElement.SegmentSpecs()
-            self.lined = self.lined or CoreElement.SegmentSpecs()
-            self.inner_sleeve = self.inner_sleeve or CoreElement.SegmentSpecs()
-            self.outer_casing = self.outer_casing or CoreElement.SegmentSpecs()
+            self.solid_end = self.resolve_segment_specs(self.solid_end)
+            self.liner_bottom = self.resolve_segment_specs(self.liner_bottom)
+            self.inner_sleeve_bottom = self.resolve_segment_specs(self.inner_sleeve_bottom)
+            self.lined = self.resolve_segment_specs(self.lined)
+            self.inner_sleeve = self.resolve_segment_specs(self.inner_sleeve)
+            self.outer_casing = self.resolve_segment_specs(self.outer_casing)
 
     def __init__(self, specs: Optional[Specs] = None):
         super().__init__(specs)

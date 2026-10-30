@@ -1,12 +1,11 @@
 from __future__ import annotations
 from typing import Optional, Tuple
 from dataclasses import dataclass
-from math import inf
 
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.builder_specs import MaterialSpecs
 from coreforge.mpact_builder.cylindrical_pincell import CylindricalPinCell
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.mpact_builder import build, register_builder
@@ -31,11 +30,14 @@ class CentralThimble(CoreElement[geometry_elements_triga_netl.CentralThimble]):
     """
 
     @dataclass
-    class Specs(BuilderSpecs):
+    class Specs(CoreElement.Specs):
         """ Building specifications for CentralThimble
 
         Attributes
         ----------
+        default_segment_specs : Optional[CoreElement.SegmentSpecs]
+            Default axial and pin-cell settings. Explicit
+            ``target_axial_thickness`` and ``pincell_specs`` take precedence.
         material_specs : Optional[MaterialSpecs]
             Default material specifications for the thimble pincell.
         target_axial_thickness : float
@@ -49,14 +51,15 @@ class CentralThimble(CoreElement[geometry_elements_triga_netl.CentralThimble]):
         pincell_specs:          Optional[CylindricalPinCell.Specs] = None
 
         def __post_init__(self):
+            segment_specs = self.resolve_segment_specs()
             if not self.target_axial_thickness:
-                self.target_axial_thickness = inf
+                self.target_axial_thickness = segment_specs.target_axial_thickness
 
             assert self.target_axial_thickness > 0.0, \
                 f"target_axial_thickness = {self.target_axial_thickness}"
 
             if not self.pincell_specs:
-                self.pincell_specs = CylindricalPinCell.Specs()
+                self.pincell_specs = segment_specs.builder_specs or CylindricalPinCell.Specs()
 
 
     def __init__(self, specs: Optional[Specs] = None):
