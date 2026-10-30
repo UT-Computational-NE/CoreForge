@@ -8,7 +8,7 @@ import mpactpy
 from coreforge import geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.builder_specs import MaterialSpecs
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -21,7 +21,7 @@ class ModifiedThreeElementIrradiator(
     """MPACT geometry builder for the NETL modified three-element irradiator."""
 
     @dataclass
-    class Specs(BuilderSpecs):
+    class Specs(CoreElement.Specs):
         """Building specifications for the modified three-element irradiator.
 
         Each axial-feature field supplies a list of segment specifications in
@@ -29,11 +29,15 @@ class ModifiedThreeElementIrradiator(
         feature requires two entries, one for each pin cell. Each pin cell's
         zone specifications are supplied independently using the existing
         ``CylindricalPinCell.Specs`` API. Omitted feature lists receive one
-        default ``SegmentSpecs`` per pin cell at build time. When the geometry
-        selects the simplified model, eliminated detailed features are ignored.
+        copy of ``default_segment_specs`` per pin cell at build time, or built-in
+        defaults when no fallback is supplied. When the geometry selects the
+        simplified model, eliminated detailed features are ignored.
 
         Attributes
         ----------
+        default_segment_specs : Optional[CoreElement.SegmentSpecs]
+            Default settings copied independently for each pin cell in omitted
+            features. Explicit feature lists replace these defaults entirely.
         material_specs : Optional[MaterialSpecs]
             Default material specifications for all irradiator segments.
         bottom_air : Optional[List[CoreElement.SegmentSpecs]]
@@ -139,7 +143,7 @@ class ModifiedThreeElementIrradiator(
         for name, region_pincells in element.pincell.items():
             region_specs = getattr(self.specs, name)
             if region_specs is None:
-                region_specs = [CoreElement.SegmentSpecs() for _ in region_pincells]
+                region_specs = [self.specs.resolve_segment_specs() for _ in region_pincells]
             assert len(region_specs) == len(region_pincells), \
                 f"'{name}' requires {len(region_pincells)} segment specifications; got {len(region_specs)}."
             specs_by_pincell.update({id(p): specs for p, specs in zip(region_pincells, region_specs)})

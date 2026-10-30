@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Optional, Tuple
 
 import mpactpy
@@ -8,7 +8,7 @@ import mpactpy
 from coreforge import geometry_elements
 import coreforge.geometry_elements.triga.netl as geometry_elements_triga_netl
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.builder_specs import MaterialSpecs
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -25,11 +25,14 @@ class PNT(CoreElement[geometry_elements_triga_netl.PNT]):
     """
 
     @dataclass
-    class Specs(BuilderSpecs):
+    class Specs(CoreElement.Specs):
         """Building specifications for a PNT.
 
         Attributes
         ----------
+        default_segment_specs : Optional[CoreElement.SegmentSpecs]
+            Default settings for omitted features; explicit feature settings
+            replace the entire default. Each default is copied independently.
         material_specs : Optional[MaterialSpecs]
             Default material specifications for all PNT segments.
         terminus : CoreElement.SegmentSpecs
@@ -41,20 +44,14 @@ class PNT(CoreElement[geometry_elements_triga_netl.PNT]):
         """
 
         material_specs: Optional[MaterialSpecs] = None
-        terminus: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        wrapped_tube: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
-        tube: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory=CoreElement.SegmentSpecs
-        )
+        terminus: Optional[CoreElement.SegmentSpecs] = None
+        wrapped_tube: Optional[CoreElement.SegmentSpecs] = None
+        tube: Optional[CoreElement.SegmentSpecs] = None
 
         def __post_init__(self) -> None:
-            self.terminus = self.terminus or CoreElement.SegmentSpecs()
-            self.wrapped_tube = self.wrapped_tube or CoreElement.SegmentSpecs()
-            self.tube = self.tube or CoreElement.SegmentSpecs()
+            self.terminus = self.resolve_segment_specs(self.terminus)
+            self.wrapped_tube = self.resolve_segment_specs(self.wrapped_tube)
+            self.tube = self.resolve_segment_specs(self.tube)
 
     def __init__(self, specs: Optional[Specs] = None):
         super().__init__(specs)

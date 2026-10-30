@@ -126,7 +126,9 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
             applies to all cylindrical zones and the outer region. A one-entry
             list is treated the same way. Longer lists specify regions
             individually and must have one entry for each cylindrical zone plus
-            one final entry for the outer region.
+            one final entry for the outer region. When ``outer_zone_specs`` is
+            provided, these settings apply only to finite cylindrical zones;
+            longer lists must then have exactly one entry per finite zone.
         divide_into_quadrants : bool
             An optional setting to divide the pincell into 4 separate MPACT
             Module quadrants. This will represent the pincell with 4 MPACT
@@ -136,6 +138,10 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         outer_bounding_radius : Optional[float]
             Radius used as the common outer endpoint when subdividing the
             implicit outer region.
+        outer_zone_specs : Optional[ZoneSpecs | List[ZoneSpecs]]
+            Separate mesh settings for the implicit outer region. Accepts a
+            single ``ZoneSpecs`` or a one-entry list, including the output of
+            ``meshing()`` with scalar arguments.
 
         Attributes
         ----------
@@ -144,7 +150,9 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
             applies to all cylindrical zones and the outer region. A one-entry
             list is treated the same way. Longer lists specify regions
             individually and must have one entry for each cylindrical zone plus
-            one final entry for the outer region.
+            one final entry for the outer region. When ``outer_zone_specs`` is
+            provided, these settings apply only to finite cylindrical zones;
+            longer lists must then have exactly one entry per finite zone.
         divide_into_quadrants : bool
             An optional setting to divide the pincell into 4 separate MPACT Module quadrants.
             This will represent the pincell with 4 MPACT Modules rather than just one.
@@ -154,6 +162,9 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         outer_bounding_radius : Optional[float]
             Radius used as the common outer endpoint when subdividing the
             implicit outer region.
+        outer_zone_specs : Optional[ZoneSpecs | List[ZoneSpecs]]
+            Separate mesh settings for the implicit outer region, supplied as a
+            single ``ZoneSpecs`` or a one-entry list.
         """
 
         zone_specs:            Optional[
@@ -162,6 +173,9 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         divide_into_quadrants: bool
         material_specs:        MaterialSpecs
         outer_bounding_radius: Optional[float]
+        outer_zone_specs:      Optional[
+            CylindricalPinCell.ZoneSpecs | List[CylindricalPinCell.ZoneSpecs]
+        ]
 
         def __init__(self,
                      zone_specs:            Optional[CylindricalPinCell.ZoneSpecs |
@@ -169,6 +183,8 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
                      divide_into_quadrants: bool = False,
                      material_specs:        Optional[MaterialSpecs] = None,
                      outer_bounding_radius: Optional[float] = None,
+                     outer_zone_specs:      Optional[CylindricalPinCell.ZoneSpecs |
+                                            List[CylindricalPinCell.ZoneSpecs]] = None,
         ) -> None:
             zone_specs = zone_specs if zone_specs is not None else CylindricalPinCell.ZoneSpecs()
             if outer_bounding_radius is not None:
@@ -176,9 +192,65 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
                     f"outer_bounding_radius = {outer_bounding_radius}"
 
             self.zone_specs            = zone_specs
+            self.outer_zone_specs      = outer_zone_specs
             self.divide_into_quadrants = divide_into_quadrants
             self.outer_bounding_radius = outer_bounding_radius
             self.material_specs        = material_specs if material_specs is not None else {}
+
+        def get_outer_zone_specs(self) -> CylindricalPinCell.ZoneSpecs:
+            """Resolve mesh settings for the implicit outer region.
+
+            Returns
+            -------
+            CylindricalPinCell.ZoneSpecs
+                Separate outer settings when supplied, otherwise the final
+                entry in ``zone_specs`` or its broadcast/default settings.
+            """
+            if self.outer_zone_specs is not None:
+                if isinstance(self.outer_zone_specs, list):
+                    assert len(self.outer_zone_specs) == 1, \
+                        "outer_zone_specs must contain exactly one ZoneSpecs."
+                    return self.outer_zone_specs[0]
+                return self.outer_zone_specs
+
+            zone_specs = self.zone_specs
+            if isinstance(zone_specs, list):
+                assert zone_specs, "zone_specs must not be empty."
+                return zone_specs[-1]
+            return zone_specs if zone_specs is not None else CylindricalPinCell.ZoneSpecs()
+
+        def get_zone_specs(self, num_zones: int) -> List[CylindricalPinCell.ZoneSpecs]:
+            """Resolve one mesh specification per finite zone and outer region.
+
+            Parameters
+            ----------
+            num_zones : int
+                Number of finite cylindrical zones in the geometry.
+
+            Returns
+            -------
+            List[CylindricalPinCell.ZoneSpecs]
+                Finite-zone settings followed by the outer-region setting.
+                Broadcast settings are expanded without modifying the inputs.
+            """
+            zone_specs = self.zone_specs
+            if zone_specs is None:
+                zone_specs = CylindricalPinCell.ZoneSpecs()
+            if isinstance(zone_specs, CylindricalPinCell.ZoneSpecs):
+                zone_specs = [zone_specs]
+
+            num_specs = num_zones + (1 if self.outer_zone_specs is None else 0)
+            if len(zone_specs) == 1:
+                zone_specs = zone_specs * num_specs
+            assert len(zone_specs) == num_specs, \
+                f"len(zone_specs) = {len(zone_specs)}, expected {num_specs} " + \
+                f"for {num_zones} finite zones and " + \
+                ("separate outer_zone_specs." if self.outer_zone_specs is not None
+                 else "an included outer-region entry.")
+
+            if self.outer_zone_specs is not None:
+                return [*zone_specs, self.get_outer_zone_specs()]
+            return list(zone_specs)
 
 
     def __init__(self, specs: Optional[Specs] = None):
@@ -227,16 +299,7 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         def build_module(pin: mpactpy.Pin) -> mpactpy.Module:
             return mpactpy.Module(1, [[pin]])
 
-        zone_specs = specs.zone_specs if specs.zone_specs is not None else \
-            CylindricalPinCell.ZoneSpecs()
-        if isinstance(zone_specs, CylindricalPinCell.ZoneSpecs):
-            zone_specs = [zone_specs]
-        if len(zone_specs) == 1:
-            zone_specs = zone_specs * (len(element.zones) + 1)
-
-        assert len(zone_specs) == len(element.zones) + 1, \
-            f"len(zone_specs) = {len(zone_specs)}, " + \
-            f"len(element.zones) + 1 = {len(element.zones) + 1}"
+        zone_specs = specs.get_zone_specs(len(element.zones))
 
         radii = [zone.shape.outer_radius for zone in element.zones]
         materials = [build_material(zone.material, specs.material_specs) for zone in element.zones]

@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.builder_specs import MaterialSpecs
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -29,11 +29,14 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
     """
 
     @dataclass
-    class Specs(BuilderSpecs):
+    class Specs(CoreElement.Specs):
         """ Building specifications for SourceHolder
 
         Attributes
         ----------
+        default_segment_specs : Optional[CoreElement.SegmentSpecs]
+            Default settings for omitted features; explicit feature settings
+            replace the entire default. Each default is copied independently.
         material_specs : Optional[MaterialSpecs]
             Default material specifications for all pincell segments.
         solid : CoreElement.SegmentSpecs
@@ -43,16 +46,12 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
         """
 
         material_specs: Optional[MaterialSpecs] = None
-        solid: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        cavity: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
+        solid: Optional[CoreElement.SegmentSpecs] = None
+        cavity: Optional[CoreElement.SegmentSpecs] = None
 
         def __post_init__(self):
-            self.solid = self.solid or CoreElement.SegmentSpecs()
-            self.cavity = self.cavity or CoreElement.SegmentSpecs()
+            self.solid = self.resolve_segment_specs(self.solid)
+            self.cavity = self.resolve_segment_specs(self.cavity)
 
 
     def __init__(self, specs: Optional[Specs] = None):

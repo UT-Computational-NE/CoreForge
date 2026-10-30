@@ -1,11 +1,11 @@
 from __future__ import annotations
 from typing import Optional, Tuple
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import mpactpy
 
 from coreforge.mpact_builder.builder import AxisBounds, Bounds
-from coreforge.mpact_builder.builder_specs import BuilderSpecs, MaterialSpecs
+from coreforge.mpact_builder.builder_specs import MaterialSpecs
 from coreforge.mpact_builder.stack import Stack
 from coreforge.mpact_builder.mpact_builder import build, register_builder
 from coreforge.mpact_builder.triga.core_element import CoreElement
@@ -29,11 +29,14 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
     """
 
     @dataclass
-    class Specs(BuilderSpecs):
+    class Specs(CoreElement.Specs):
         """ Building specifications for FuelElement
 
         Attributes
         ----------
+        default_segment_specs : Optional[CoreElement.SegmentSpecs]
+            Default settings for omitted features; explicit feature settings
+            replace the entire default. Each default is copied independently.
         material_specs : Optional[MaterialSpecs]
             Default material specifications for all pincell segments.
         lower_end_fitting : CoreElement.SegmentSpecs
@@ -53,36 +56,22 @@ class FuelElement(CoreElement[geometry_elements_triga.FuelElement]):
         """
 
         material_specs: Optional[MaterialSpecs] = None
-        lower_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        lower_reflector: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        moly_disc: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        fuel: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        upper_reflector: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        air_gap: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
-        upper_end_fitting: Optional[CoreElement.SegmentSpecs] = field(
-            default_factory = CoreElement.SegmentSpecs
-        )
+        lower_end_fitting: Optional[CoreElement.SegmentSpecs] = None
+        lower_reflector: Optional[CoreElement.SegmentSpecs] = None
+        moly_disc: Optional[CoreElement.SegmentSpecs] = None
+        fuel: Optional[CoreElement.SegmentSpecs] = None
+        upper_reflector: Optional[CoreElement.SegmentSpecs] = None
+        air_gap: Optional[CoreElement.SegmentSpecs] = None
+        upper_end_fitting: Optional[CoreElement.SegmentSpecs] = None
 
         def __post_init__(self):
-            self.lower_end_fitting = self.lower_end_fitting or CoreElement.SegmentSpecs()
-            self.lower_reflector = self.lower_reflector or CoreElement.SegmentSpecs()
-            self.moly_disc = self.moly_disc or CoreElement.SegmentSpecs()
-            self.fuel = self.fuel or CoreElement.SegmentSpecs()
-            self.upper_reflector = self.upper_reflector or CoreElement.SegmentSpecs()
-            self.air_gap = self.air_gap or CoreElement.SegmentSpecs()
-            self.upper_end_fitting = self.upper_end_fitting or CoreElement.SegmentSpecs()
+            self.lower_end_fitting = self.resolve_segment_specs(self.lower_end_fitting)
+            self.lower_reflector = self.resolve_segment_specs(self.lower_reflector)
+            self.moly_disc = self.resolve_segment_specs(self.moly_disc)
+            self.fuel = self.resolve_segment_specs(self.fuel)
+            self.upper_reflector = self.resolve_segment_specs(self.upper_reflector)
+            self.air_gap = self.resolve_segment_specs(self.air_gap)
+            self.upper_end_fitting = self.resolve_segment_specs(self.upper_end_fitting)
 
 
     def __init__(self, specs: Optional[Specs] = None):
