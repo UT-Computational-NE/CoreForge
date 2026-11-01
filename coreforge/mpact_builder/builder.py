@@ -83,7 +83,6 @@ class Builder(ABC, Generic[T]):
         """Return the default builder specifications."""
         raise NotImplementedError
 
-    @abstractmethod
     def build(self, element: T, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """Build an MPACT core for the provided geometry element.
 
@@ -99,6 +98,12 @@ class Builder(ABC, Generic[T]):
         mpactpy.Core
             A new MPACT Core based on this GeometryElement.
         """
+        core = self._build(element, bounds)
+        return core.with_shared_materials() if self.specs.share_materials else core
+
+    @abstractmethod
+    def _build(self, element: T, bounds: Optional[Bounds] = None) -> mpactpy.Core:
+        """Construct the core before applying common builder specifications."""
         raise NotImplementedError
 
 

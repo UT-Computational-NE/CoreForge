@@ -77,7 +77,7 @@ class CentralThimble(CoreElement[geometry_elements_triga_netl.CentralThimble]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def build(self,
+    def _build(self,
               element: geometry_elements_triga_netl.CentralThimble,
               bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a TRIGA NETL Central Thimble

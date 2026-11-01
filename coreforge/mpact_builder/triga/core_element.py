@@ -127,7 +127,8 @@ class CoreElement(Builder[TCoreElement], ABC):
             in zip(stack.segments, translated_stack.segments)
         }
         translated_specs = Stack.Specs(segment_specs=translated_segment_specs,
-                                       num_procs=stack_specs.num_procs)
+                                       num_procs=stack_specs.num_procs,
+                                       share_materials=stack_specs.share_materials)
         return translated_stack, translated_specs
 
     @abstractmethod

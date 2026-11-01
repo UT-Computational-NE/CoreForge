@@ -71,7 +71,7 @@ class RectLattice(Builder[geometry_elements.RectLattice]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def build(self, element: geometry_elements.RectLattice, bounds: Optional[Bounds] = None) -> mpactpy.Core:
+    def _build(self, element: geometry_elements.RectLattice, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a RectLattice
 
         Parameters

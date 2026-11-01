@@ -107,7 +107,7 @@ class FuelFollowerControlRod(CoreElement[geometry_elements_triga_netl.FuelFollow
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def build(self,
+    def _build(self,
               element: geometry_elements_triga_netl.FuelFollowerControlRod,
               bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a TRIGA NETL Fuel Follower Control Rod

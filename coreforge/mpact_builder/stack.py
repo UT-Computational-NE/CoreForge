@@ -206,7 +206,7 @@ class Stack(Builder[geometry_elements.Stack]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def build(self, element: geometry_elements.Stack, bounds: Optional[Bounds] = None) -> mpactpy.Core:
+    def _build(self, element: geometry_elements.Stack, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a Stack
 
         Parameters
@@ -343,5 +343,6 @@ def get_axial_slice(stack:       TGeometryStack,
         specs = stack_specs.segment_specs.get(original_segment) or Stack.Segment.Specs()
         segment_specs[sliced_segment] = specs
 
-    sliced_specs = Stack.Specs(segment_specs=segment_specs, num_procs=stack_specs.num_procs)
+    sliced_specs = Stack.Specs(segment_specs=segment_specs, num_procs=stack_specs.num_procs,
+                               share_materials=stack_specs.share_materials)
     return sliced_stack, sliced_specs

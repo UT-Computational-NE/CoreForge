@@ -73,7 +73,7 @@ class GraphiteElement(CoreElement[geometry_elements_triga.GraphiteElement]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def build(self,
+    def _build(self,
               element: geometry_elements_triga.GraphiteElement,
               bounds:  Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a TRIGA Graphite Element

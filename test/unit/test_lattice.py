@@ -137,6 +137,7 @@ def test_rect_lattice_openmc_builder(rect_lattice):
 
 def test_rect_lattice_mpact_builder(rect_lattice, rect_lattice_mpact_specs, stack):
     geom_element = rect_lattice
+    rect_lattice_mpact_specs.share_materials = True
     core         = mpact_builder.build(geom_element, rect_lattice_mpact_specs)
     assert isclose(core.mod_dim['X'], 8.0)
     assert isclose(core.mod_dim['Y'], 8.0)
@@ -265,6 +266,7 @@ def test_hex_lattice_mpact_ring_positions(hex_x_lattice, hex_y_lattice):
 
 def test_hex_lattice_mpact_builder_x_oriented(hex_x_lattice, hex_lattice_mpact_specs, stack):
     geom_element = hex_x_lattice
+    hex_lattice_mpact_specs.share_materials = True
     core = mpact_builder.build(geom_element, hex_lattice_mpact_specs)
     hex_width  = geom_element.pitch
     hex_height = geom_element.pitch * sqrt(3.0) / 2.0
@@ -290,6 +292,7 @@ def test_hex_lattice_mpact_builder_x_oriented(hex_x_lattice, hex_lattice_mpact_s
 
 def test_hex_lattice_mpact_builder_y_oriented(hex_y_lattice, hex_lattice_mpact_specs, stack):
     geom_element = hex_y_lattice
+    hex_lattice_mpact_specs.share_materials = True
     core = mpact_builder.build(geom_element, hex_lattice_mpact_specs)
     hex_width  = geom_element.pitch * sqrt(3.0) / 2.0
     hex_height = geom_element.pitch

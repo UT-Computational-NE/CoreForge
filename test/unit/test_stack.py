@@ -242,9 +242,11 @@ def test_pincell_stack_operations_preserve_type(pincell_stack, stack):
 
 
 def test_mpact_builder_get_axial_slice(stack, stack_mpact_specs):
+    stack_mpact_specs.share_materials = True
     sliced = mpact_builder.stack.get_axial_slice(stack, stack_mpact_specs, 0.5, 7.5)
     assert sliced is not None
     sliced_stack, sliced_specs = sliced
+    assert sliced_specs.share_materials
     assert isclose(sliced_stack.bottom_pos, 0.5)
     assert isclose(sliced_stack.length, 7.0)
     assert [segment.length for segment in sliced_stack.segments] == pytest.approx([2.5, 1.0, 3.5])

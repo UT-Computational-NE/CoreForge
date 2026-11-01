@@ -268,7 +268,7 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def build(self,
+    def _build(self,
               element: geometry_elements.CylindricalPinCell,
               bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a CylindricalPinCell
@@ -391,7 +391,7 @@ class CylindricalPinCells(Builder[geometry_elements.CylindricalPinCells]):
     def specs(self, specs: Optional[Specs]) -> None:
         self._specs = specs if specs is not None else self.Specs()
 
-    def build(self,
+    def _build(self,
               element: geometry_elements.CylindricalPinCells,
               bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """Build only the first constituent pin cell using its specifications.

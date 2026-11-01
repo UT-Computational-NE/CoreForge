@@ -72,7 +72,7 @@ class HexLattice(Builder[geometry_elements.HexLattice]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def build(self, element: geometry_elements.HexLattice, bounds: Optional[Bounds] = None) -> mpactpy.Core:
+    def _build(self, element: geometry_elements.HexLattice, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a HexLattice
 
         Parameters

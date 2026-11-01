@@ -69,7 +69,7 @@ class ControlChannel(Builder[geometry_elements_msre.ControlChannel]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def build(self, element: geometry_elements_msre.ControlChannel, bounds: Optional[Bounds] = None) -> mpactpy.Core:
+    def _build(self, element: geometry_elements_msre.ControlChannel, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of an MSRE ControlChannel
 
         Parameters
