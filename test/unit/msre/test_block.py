@@ -162,7 +162,7 @@ def test_mpact_builder(stadium_fuel_chan_block, rectangle_fuel_chan_block,
     graphite = mpact_builder.build_material(graphite)
 
     # Stadium Fuel Channels
-    core = mpact_builder.build(stadium_fuel_chan_block, mpact_builder.msre.Block.Specs(share_materials=True))
+    core = mpact_builder.build(stadium_fuel_chan_block).with_shared_materials()
 
     assert len(core.materials) == 2
     assert salt in core.materials
@@ -225,8 +225,8 @@ def test_mpact_builder(stadium_fuel_chan_block, rectangle_fuel_chan_block,
 
 
     # Stadium Fuel Channels (Divided into Quadrants)
-    mpact_build_specs = mpact_builder.msre.Block.Specs(divide_into_quadrants=True, share_materials=True)
-    core = mpact_builder.build(stadium_fuel_chan_block, mpact_build_specs)
+    mpact_build_specs = mpact_builder.msre.Block.Specs(divide_into_quadrants=True)
+    core = mpact_builder.build(stadium_fuel_chan_block, mpact_build_specs).with_shared_materials()
 
     assert len(core.modules) == 4
     assert isclose(core.mod_dim['X'], block_pitch*0.5)
@@ -262,7 +262,7 @@ def test_mpact_builder(stadium_fuel_chan_block, rectangle_fuel_chan_block,
 
 
     # Rectangular Fuel Channels
-    core = mpact_builder.build(rectangle_fuel_chan_block, mpact_builder.msre.Block.Specs(share_materials=True))
+    core = mpact_builder.build(rectangle_fuel_chan_block).with_shared_materials()
 
     N_chan_E_cap  = Pin(RectMesh([    fcr, ccl], [ccl-fcr, ccl], zval, [1,1], [1,1], divz), [salt, graphite, graphite, graphite])
     N_chan_W_cap  = Pin(RectMesh([ccl-fcr, ccl], [ccl-fcr, ccl], zval, [1,1], [1,1], divz), [graphite, salt, graphite, graphite])
@@ -285,7 +285,7 @@ def test_mpact_builder(stadium_fuel_chan_block, rectangle_fuel_chan_block,
 
 
     # Circular Fuel Channels
-    core             = mpact_builder.build(circle_fuel_chan_block, mpact_builder.msre.Block.Specs(share_materials=True))
+    core             = mpact_builder.build(circle_fuel_chan_block).with_shared_materials()
 
     cap_cell_length  = (half_block_pitch)*0.5
     radii            = [fuel_chan_r, cap_cell_length]
@@ -311,7 +311,7 @@ def test_mpact_builder(stadium_fuel_chan_block, rectangle_fuel_chan_block,
 
 
     # No Channels
-    core         = mpact_builder.build(no_chan_block, mpact_builder.msre.Block.Specs(share_materials=True))
+    core         = mpact_builder.build(no_chan_block).with_shared_materials()
 
     expected_map = [[prism , prism, prism, prism],
                     [prism , prism, prism, prism],
@@ -323,7 +323,7 @@ def test_mpact_builder(stadium_fuel_chan_block, rectangle_fuel_chan_block,
 
 
     # Control Rod Channels
-    core             = mpact_builder.build(control_chan_block, mpact_builder.msre.Block.Specs(share_materials=True))
+    core             = mpact_builder.build(control_chan_block).with_shared_materials()
 
     cap_cell_length  = control_chan_r - block_pitch*0.5
     half_flat_length = (block_pitch - cap_cell_length*4.0)*0.5

@@ -40,7 +40,7 @@ class PinCellStack(CoreElement[geometry_elements.PinCellStack]):
     def specs(self, specs: Optional[Specs]) -> None:
         self._specs = specs if specs is not None else self.Specs()
 
-    def _build(
+    def build(
         self,
         element: geometry_elements.PinCellStack,
         bounds: Optional[Bounds] = None,

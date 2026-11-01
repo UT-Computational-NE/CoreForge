@@ -115,7 +115,7 @@ class ModifiedThreeElementIrradiator(
     def specs(self, specs: Optional[Specs]) -> None:
         self._specs = specs if specs is not None else self.Specs()
 
-    def _build(
+    def build(
         self,
         element: geometry_elements_triga_netl.ModifiedThreeElementIrradiator,
         bounds: Optional[Bounds] = None,

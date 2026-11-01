@@ -185,12 +185,7 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
                      outer_bounding_radius: Optional[float] = None,
                      outer_zone_specs:      Optional[CylindricalPinCell.ZoneSpecs |
                                             List[CylindricalPinCell.ZoneSpecs]] = None,
-                     *,
-                     share_materials:       bool = False,
-                     exclude_materials:     Optional[List[mpactpy.Material]] = None,
         ) -> None:
-            super().__init__(share_materials=share_materials,
-                             exclude_materials=exclude_materials if exclude_materials is not None else [])
             zone_specs = zone_specs if zone_specs is not None else CylindricalPinCell.ZoneSpecs()
             if outer_bounding_radius is not None:
                 assert outer_bounding_radius > 0.0, \
@@ -273,7 +268,7 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def _build(self,
+    def build(self,
               element: geometry_elements.CylindricalPinCell,
               bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a CylindricalPinCell
@@ -396,7 +391,7 @@ class CylindricalPinCells(Builder[geometry_elements.CylindricalPinCells]):
     def specs(self, specs: Optional[Specs]) -> None:
         self._specs = specs if specs is not None else self.Specs()
 
-    def _build(self,
+    def build(self,
               element: geometry_elements.CylindricalPinCells,
               bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """Build only the first constituent pin cell using its specifications.

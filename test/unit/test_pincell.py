@@ -270,12 +270,10 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
 
     geom_element = cylindrical_pincell
     specs        = cylindrical_pincell_mpact_specs
-    assert not specs.share_materials
     bounds       = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=-4.0, max=4.0),
                                         Y=mpact_builder.AxisBounds(min=-4.0, max=4.0))
     assert len(mpact_builder.build(geom_element, specs, bounds).materials) == 4
-    specs.share_materials = True
-    core         = mpact_builder.build(geom_element, specs, bounds)
+    core         = mpact_builder.build(geom_element, specs, bounds).with_shared_materials()
     salt         = mpact_builder.build_material(salt)
     graphite     = mpact_builder.build_material(graphite)
 
@@ -302,7 +300,7 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
         {material: material for material in core.materials})
 
     specs.divide_into_quadrants = True
-    core = mpact_builder.build(geom_element, specs, bounds)
+    core = mpact_builder.build(geom_element, specs, bounds).with_shared_materials()
 
     assert isclose(core.mod_dim['X'], 4.0)
     assert isclose(core.mod_dim['Y'], 4.0)
@@ -322,15 +320,6 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
         {material: material for material in core.materials})
     assert pin["SE"] == Pin(GeneralCylindricalPinMesh(expected_radii,  0.0, 4.0, -4.0, 0.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats).with_shared_materials(
         {material: material for material in core.materials})
-
-    specs = mpact_builder.CylindricalPinCell.Specs(share_materials=True, exclude_materials=[deepcopy(salt)])
-    assert mpact_builder.CylindricalPinCell.Specs().exclude_materials == []
-    core = mpact_builder.build(geom_element, specs, bounds)
-    assert len(core.materials) == 3
-    assert core.pins[0].materials[0] is not core.pins[0].materials[2]
-    assert core.pins[0].materials[1] is core.pins[0].materials[3]
-    specs.share_materials = False
-    assert len(mpact_builder.build(geom_element, specs, bounds).materials) == 4
 
 
 def test_cylindrical_pincell_min_zone_thickness(salt, graphite):

@@ -69,7 +69,7 @@ class SourceHolder(CoreElement[geometry_elements_triga_netl.SourceHolder]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def _build(self,
+    def build(self,
               element: geometry_elements_triga_netl.SourceHolder,
               bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a TRIGA NETL Source Holder

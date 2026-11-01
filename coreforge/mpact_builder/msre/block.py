@@ -387,7 +387,7 @@ class Block(Builder[geometry_elements_msre.Block]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def _build(self, element: geometry_elements_msre.Block, bounds: Optional[Bounds] = None) -> mpactpy.Core:
+    def build(self, element: geometry_elements_msre.Block, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of an MSRE Block
 
         MPACT geometry construction currently only support fuel and control

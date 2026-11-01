@@ -1,6 +1,6 @@
 from abc import ABC
-from dataclasses import dataclass, field
-from typing import Dict, List, TypeAlias
+from dataclasses import dataclass
+from typing import Dict, TypeAlias
 
 import mpactpy
 
@@ -43,16 +43,4 @@ DEFAULT_MPACT_MATERIAL_SPECS: Dict[type[Material], mpactpy.Material.MPACTSpecs] 
 @dataclass
 class BuilderSpecs(ABC):
     """ Abstract Class for Building specifications for Geometry Elements
-
-    Attributes
-    ----------
-    share_materials : bool
-        Share materials with equal compositions, temperatures, and MPACT specifications
-        throughout the completed core. Defaults to False, preserving material instances.
-    exclude_materials : List[mpactpy.Material]
-        Materials equal to any entry retain their existing instances when sharing.
-        Applies only to this builder's sharing operation; ignored when share_materials is False.
     """
-
-    share_materials: bool = field(default=False, kw_only=True)
-    exclude_materials: List[mpactpy.Material] = field(default_factory=list, kw_only=True)

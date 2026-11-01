@@ -69,7 +69,7 @@ class Stringer(Builder[geometry_elements_msre.Stringer]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def _build(self, element: geometry_elements_msre.Stringer, bounds: Optional[Bounds] = None) -> mpactpy.Core:
+    def build(self, element: geometry_elements_msre.Stringer, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of an MSRE Stringer
 
         Parameters

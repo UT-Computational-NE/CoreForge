@@ -121,7 +121,7 @@ class VoxelBuilder(Builder[GeometryElement]):
         self._specs = specs
 
 
-    def _build(self, element: GeometryElement, bounds: Optional[Bounds] = None) -> mpactpy.Core:
+    def build(self, element: GeometryElement, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         if bounds is None or bounds.X is None or bounds.Y is None or bounds.Z is None:
             raise ValueError("VoxelBuilder requires Bounds for X, Y, and Z axes.")
 

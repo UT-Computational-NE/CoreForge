@@ -88,7 +88,7 @@ class InfiniteMedium(Builder[geometry_elements.InfiniteMedium]):
         self._specs = specs if specs is not None else self.Specs()
 
 
-    def _build(self, element: geometry_elements.InfiniteMedium, bounds: Optional[Bounds] = None) -> mpactpy.Core:
+    def build(self, element: geometry_elements.InfiniteMedium, bounds: Optional[Bounds] = None) -> mpactpy.Core:
         """ Method for building an MPACT geometry of a InfiniteMedium
 
         Parameters
