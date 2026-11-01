@@ -344,5 +344,6 @@ def get_axial_slice(stack:       TGeometryStack,
         segment_specs[sliced_segment] = specs
 
     sliced_specs = Stack.Specs(segment_specs=segment_specs, num_procs=stack_specs.num_procs,
-                               share_materials=stack_specs.share_materials)
+                               share_materials=stack_specs.share_materials,
+                               exclude_materials=list(stack_specs.exclude_materials))
     return sliced_stack, sliced_specs

@@ -323,6 +323,15 @@ def test_cylindrical_pincell_mpact_builder(cylindrical_pincell, cylindrical_pinc
     assert pin["SE"] == Pin(GeneralCylindricalPinMesh(expected_radii,  0.0, 4.0, -4.0, 0.0, [1.0], [1, 1, 1], [1, 1, 1, 1], [1]), expected_mats).with_shared_materials(
         {material: material for material in core.materials})
 
+    specs = mpact_builder.CylindricalPinCell.Specs(share_materials=True, exclude_materials=[deepcopy(salt)])
+    assert mpact_builder.CylindricalPinCell.Specs().exclude_materials == []
+    core = mpact_builder.build(geom_element, specs, bounds)
+    assert len(core.materials) == 3
+    assert core.pins[0].materials[0] is not core.pins[0].materials[2]
+    assert core.pins[0].materials[1] is core.pins[0].materials[3]
+    specs.share_materials = False
+    assert len(mpact_builder.build(geom_element, specs, bounds).materials) == 4
+
 
 def test_cylindrical_pincell_min_zone_thickness(salt, graphite):
     radii = [1.0, 1.001, 3.0]  # tiny gap between 1.0 and 1.001

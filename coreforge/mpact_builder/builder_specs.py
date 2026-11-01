@@ -1,6 +1,6 @@
 from abc import ABC
 from dataclasses import dataclass, field
-from typing import Dict, TypeAlias
+from typing import Dict, List, TypeAlias
 
 import mpactpy
 
@@ -49,6 +49,10 @@ class BuilderSpecs(ABC):
     share_materials : bool
         Share materials with equal compositions, temperatures, and MPACT specifications
         throughout the completed core. Defaults to False, preserving material instances.
+    exclude_materials : List[mpactpy.Material]
+        Materials equal to any entry retain their existing instances when sharing.
+        Applies only to this builder's sharing operation; ignored when share_materials is False.
     """
 
     share_materials: bool = field(default=False, kw_only=True)
+    exclude_materials: List[mpactpy.Material] = field(default_factory=list, kw_only=True)

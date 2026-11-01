@@ -128,7 +128,8 @@ class CoreElement(Builder[TCoreElement], ABC):
         }
         translated_specs = Stack.Specs(segment_specs=translated_segment_specs,
                                        num_procs=stack_specs.num_procs,
-                                       share_materials=stack_specs.share_materials)
+                                       share_materials=stack_specs.share_materials,
+                                       exclude_materials=list(stack_specs.exclude_materials))
         return translated_stack, translated_specs
 
     @abstractmethod

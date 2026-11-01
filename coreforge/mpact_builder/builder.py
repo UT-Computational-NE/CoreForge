@@ -99,7 +99,7 @@ class Builder(ABC, Generic[T]):
             A new MPACT Core based on this GeometryElement.
         """
         core = self._build(element, bounds)
-        return core.with_shared_materials() if self.specs.share_materials else core
+        return core.with_shared_materials(exclude=self.specs.exclude_materials) if self.specs.share_materials else core
 
     @abstractmethod
     def _build(self, element: T, bounds: Optional[Bounds] = None) -> mpactpy.Core:

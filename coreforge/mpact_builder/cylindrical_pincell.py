@@ -185,7 +185,12 @@ class CylindricalPinCell(Builder[geometry_elements.CylindricalPinCell]):
                      outer_bounding_radius: Optional[float] = None,
                      outer_zone_specs:      Optional[CylindricalPinCell.ZoneSpecs |
                                             List[CylindricalPinCell.ZoneSpecs]] = None,
+                     *,
+                     share_materials:       bool = False,
+                     exclude_materials:     Optional[List[mpactpy.Material]] = None,
         ) -> None:
+            super().__init__(share_materials=share_materials,
+                             exclude_materials=exclude_materials if exclude_materials is not None else [])
             zone_specs = zone_specs if zone_specs is not None else CylindricalPinCell.ZoneSpecs()
             if outer_bounding_radius is not None:
                 assert outer_bounding_radius > 0.0, \
