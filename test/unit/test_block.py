@@ -106,4 +106,5 @@ def test_block_mpact_builder(block, mpact_voxel_specs, salt, graphite):
     expected_yvals = [2.5, 5.0]
     expected_mats = [salt, salt, salt, salt]
 
-    assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1, 1], [1, 1], [1]), expected_mats)
+    assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1, 1], [1, 1], [1]), expected_mats).with_shared_materials(
+        {material: material for material in core.materials})

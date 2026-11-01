@@ -112,7 +112,8 @@ def test_mpacts_builder(infinite_medium, infinite_medium_mpact_specs, air):
     expected_yvals = [8.0]
     expected_mats  = [air]
 
-    assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats)
+    assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats).with_shared_materials(
+        {material: material for material in core.materials})
 
     specs.divide_into_quadrants = True
     core = mpact_builder.build(geom_element, specs, bounds)
@@ -130,10 +131,14 @@ def test_mpacts_builder(infinite_medium, infinite_medium_mpact_specs, air):
     expected_xvals = [4.0]
     expected_yvals = [4.0]
 
-    assert pin["NW"] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats)
-    assert pin["NE"] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats)
-    assert pin["SW"] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats)
-    assert pin["SE"] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats)
+    assert pin["NW"] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats).with_shared_materials(
+        {material: material for material in core.materials})
+    assert pin["NE"] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats).with_shared_materials(
+        {material: material for material in core.materials})
+    assert pin["SW"] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats).with_shared_materials(
+        {material: material for material in core.materials})
+    assert pin["SE"] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1], [1], [1]), expected_mats).with_shared_materials(
+        {material: material for material in core.materials})
 
     specs = mpact_builder.InfiniteMedium.Specs(
         target_cell_thicknesses = {"X": 3.0, "Y": 4.0},
@@ -146,7 +151,8 @@ def test_mpacts_builder(infinite_medium, infinite_medium_mpact_specs, air):
     expected_mats  = [air] * 6
 
     assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0],
-                                                  [1, 1, 1], [1, 1], [1]), expected_mats)
+                                                  [1, 1, 1], [1, 1], [1]), expected_mats).with_shared_materials(
+        {material: material for material in core.materials})
 
 def test_mpact_voxel_builder(infinite_medium, mpact_voxel_specs, air):
     geom_element = infinite_medium
@@ -173,7 +179,8 @@ def test_mpact_voxel_builder(infinite_medium, mpact_voxel_specs, air):
     expected_yvals = [4.0, 8.0]
     expected_mats = [air] * 4  # 2x2 = 4 voxels
 
-    assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1, 1], [1, 1], [1]), expected_mats)
+    assert core.pins[0] == Pin(RectangularPinMesh(expected_xvals, expected_yvals, [1.0], [1, 1], [1, 1], [1]), expected_mats).with_shared_materials(
+        {material: material for material in core.materials})
 
 def test_voxel_specs_equivalence(infinite_medium, mpact_voxel_specs, mpact_voxel_thickness_specs):
     bounds = mpact_builder.Bounds(X=mpact_builder.AxisBounds(min=0.0, max=8.0),
@@ -181,4 +188,5 @@ def test_voxel_specs_equivalence(infinite_medium, mpact_voxel_specs, mpact_voxel
                                   Z=mpact_builder.AxisBounds(min=0.0, max=1.0))
     core_target = mpact_builder.build(infinite_medium, mpact_voxel_specs, bounds)
     core_ndiv = mpact_builder.build(infinite_medium, mpact_voxel_thickness_specs, bounds)
-    assert core_target.pins[0] == core_ndiv.pins[0]
+    assert core_target.pins[0] == core_ndiv.pins[0].with_shared_materials(
+        {material: material for material in core_target.materials})
