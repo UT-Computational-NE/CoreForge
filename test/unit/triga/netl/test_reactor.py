@@ -1,8 +1,10 @@
 from copy import deepcopy
 from dataclasses import replace
+from itertools import product
 from math import cos, radians, sin, sqrt
 import xml.etree.ElementTree as ET
 
+import numpy as np
 import openmc
 import pytest
 
@@ -348,7 +350,7 @@ def test_beam_port_contains(reactor):
     assert not beamport.contains(rect, edge_center, axial_bounds)
 
 
-def test_openmc_builder(reactor):
+def test_openmc_builder(reactor, monkeypatch):
     universe = openmc_builder.build(reactor)
     assert universe.name == "reactor"
     assert len(universe.cells) == 9
@@ -358,13 +360,44 @@ def test_openmc_builder(reactor):
         openmc.reset_auto_ids()
         geometry = openmc.Geometry(openmc_builder.build(reactor))
         return ({(child.tag, child.get("id")): child for child in geometry.to_xml_element()},
-                sorted(geometry.get_all_materials()))
+                [ET.tostring(material.to_xml_element()) for _, material in sorted(geometry.get_all_materials().items())])
+
+    def move_rods(distance):
+        reactor.transient_rod_position  += distance
+        reactor.regulating_rod_position += distance
+        reactor.shim_1_rod_position     += distance
+        reactor.shim_2_rod_position     += distance
+
+    get_core_cell_specs = Reactor.get_core_cell_specs
+
+    def fixed_core_cell_specs(self, location):
+        specs = get_core_cell_specs(self, location)
+        return replace(specs, elements=[replace(element, movable=False) for element in specs.elements])
+
+    def materials_at(points):
+        geometry = openmc.Geometry(openmc_builder.build(reactor))
+        return [geometry.find(point)[-1].fill for point in points]
+
+    rng = np.random.default_rng(64)
+    radius = reactor.shroud.primary_hex_inner_radius * np.sqrt(rng.uniform(0.0, 1.0, 2000))
+    angle  = rng.uniform(0.0, 2.0 * np.pi, 2000)
+    points = np.column_stack([radius * np.cos(angle), radius * np.sin(angle),
+                              rng.uniform(0.95 * reactor.pool.axial_bounds.lower,
+                                          0.95 * reactor.pool.axial_bounds.upper, 2000)])
+
+    # Points across the core find the same material as the rods' fixed placements at rods in,
+    # mid travel and out
+    for distance in (0.0, 0.5 * ROD_TRAVEL, 0.5 * ROD_TRAVEL):
+        move_rods(distance)
+        channel_materials = materials_at(points)
+        with monkeypatch.context() as patch:
+            patch.setattr(Reactor, "get_core_cell_specs", fixed_core_cell_specs)
+            fixed_materials = materials_at(points)
+        assert all(a is b for a, b in zip(channel_materials, fixed_materials))
+    move_rods(-ROD_TRAVEL)
 
     rods_in, rods_in_materials = geometry_xml()
-    reactor.transient_rod_position  += ROD_TRAVEL
-    reactor.regulating_rod_position += ROD_TRAVEL
-    reactor.shim_1_rod_position     += ROD_TRAVEL
-    reactor.shim_2_rod_position     += ROD_TRAVEL
+    move_rods(ROD_TRAVEL)
     rods_out, rods_out_materials = geometry_xml()
 
     # Moving the rods changes only their channel cells' translations
@@ -385,18 +418,21 @@ def test_openmc_builder(reactor):
 def test_openmc_rod_channels(reactor):
     for location in Core.CONTROL_ROD_LOCATIONS:
         specs = reactor.get_core_cell_specs(location)
-        rod_specs = specs.elements[0]
-        rod_name = f"{location} {rod_specs.geometry.name}"
+        rod = specs.elements[0]
         penetration = specs.upper_grid_plate.penetrations[0]
-        for position in (rod_specs.bottom_axial_position,
-                         rod_specs.bottom_axial_position + 0.5 * ROD_TRAVEL,
-                         rod_specs.bottom_axial_position + ROD_TRAVEL):
+        stack = replace(rod, geometry=rod.geometry.as_stack(bottom_pos=7.3))
+        positions = (rod.bottom_axial_position,
+                     rod.bottom_axial_position + 0.5 * ROD_TRAVEL,
+                     rod.bottom_axial_position + ROD_TRAVEL)
+        # The rod itself, and the rod as a PinCellStack whose native coordinates start at 7.3 cm
+        for (rod_specs, native_bottom), position in product(((rod, 0.0), (stack, 7.3)), positions):
+            rod_name = f"{location} {rod_specs.geometry.name}"
             moved_specs = replace(rod_specs, bottom_axial_position=position)
             universe = build_core_element(replace(specs, elements=[moved_specs]))
             fixed_universe = build_core_element(replace(specs, elements=[replace(moved_specs, movable=False)]))
 
             channel = next(cell for cell in universe.cells.values() if cell.name == rod_name)
-            assert tuple(channel.translation) == pytest.approx((0.0, 0.0, position))
+            assert tuple(channel.translation) == pytest.approx((0.0, 0.0, position - native_bottom))
             assert [surface.r for surface in channel.region.get_surfaces().values()] == \
                    pytest.approx([penetration.radius])
 
@@ -406,7 +442,7 @@ def test_openmc_rod_channels(reactor):
                               for surface in cell.region.get_surfaces().values()
                               if isinstance(surface, openmc.ZPlane)})
             heights += [0.5 * (lower + upper) for lower, upper in zip(heights, heights[1:])]
-            outline = rod_specs.geometry.as_stack(bottom_pos=0.0).segments[0].element.zones[-1].shape.r
+            outline = rod.geometry.as_stack(bottom_pos=0.0).segments[0].element.zones[-1].shape.r
             radii = (0.0, 0.5 * outline, outline - 0.05, outline + 0.05,
                      penetration.radius - 0.05, penetration.radius + 0.05, 0.45 * reactor.core.pitch)
             for z in heights:
@@ -425,16 +461,22 @@ def test_openmc_rod_channels(reactor):
                        upper_grid_plate=replace(specs.upper_grid_plate, penetrations=upper),
                        lower_grid_plate=replace(specs.lower_grid_plate, penetrations=lower))
 
-    narrow = replace(penetration, radius=0.5 * penetration.radius)
-    wide   = replace(penetration, radius=1.1 * penetration.radius)
+    narrow  = replace(penetration, radius=0.5 * penetration.radius)
+    wide    = replace(penetration, radius=1.1 * penetration.radius)
+    shifted = replace(penetration, x0=penetration.x0 + 0.1)
+    offset  = replace(penetration, x0=penetration.x0 + 0.5)
     fuel_specs = reactor.get_core_cell_specs("B-01")
     fuel_specs = replace(with_penetrations([narrow], [narrow]),
                          elements=[replace(fuel_specs.elements[0], movable=True)])
     for invalid_specs, message in ((with_penetrations([], []), "requires a grid-plate penetration"),
+                                   (replace(specs, upper_grid_plate=None, lower_grid_plate=None),
+                                    "requires a grid-plate penetration"),
                                    (fuel_specs, "must fit within"),
                                    (with_penetrations([penetration], []), "requires a grid-plate penetration"),
                                    (with_penetrations([wide], [penetration]), "requires matching"),
+                                   (with_penetrations([shifted], [penetration]), "requires matching"),
                                    (with_penetrations([narrow], [narrow]), "must fit within"),
+                                   (with_penetrations([offset], [offset]), "must fit within"),
                                    (replace(specs, elements=[rod_specs, replace(rod_specs, movable=False)]),
                                     "must be the only element")):
         with pytest.raises(AssertionError, match=message):

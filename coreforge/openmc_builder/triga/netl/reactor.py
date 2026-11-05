@@ -284,9 +284,7 @@ def build_core_element(
         element       = element_specs.geometry
         bottom_z      = element_specs.bottom_axial_position
         top_z         = bottom_z + element.length
-        bottom_plane   = openmc.ZPlane(bottom_z)
-        top_plane      = openmc.ZPlane(top_z)
-        z_translation  = bottom_z
+        z_translation = bottom_z
         # PinCellStacks already use element.bottom_pos, so remove it from the translation
         if isinstance(element, PinCellStack):
             z_translation -= element.bottom_pos
@@ -294,19 +292,20 @@ def build_core_element(
         if element_specs.movable:
             assert len(core_cell_specs.elements) == 1, \
                 f"Movable element '{element.name}' must be the only element in its core cell."
-            channel_cell = _build_channel_cell(core_cell_specs, element_specs)
-            channel_cell.translation = translation
-            outer_region = ~channel_cell.region if outer_region is None else outer_region & ~channel_cell.region
-            cells.append(channel_cell)
-            continue
-        element_region = _build_element_region(element).translate(translation)
-        element_region &= +bottom_plane & -top_plane
-        outer_region = ~element_region if outer_region is None else outer_region & ~element_region
-        region = openmc.Intersection([element_region] + [~previous for previous in element_regions])
-        if grid_regions is not None:
-            region &= ~grid_regions
-        element_regions.append(element_region)
-        element_cell = openmc.Cell(fill=build(element), region=region)
+            element_cell  = _build_channel_cell(core_cell_specs, element_specs)
+            placed_region = element_cell.region
+        else:
+            bottom_plane   = openmc.ZPlane(bottom_z)
+            top_plane      = openmc.ZPlane(top_z)
+            element_region = _build_element_region(element).translate(translation)
+            element_region &= +bottom_plane & -top_plane
+            placed_region  = element_region
+            region = openmc.Intersection([element_region] + [~previous for previous in element_regions])
+            if grid_regions is not None:
+                region &= ~grid_regions
+            element_regions.append(element_region)
+            element_cell = openmc.Cell(fill=build(element), region=region)
+        outer_region = ~placed_region if outer_region is None else outer_region & ~placed_region
         element_cell.translation = translation
         cells.append(element_cell)
 
@@ -323,10 +322,10 @@ def _build_channel_cell(
     """Build the fixed channel cell of a movable element.
 
     The channel is the grid-plate penetration shared by every grid plate in
-    the core cell, unbounded axially.
-    It is filled with a universe holding the element in its native builder
-    coordinates and the core cell's outer material everywhere else, so none of
-    the channel's surfaces depend on the element's axial position.
+    the core cell, unbounded axially. It is filled with a universe holding the
+    element in its native builder coordinates and the core cell's outer
+    material everywhere else, so none of the channel's surfaces depend on the
+    element's axial position.
 
     Parameters
     ----------
