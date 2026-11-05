@@ -1,16 +1,17 @@
 from copy import deepcopy
+from dataclasses import replace
 from math import cos, radians, sin, sqrt
 
 import openmc
 import pytest
 
-from coreforge.geometry_elements.triga.netl import GridPlate, Reactor
+from coreforge.geometry_elements.triga.netl import Core, GridPlate, Reactor
 from coreforge.materials import unique_materials
 from coreforge.geometry_elements.triga.netl.grid_plate import grid_plate_penetration_map
 from coreforge.shapes import Interval, Rectangle
 import coreforge.openmc_builder as openmc_builder
 import coreforge.mpact_builder as mpact_builder
-from coreforge.openmc_builder.triga.netl.reactor import build_core_lattice
+from coreforge.openmc_builder.triga.netl.reactor import build_core_element, build_core_lattice
 
 from .test_pool import pool
 from .test_reflector import reflector
@@ -31,6 +32,7 @@ from ..test_graphite_element import graphite_element
 CM_PER_INCH = 2.54
 TRANSIENT_ROD_FULLY_INSERTED_POSITION = -73.0250
 FFCR_FULLY_INSERTED_POSITION = -76.5180
+ROD_TRAVEL = 15.0 * CM_PER_INCH
 UPPER_GRID_PLATE_TOP_TO_CORE_CENTERLINE_DISTANCE = 12.75 * CM_PER_INCH
 LOWER_GRID_PLATE_TOP_TO_CORE_CENTERLINE_DISTANCE = 13.06 * CM_PER_INCH
 REFLECTOR_CORE_CENTERLINE_OFFSET = 0.565 * CM_PER_INCH
@@ -204,6 +206,9 @@ def test_initialization(reactor, pool, reflector, shroud, rsr_cavity):
     cell_specs = reactor.get_core_cell_specs("B-01")
     assert len(cell_specs.elements) == 1
     assert cell_specs.elements[0].geometry is reactor.core.full_map["B-01"]
+    assert not cell_specs.elements[0].movable
+    for location in Core.CONTROL_ROD_LOCATIONS:
+        assert [specs.movable for specs in reactor.get_core_cell_specs(location).elements] == [True]
     assert reactor.get_core_cell_specs("G-01").elements == []
     assert len(cell_specs.upper_grid_plate.penetrations) == 1
     assert cell_specs.upper_grid_plate.penetrations[0].radius == pytest.approx(
@@ -346,6 +351,80 @@ def test_openmc_builder(reactor):
     universe = openmc_builder.build(reactor)
     assert universe.name == "reactor"
     assert len(universe.cells) == 9
+
+    def geometry_elements():
+        openmc.reset_auto_ids()
+        geometry = openmc.Geometry(openmc_builder.build(reactor)).to_xml_element()
+        return {(child.tag, child.get("id")): child.attrib for child in geometry}
+
+    rods_in = geometry_elements()
+    reactor.transient_rod_position  += ROD_TRAVEL
+    reactor.regulating_rod_position += ROD_TRAVEL
+    reactor.shim_1_rod_position     += ROD_TRAVEL
+    reactor.shim_2_rod_position     += ROD_TRAVEL
+    rods_out = geometry_elements()
+
+    # Moving the rods changes only their channel cells' translations
+    assert rods_in.keys() == rods_out.keys()
+    changed = {key for key in rods_in if rods_in[key] != rods_out[key]}
+    assert {rods_in[key]["name"] for key in changed} == {
+        f"{location} {reactor.core.full_map[location].name}" for location in Core.CONTROL_ROD_LOCATIONS
+    }
+    for key in changed:
+        assert {**rods_in[key], "translation": None} == {**rods_out[key], "translation": None}
+        in_translation = [float(value) for value in rods_in[key]["translation"].split()]
+        out_translation = [float(value) for value in rods_out[key]["translation"].split()]
+        assert out_translation == pytest.approx([in_translation[0], in_translation[1],
+                                                 in_translation[2] + ROD_TRAVEL])
+
+
+def test_openmc_rod_channels(reactor):
+    for location in Core.CONTROL_ROD_LOCATIONS:
+        specs = reactor.get_core_cell_specs(location)
+        rod_specs = specs.elements[0]
+        rod_name = f"{location} {rod_specs.geometry.name}"
+        penetration = specs.upper_grid_plate.penetrations[0]
+        for position in (rod_specs.bottom_axial_position,
+                         rod_specs.bottom_axial_position + 0.5 * ROD_TRAVEL,
+                         rod_specs.bottom_axial_position + ROD_TRAVEL):
+            moved_specs = replace(rod_specs, bottom_axial_position=position)
+            universe = build_core_element(replace(specs, elements=[moved_specs]))
+            fixed_universe = build_core_element(replace(specs, elements=[replace(moved_specs, movable=False)]))
+
+            channel = next(cell for cell in universe.cells.values() if cell.name == rod_name)
+            assert tuple(channel.translation) == pytest.approx((0.0, 0.0, position))
+            assert [surface.r for surface in channel.region.get_surfaces().values()] == \
+                   pytest.approx([penetration.radius])
+
+            # The channel finds the same material as the rod's fixed placement near every
+            # rod end, segment boundary, grid-plate bound, rod outline and penetration
+            heights = sorted({surface.z0 for cell in fixed_universe.cells.values()
+                              for surface in cell.region.get_surfaces().values()
+                              if isinstance(surface, openmc.ZPlane)})
+            heights += [0.5 * (lower + upper) for lower, upper in zip(heights, heights[1:])]
+            outline = rod_specs.geometry.as_stack(bottom_pos=0.0).segments[0].element.zones[-1].shape.r
+            radii = (0.0, 0.5 * outline, outline - 0.05, outline + 0.05,
+                     penetration.radius - 0.05, penetration.radius + 0.05, 0.45 * reactor.core.pitch)
+            for z in heights:
+                for dz in (-0.05, 0.05):
+                    for r in radii:
+                        point = (r * cosd(30.0), r * sind(30.0), z + dz)
+                        assert universe.find(point)[-1].fill is fixed_universe.find(point)[-1].fill, point
+
+        def with_penetrations(upper, lower):
+            return replace(specs,
+                           upper_grid_plate=replace(specs.upper_grid_plate, penetrations=upper),
+                           lower_grid_plate=replace(specs.lower_grid_plate, penetrations=lower))
+
+        narrow = replace(penetration, radius=0.5 * penetration.radius)
+        wide   = replace(penetration, radius=1.1 * penetration.radius)
+        for invalid_specs, message in ((with_penetrations([], []), "requires a grid-plate penetration"),
+                                       (with_penetrations([wide], [penetration]), "requires matching"),
+                                       (with_penetrations([narrow], [narrow]), "must fit within"),
+                                       (replace(specs, elements=[rod_specs, replace(rod_specs, movable=False)]),
+                                        "must be the only element")):
+            with pytest.raises(AssertionError, match=message):
+                build_core_element(invalid_specs)
 
 
 def test_mpact_builder_without_excore(reactor, num_procs):
