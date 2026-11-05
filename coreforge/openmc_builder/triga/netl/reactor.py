@@ -322,7 +322,8 @@ def _build_channel_cell(
 ) -> openmc.Cell:
     """Build the fixed channel cell of a movable element.
 
-    The channel is the core cell's grid-plate penetration, unbounded axially.
+    The channel is the grid-plate penetration shared by every grid plate in
+    the core cell, unbounded axially.
     It is filled with a universe holding the element in its native builder
     coordinates and the core cell's outer material everywhere else, so none of
     the channel's surfaces depend on the element's axial position.
@@ -342,11 +343,11 @@ def _build_channel_cell(
         its translation.
     """
     element = element_specs.geometry
-    penetrations = [penetration
-                    for grid_plate in (core_cell_specs.upper_grid_plate, core_cell_specs.lower_grid_plate)
-                    if grid_plate is not None
-                    for penetration in grid_plate.penetrations]
-    assert penetrations, f"Movable element '{element.name}' requires a grid-plate penetration."
+    grid_plates = [grid_plate for grid_plate in (core_cell_specs.upper_grid_plate, core_cell_specs.lower_grid_plate)
+                   if grid_plate is not None]
+    assert grid_plates and all(grid_plate.penetrations for grid_plate in grid_plates), \
+        f"Movable element '{element.name}' requires a grid-plate penetration in each grid plate."
+    penetrations = [penetration for grid_plate in grid_plates for penetration in grid_plate.penetrations]
     channel = penetrations[0]
     assert all(isclose(a, b, rel_tol=TOL, abs_tol=TOL)
                for penetration in penetrations

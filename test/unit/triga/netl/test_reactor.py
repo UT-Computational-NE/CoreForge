@@ -1,6 +1,7 @@
 from copy import deepcopy
 from dataclasses import replace
 from math import cos, radians, sin, sqrt
+import xml.etree.ElementTree as ET
 
 import openmc
 import pytest
@@ -352,28 +353,31 @@ def test_openmc_builder(reactor):
     assert universe.name == "reactor"
     assert len(universe.cells) == 9
 
-    def geometry_elements():
+    def geometry_xml():
+        # Builds share IDs only from a common start, so reset them before each build
         openmc.reset_auto_ids()
-        geometry = openmc.Geometry(openmc_builder.build(reactor)).to_xml_element()
-        return {(child.tag, child.get("id")): child.attrib for child in geometry}
+        geometry = openmc.Geometry(openmc_builder.build(reactor))
+        return ({(child.tag, child.get("id")): child for child in geometry.to_xml_element()},
+                sorted(geometry.get_all_materials()))
 
-    rods_in = geometry_elements()
+    rods_in, rods_in_materials = geometry_xml()
     reactor.transient_rod_position  += ROD_TRAVEL
     reactor.regulating_rod_position += ROD_TRAVEL
     reactor.shim_1_rod_position     += ROD_TRAVEL
     reactor.shim_2_rod_position     += ROD_TRAVEL
-    rods_out = geometry_elements()
+    rods_out, rods_out_materials = geometry_xml()
 
     # Moving the rods changes only their channel cells' translations
     assert rods_in.keys() == rods_out.keys()
-    changed = {key for key in rods_in if rods_in[key] != rods_out[key]}
-    assert {rods_in[key]["name"] for key in changed} == {
+    assert rods_in_materials == rods_out_materials
+    changed = {key for key in rods_in if ET.tostring(rods_in[key]) != ET.tostring(rods_out[key])}
+    assert {rods_in[key].get("name") for key in changed} == {
         f"{location} {reactor.core.full_map[location].name}" for location in Core.CONTROL_ROD_LOCATIONS
     }
     for key in changed:
-        assert {**rods_in[key], "translation": None} == {**rods_out[key], "translation": None}
-        in_translation = [float(value) for value in rods_in[key]["translation"].split()]
-        out_translation = [float(value) for value in rods_out[key]["translation"].split()]
+        in_translation = [float(value) for value in rods_in[key].attrib.pop("translation").split()]
+        out_translation = [float(value) for value in rods_out[key].attrib.pop("translation").split()]
+        assert ET.tostring(rods_in[key]) == ET.tostring(rods_out[key])
         assert out_translation == pytest.approx([in_translation[0], in_translation[1],
                                                  in_translation[2] + ROD_TRAVEL])
 
@@ -396,8 +400,8 @@ def test_openmc_rod_channels(reactor):
             assert [surface.r for surface in channel.region.get_surfaces().values()] == \
                    pytest.approx([penetration.radius])
 
-            # The channel finds the same material as the rod's fixed placement near every
-            # rod end, segment boundary, grid-plate bound, rod outline and penetration
+            # Each point lies in exactly one cell, and the channel finds the same material as the rod's
+            # fixed placement near every rod end, segment boundary, grid-plate bound, rod outline and penetration
             heights = sorted({surface.z0 for cell in fixed_universe.cells.values()
                               for surface in cell.region.get_surfaces().values()
                               if isinstance(surface, openmc.ZPlane)})
@@ -409,22 +413,32 @@ def test_openmc_rod_channels(reactor):
                 for dz in (-0.05, 0.05):
                     for r in radii:
                         point = (r * cosd(30.0), r * sind(30.0), z + dz)
+                        assert sum(point in cell for cell in universe.cells.values()) == 1, point
                         assert universe.find(point)[-1].fill is fixed_universe.find(point)[-1].fill, point
 
-        def with_penetrations(upper, lower):
-            return replace(specs,
-                           upper_grid_plate=replace(specs.upper_grid_plate, penetrations=upper),
-                           lower_grid_plate=replace(specs.lower_grid_plate, penetrations=lower))
+    specs = reactor.get_core_cell_specs(Core.CONTROL_ROD_LOCATIONS[0])
+    rod_specs = specs.elements[0]
+    penetration = specs.upper_grid_plate.penetrations[0]
 
-        narrow = replace(penetration, radius=0.5 * penetration.radius)
-        wide   = replace(penetration, radius=1.1 * penetration.radius)
-        for invalid_specs, message in ((with_penetrations([], []), "requires a grid-plate penetration"),
-                                       (with_penetrations([wide], [penetration]), "requires matching"),
-                                       (with_penetrations([narrow], [narrow]), "must fit within"),
-                                       (replace(specs, elements=[rod_specs, replace(rod_specs, movable=False)]),
-                                        "must be the only element")):
-            with pytest.raises(AssertionError, match=message):
-                build_core_element(invalid_specs)
+    def with_penetrations(upper, lower):
+        return replace(specs,
+                       upper_grid_plate=replace(specs.upper_grid_plate, penetrations=upper),
+                       lower_grid_plate=replace(specs.lower_grid_plate, penetrations=lower))
+
+    narrow = replace(penetration, radius=0.5 * penetration.radius)
+    wide   = replace(penetration, radius=1.1 * penetration.radius)
+    fuel_specs = reactor.get_core_cell_specs("B-01")
+    fuel_specs = replace(with_penetrations([narrow], [narrow]),
+                         elements=[replace(fuel_specs.elements[0], movable=True)])
+    for invalid_specs, message in ((with_penetrations([], []), "requires a grid-plate penetration"),
+                                   (fuel_specs, "must fit within"),
+                                   (with_penetrations([penetration], []), "requires a grid-plate penetration"),
+                                   (with_penetrations([wide], [penetration]), "requires matching"),
+                                   (with_penetrations([narrow], [narrow]), "must fit within"),
+                                   (replace(specs, elements=[rod_specs, replace(rod_specs, movable=False)]),
+                                    "must be the only element")):
+        with pytest.raises(AssertionError, match=message):
+            build_core_element(invalid_specs)
 
 
 def test_mpact_builder_without_excore(reactor, num_procs):
