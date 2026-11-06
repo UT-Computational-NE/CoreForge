@@ -99,7 +99,8 @@ def build_pool(reactor: geometry_elements_triga_netl.Reactor) -> openmc.Universe
                              name   = "rsr_cavity"))
     cells.append(openmc.Cell(fill   = reactor.reflector.geometry.material.openmc_material,
                              region = -top_of_reflector & +bottom_of_reflector & -reflector_radius &
-                                      ~(-rsr_cavity_outer_radius & +bottom_of_rsr_cavity),
+                                      ~(-rsr_cavity_outer_radius & +bottom_of_rsr_cavity) &
+                                      ~shroud_region,
                              name   = "reflector"))
     cells.append(openmc.Cell(fill   = reactor.pool.material.openmc_material,
                              region = +reflector_radius |
